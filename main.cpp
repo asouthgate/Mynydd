@@ -351,6 +351,124 @@ VulkanContext initVulkan() {
   return context;
 }
 
+/**
+ * Creates a command pool for the given queue family index.
+ * A command pool is a memory pool that holds command buffers,
+ * which are used to record commands that the GPU will execute.
+ * Physically, the command pool resides in the GPU memory and is used to
+ * allocate command buffers.
+ */
+VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex) {
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = queueFamilyIndex;
+
+    VkCommandPool commandPool;
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create command pool");
+    }
+
+    return commandPool;
+}
+
+
+/**
+ * Allocates a single command buffer from the given command pool.
+ * The pool contains command buffers that can be used to record commands.
+ * When we allocate _from_ the command pool, we are essentially reserving
+ * a command buffer that we can use to record commands for the GPU to execute.
+ */
+VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool pool) {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = pool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer cmdBuffer;
+    if (vkAllocateCommandBuffers(device, &allocInfo, &cmdBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffer");
+    }
+
+    return cmdBuffer;
+}
+
+
+/**
+ * Records commands to bind the pipeline and dispatch the compute shader.
+ * What commands are recorded? We bind the compute pipeline, bind the descriptor set,
+ * and dispatch the compute shader. This is analogous to preparing a job script
+ * that specifies what resources (like input data) the job will use and how it
+ * will be executed.
+ */
+void recordCommandBuffer(VkCommandBuffer cmdBuffer, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descriptorSet, uint32_t numElements) {
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
+
+    uint32_t groupCount = (numElements + 63) / 64; // match local_size_x=64 in shader
+    vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
+
+    vkEndCommandBuffer(cmdBuffer);
+}
+
+
+/**
+ * Submits the command buffer and waits for execution to complete.
+ */
+void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer) {
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmdBuffer;
+
+    VkFence fence;
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    vkCreateFence(device, &fenceInfo, nullptr, &fence);
+
+    if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to submit command buffer");
+    }
+
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkDestroyFence(device, fence, nullptr);
+}
+
+/**
+ * Maps Vulkan device memory and copies float data into a CPU vector.
+ */
+std::vector<float> readBufferData(VkDevice device, VkDeviceMemory memory, VkDeviceSize dataSize, uint32_t numElements) {
+    void* mappedData;
+    vkMapMemory(device, memory, 0, dataSize, 0, &mappedData);
+
+    float* floatData = reinterpret_cast<float*>(mappedData);
+    std::vector<float> result(floatData, floatData + numElements);
+
+    vkUnmapMemory(device, memory);
+    return result;
+}
+
+/**
+ * Uploads float data from CPU to a Vulkan buffer using mapped memory.
+ * Remember, the buffer doesn't live on the host.
+ */
+void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<float>& inputData) {
+    void* mapped;
+    VkDeviceSize size = sizeof(float) * inputData.size();
+
+    if (vkMapMemory(device, memory, 0, size, 0, &mapped) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to map buffer memory for upload");
+    }
+
+    std::memcpy(mapped, inputData.data(), static_cast<size_t>(size));
+    vkUnmapMemory(device, memory);
+}
+
 int main() {
   try {
     VulkanContext context = initVulkan();
@@ -389,7 +507,34 @@ int main() {
     VkPipeline computePipeline = createComputePipeline(
         context.device, shader, descriptorLayout, pipelineLayout);
 
+
+    uint32_t numElements = 1024;
+    // VkDeviceSize dataSize = sizeof(float) * numElements;
+    std::vector<float> inputData(numElements);
+    for (uint32_t i = 0; i < numElements; ++i) {
+        inputData[i] = static_cast<float>(i);
+    }
+
+    // Upload to the GPU buffer
+    uploadBufferData(context.device, bufferMemory, inputData);
+    
+    // Create command pool & buffer
+    VkCommandPool cmdPool = createCommandPool(context.device, context.computeQueueFamilyIndex);
+    VkCommandBuffer cmdBuffer = allocateCommandBuffer(context.device, cmdPool);
+
+    // Record & submit
+    recordCommandBuffer(cmdBuffer, computePipeline, pipelineLayout, descriptorSet, numElements);
+    submitAndWait(context.device, context.computeQueue, cmdBuffer);
+
+    std::vector<float> output = readBufferData(context.device, bufferMemory, dataSize, numElements);
+
+    // Print the first 10 results
+    for (size_t i = 0; i < std::min<size_t>(output.size(), 10); ++i) {
+        std::cout << "output[" << i << "] = " << output[i] << std::endl;
+    }
+
     // Clean up
+    vkDestroyCommandPool(context.device, cmdPool, nullptr);
     vkDestroyPipeline(context.device, computePipeline, nullptr);
     vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
     vkDestroyDescriptorPool(context.device, descriptorPool, nullptr);
