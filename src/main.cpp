@@ -542,7 +542,7 @@ int main() {
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     const char *shaderPath =
-        "shader.comp.spv"; // SPIR-V compiled compute shader
+        "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
 
     VkShaderModule shader = loadShaderModule(context.device, shaderPath);
     VkDescriptorSetLayout descriptorLayout =
