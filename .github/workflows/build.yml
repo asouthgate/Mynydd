@@ -1,0 +1,45 @@
+name: Build Vulkan Project
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Cache Vulkan SDK
+      id: cache-vulkan
+      uses: actions/cache@v4
+      with:
+        path: ./vulkan-sdk
+        key: vulkan-sdk-linux-latest
+
+    - name: Download Vulkan SDK (if not cached)
+      if: steps.cache-vulkan.outputs.cache-hit != 'true'
+      run: |
+        wget https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz?Human=true -O vulkan-sdk.tar.gz
+        mkdir -p vulkan-sdk
+        tar -xzf vulkan-sdk.tar.gz -C vulkan-sdk --strip-components=1
+
+    - name: Add Vulkan SDK to env
+      run: |
+        echo "VULKAN_SDK=$PWD/vulkan-sdk/x86_64" >> $GITHUB_ENV
+        echo "$PWD/vulkan-sdk/x86_64/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y cmake ninja-build build-essential libvulkan-dev vulkan-tools
+
+    - name: Configure project
+      run: cmake -S . -B build -G Ninja
+
+    - name: Build project
+      run: cmake --build build
