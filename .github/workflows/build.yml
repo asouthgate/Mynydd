@@ -29,7 +29,7 @@ jobs:
       run: |
         curl -LO "https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vulkan-sdk-${VULKAN_SDK_VERSION}.tar.xz"
         mkdir -p vulkan-sdk
-        tar -vxf vulkan-sdk-${VULKAN_SDK_VERSION}.tar.gz -C vulkan-sdk --strip-components=1
+        tar -vxf vulkan-sdk-${VULKAN_SDK_VERSION}.tar.xz -C vulkan-sdk --strip-components=1
 
     - name: Add Vulkan SDK to env
       run: |
