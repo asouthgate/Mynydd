@@ -3,7 +3,7 @@ project(nanovulkan)
 
 set(CMAKE_CXX_STANDARD 17)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-set(SHADER_DIR ${SOURCE_DIR})
+set(SHADER_DIR ${SOURCE_DIR}/shad)
 set(SPIRV_DIR ${CMAKE_BINARY_DIR}/shaders)
 
 # Output shader.spv to build directory

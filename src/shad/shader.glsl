@@ -1,4 +1,7 @@
 #version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "kernels.glsl"
 
 layout(local_size_x = 64) in;
 
@@ -8,5 +11,5 @@ layout(set = 0, binding = 0) buffer Data {
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    values[index] *= values[index];
+    values[index] = 1.0/values[index];
 }
