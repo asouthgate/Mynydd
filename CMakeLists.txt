@@ -13,8 +13,8 @@ file(MAKE_DIRECTORY ${SPIRV_DIR})
 find_package(Vulkan REQUIRED)
 
 # Shader compilation rule
-set(SHADER_SRC ${SHADER_DIR}/shader.comp)
-set(SHADER_SPV ${SPIRV_DIR}/shader.comp.spv)
+set(SHADER_SRC ${SHADER_DIR}/shader.glsl)
+set(SHADER_SPV ${SPIRV_DIR}/shader.glsl.spv)
 
 add_custom_command(
     OUTPUT ${SHADER_SPV}
