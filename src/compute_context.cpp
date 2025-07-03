@@ -562,6 +562,7 @@ namespace {
         return {
             buffer,
             bufferMemory,
+            descriptorPool,
             VK_NULL_HANDLE, // descriptorSet will be created later
             VK_NULL_HANDLE, // commandPool will be created later
             VK_NULL_HANDLE  // commandBuffer will be created later
@@ -610,14 +611,14 @@ namespace mylib {
 
     ComputeContext::~ComputeContext() {
         try {
-            vkDestroyCommandPool(context.device, cmdPool, nullptr);
-            vkDestroyPipeline(context.device, computePipeline, nullptr);
-            vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-            vkDestroyDescriptorPool(context.device, descriptorPool, nullptr);
-            vkDestroyDescriptorSetLayout(context.device, descriptorLayout, nullptr);
-            vkDestroyShaderModule(context.device, shader, nullptr);
-            vkDestroyDevice(context.device, nullptr);
-            vkDestroyInstance(context.instance, nullptr);
+            // vkDestroyCommandPool(context.device, cmdPool, nullptr);
+            // vkDestroyPipeline(context.device, computePipeline, nullptr);
+            // vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+            // vkDestroyDescriptorPool(context.device, descriptorPool, nullptr);
+            // vkDestroyDescriptorSetLayout(context.device, descriptorLayout, nullptr);
+            // vkDestroyShaderModule(context.device, shader, nullptr);
+            vkDestroyDevice(this->context.device, nullptr);
+            vkDestroyInstance(this->context.instance, nullptr);
         } catch (const std::exception &e) {
             throw;
         }

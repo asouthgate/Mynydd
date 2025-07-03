@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 namespace mylib {
 
@@ -27,6 +28,7 @@ namespace mylib {
     struct VulkanDynamicResources {
         VkBuffer buffer;
         VkDeviceMemory memory;
+        VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
