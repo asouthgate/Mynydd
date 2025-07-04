@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -379,20 +380,6 @@ namespace {
         return pipeline;
     }
 
-    // High-level setup
-    VulkanContext initVulkan() {
-        VulkanContext context;
-
-        context.instance = createInstance();
-        context.physicalDevice =
-            pickPhysicalDevice(context.instance, context.computeQueueFamilyIndex);
-        context.device = createLogicalDevice(context.physicalDevice,
-                                            context.computeQueueFamilyIndex,
-                                            context.computeQueue);
-
-        return context;
-    }
-
     /**
     * Creates a command pool for the given queue family index.
     * A command pool is a memory pool that holds command buffers,
@@ -575,7 +562,8 @@ namespace {
             descriptorPool,
             descriptorSet, // descriptorSet will be created later
             commandPool, // commandPool will be created later
-            commandBuffer  // commandBuffer will be created later
+            commandBuffer,  // commandBuffer will be created later
+            dataSize
         };
     }
 
@@ -585,19 +573,41 @@ namespace {
 
 namespace mylib {
 
+    VulkanContext createVulkanContext() {
+        VulkanContext context;
+
+        context.instance = createInstance();
+        context.physicalDevice =
+            pickPhysicalDevice(context.instance, context.computeQueueFamilyIndex);
+        context.device = createLogicalDevice(context.physicalDevice,
+                                            context.computeQueueFamilyIndex,
+                                            context.computeQueue);
+
+        return context;
+    }
+
     ComputePipeline::ComputePipeline(std::shared_ptr<VulkanContext> contextPtr) {
+        std::cerr << "Creating ComputePipeline resources..." << std::endl;
         this->contextPtr = contextPtr;
         this->pipelineResources = create_pipeline_resources(contextPtr);
     }
 
     ComputePipeline::~ComputePipeline() {
+        std::cerr << "Destroying ComputePipeline resources..." << std::endl;
         try {
+            std::cerr << "Destroying command pool..." << std::endl;
+            vkFreeCommandBuffers(this->contextPtr->device, this->dynamicResources.commandPool, 1, &this->dynamicResources.commandBuffer);
+            
             vkDestroyCommandPool(this->contextPtr->device, this->dynamicResources.commandPool, nullptr);
+            std::cerr << "Destroying pipeline..." << std::endl;
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
+            
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
+            std::cerr << "Destroying descriptorpool..." << std::endl;
             vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResources.descriptorPool, nullptr);
             vkDestroyDescriptorSetLayout(this->contextPtr->device, this->pipelineResources.descriptorSetLayout, nullptr);
             vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+            std::cerr << "Destroying dynamic resources..." << std::endl;
             vkDestroyDevice(this->contextPtr->device, nullptr);
             vkDestroyInstance(this->contextPtr->instance, nullptr);
 
@@ -623,6 +633,11 @@ namespace mylib {
 
         this->numElements = static_cast<uint32_t>(data.size());
         this->dataSize = sizeof(float) * numElements;
+
+        if (this->dataSize > this->dynamicResources.dataSize) {
+            throw std::runtime_error("Data size exceeds allocated buffer size");
+        }
+
         std::vector<float> inputData(numElements);
         for (uint32_t i = 0; i < numElements; ++i) {
             inputData[i] = static_cast<float>(i);
@@ -630,14 +645,11 @@ namespace mylib {
 
         // Upload to the GPU buffer
         uploadBufferData(this->contextPtr->device, this->dynamicResources.memory, inputData);
-
-        // // Create command pool & buffer
-        VkCommandPool cmdPool = createCommandPool(this->contextPtr->device, contextPtr->computeQueueFamilyIndex);
-        VkCommandBuffer cmdBuffer = allocateCommandBuffer(contextPtr->device, cmdPool);
-
+        std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
     }
 
     void ComputePipeline::execute() {
+        std::cerr<< "Recording command buffer..." << std::endl;
         recordCommandBuffer(
             this->dynamicResources.commandBuffer,
             this->pipelineResources.pipeline,
@@ -645,7 +657,7 @@ namespace mylib {
             this->dynamicResources.descriptorSet,
             this->numElements
         );
-
+        std::cerr << "Submitting command buffer and waiting for execution..." << std::endl;
         submitAndWait(
             this->contextPtr->device,
             this->contextPtr->computeQueue,

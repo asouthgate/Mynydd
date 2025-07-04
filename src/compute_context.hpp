@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -32,7 +33,10 @@ namespace mylib {
         VkDescriptorSet descriptorSet;
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
+        size_t dataSize;
     };
+
+    VulkanContext createVulkanContext();
 
     class ComputePipeline {
         public:

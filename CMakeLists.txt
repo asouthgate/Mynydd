@@ -23,7 +23,21 @@ add_custom_command(
     COMMENT "Compiling compute shader to SPIR-V"
 )
 
-# Add an executable that depends on shader compilation
-add_executable(nanovulkan ${SOURCE_DIR}/main.cpp ${SHADER_SPV})
+# === Build shared library ===
+add_library(compute_context SHARED
+    ${SOURCE_DIR}/compute_context.cpp
+)
+
+target_include_directories(compute_context PUBLIC ${SOURCE_DIR})
+target_link_libraries(compute_context PRIVATE Vulkan::Vulkan)
+
+# === Build main executable ===
+add_executable(nanovulkan
+    ${SOURCE_DIR}/main.cpp
+    ${SHADER_SPV}
+)
+
 target_include_directories(nanovulkan PRIVATE ${SOURCE_DIR})
-target_link_libraries(nanovulkan PRIVATE Vulkan::Vulkan)
+
+# Link Vulkan and your shared library
+target_link_libraries(nanovulkan PRIVATE Vulkan::Vulkan compute_context)
