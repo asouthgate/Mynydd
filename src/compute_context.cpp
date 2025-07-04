@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "compute_context.hpp"
 using namespace mylib;
@@ -514,17 +515,17 @@ namespace {
         vkUnmapMemory(device, memory);
     }
 
-    VulkanPipelineResources create_pipeline_resources(VulkanContext context) {
+    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr) {
         const char *shaderPath =
             "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
 
-        VkShaderModule shader = loadShaderModule(context.device, shaderPath);
+        VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
         VkDescriptorSetLayout descriptorLayout =
-            createDescriptorSetLayout(context.device);
+            createDescriptorSetLayout(contextPtr->device);
 
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
-            context.device, shader, descriptorLayout, pipelineLayout);
+            contextPtr->device, shader, descriptorLayout, pipelineLayout);
 
         return {
             pipelineLayout,
@@ -535,37 +536,46 @@ namespace {
     }
 
     VulkanDynamicResources create_dynamic_resources(
-        VulkanContext context,
+        std::shared_ptr<VulkanContext> contextPtr,
         VkDescriptorSetLayout descriptorLayout,
         size_t n_data_elements
     ) {
         const size_t dataSize = n_data_elements * sizeof(float);
 
         VkBuffer buffer = createBuffer(
-            context.device, dataSize,
+            contextPtr->device, dataSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
         );
 
         VkDeviceMemory bufferMemory = allocateAndBindMemory(
-            context.physicalDevice, 
-            context.device,
+            contextPtr->physicalDevice, 
+            contextPtr->device,
             buffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
 
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet =
-            allocateDescriptorSet(context.device, descriptorLayout, descriptorPool);
+            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
 
-        updateDescriptorSet(context.device, descriptorSet, buffer, dataSize);
+        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize);
+
+        VkCommandPool commandPool = createCommandPool(
+            contextPtr->device, contextPtr->computeQueueFamilyIndex
+        );
+
+        VkCommandBuffer commandBuffer = allocateCommandBuffer(
+            contextPtr->device, commandPool
+        );
+
 
         return {
             buffer,
             bufferMemory,
             descriptorPool,
-            VK_NULL_HANDLE, // descriptorSet will be created later
-            VK_NULL_HANDLE, // commandPool will be created later
-            VK_NULL_HANDLE  // commandBuffer will be created later
+            descriptorSet, // descriptorSet will be created later
+            commandPool, // commandPool will be created later
+            commandBuffer  // commandBuffer will be created later
         };
     }
 
@@ -575,52 +585,84 @@ namespace {
 
 namespace mylib {
 
-    /**
-    */
-    ComputeContext::ComputeContext() {
-        VulkanContext context = initVulkan();
+    ComputePipeline::ComputePipeline(std::shared_ptr<VulkanContext> contextPtr) {
+        this->contextPtr = contextPtr;
+        this->pipelineResources = create_pipeline_resources(contextPtr);
+    }
 
+    ComputePipeline::~ComputePipeline() {
+        try {
+            vkDestroyCommandPool(this->contextPtr->device, this->dynamicResources.commandPool, nullptr);
+            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
+            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
+            vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResources.descriptorPool, nullptr);
+            vkDestroyDescriptorSetLayout(this->contextPtr->device, this->pipelineResources.descriptorSetLayout, nullptr);
+            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+            vkDestroyDevice(this->contextPtr->device, nullptr);
+            vkDestroyInstance(this->contextPtr->instance, nullptr);
 
+        } catch (const std::exception &e) {
+            throw;
+        }
+    }
 
-        uint32_t numElements = 1024;
-        // VkDeviceSize dataSize = sizeof(float) * numElements;
+    void ComputePipeline::createDynamicResources(size_t n_data_elements) {
+        // Create dynamic resources with the specified number of data elements
+        this->dynamicResources = create_dynamic_resources(
+            this->contextPtr,
+            this->pipelineResources.descriptorSetLayout,
+            n_data_elements
+        );
+    }
+
+    void ComputePipeline::uploadData(const std::vector<float> &data) {
+
+        if (data.empty()) {
+            throw std::runtime_error("Data vector is empty");
+        }
+
+        this->numElements = static_cast<uint32_t>(data.size());
+        this->dataSize = sizeof(float) * numElements;
         std::vector<float> inputData(numElements);
         for (uint32_t i = 0; i < numElements; ++i) {
             inputData[i] = static_cast<float>(i);
         }
 
         // Upload to the GPU buffer
-        uploadBufferData(context.device, bufferMemory, inputData);
+        uploadBufferData(this->contextPtr->device, this->dynamicResources.memory, inputData);
 
-        // Create command pool & buffer
-        VkCommandPool cmdPool = createCommandPool(context.device, context.computeQueueFamilyIndex);
-        VkCommandBuffer cmdBuffer = allocateCommandBuffer(context.device, cmdPool);
+        // // Create command pool & buffer
+        VkCommandPool cmdPool = createCommandPool(this->contextPtr->device, contextPtr->computeQueueFamilyIndex);
+        VkCommandBuffer cmdBuffer = allocateCommandBuffer(contextPtr->device, cmdPool);
 
-        // Record & submit
-        recordCommandBuffer(cmdBuffer, computePipeline, pipelineLayout, descriptorSet, numElements);
-        submitAndWait(context.device, context.computeQueue, cmdBuffer);
+    }
 
-        std::vector<float> output = readBufferData(context.device, bufferMemory, dataSize, numElements);
+    void ComputePipeline::execute() {
+        recordCommandBuffer(
+            this->dynamicResources.commandBuffer,
+            this->pipelineResources.pipeline,
+            this->pipelineResources.pipelineLayout,
+            this->dynamicResources.descriptorSet,
+            this->numElements
+        );
+
+        submitAndWait(
+            this->contextPtr->device,
+            this->contextPtr->computeQueue,
+            this->dynamicResources.commandBuffer
+        );
+
+        std::vector<float> output = readBufferData(
+            this->contextPtr->device,
+            this->dynamicResources.memory,
+            this->dataSize,
+            this->numElements
+        );
 
         // Print the first 10 results
         for (size_t i = 0; i < std::min<size_t>(output.size(), 10); ++i) {
             std::cout << "output[" << i << "] = " << output[i] << std::endl;
         }
 
-    }
-
-    ComputeContext::~ComputeContext() {
-        try {
-            // vkDestroyCommandPool(context.device, cmdPool, nullptr);
-            // vkDestroyPipeline(context.device, computePipeline, nullptr);
-            // vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-            // vkDestroyDescriptorPool(context.device, descriptorPool, nullptr);
-            // vkDestroyDescriptorSetLayout(context.device, descriptorLayout, nullptr);
-            // vkDestroyShaderModule(context.device, shader, nullptr);
-            vkDestroyDevice(this->context.device, nullptr);
-            vkDestroyInstance(this->context.instance, nullptr);
-        } catch (const std::exception &e) {
-            throw;
-        }
     }
 }

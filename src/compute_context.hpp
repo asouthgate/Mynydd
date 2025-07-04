@@ -34,31 +34,22 @@ namespace mylib {
         VkCommandBuffer commandBuffer;
     };
 
-    /**
-    */
-    class ComputeContext {
-        public:
-            ComputeContext();
-            ~ComputeContext();
-        
-        private:
-            VulkanContext context;
-    };
-
     class ComputePipeline {
         public:
-            ComputePipeline(const VulkanContext &context);
+            ComputePipeline(std::shared_ptr<VulkanContext> contextPtr); 
             ~ComputePipeline();
 
             void createPipelineResources();
             void createDynamicResources(size_t n_data_elements);
 
             void uploadData(const std::vector<float> &data);
-            void execute();
+            void execute();            
 
         private:
-            std::shared_ptr<VulkanContext> context;
+            std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             VulkanDynamicResources dynamicResources;
             VulkanPipelineResources pipelineResources;
-    }
+            uint32_t numElements; // number of elements in the data buffer
+            VkDeviceSize dataSize;
+    };
 };
