@@ -8,7 +8,7 @@
 TEST_CASE("Compute pipeline processes data", "[vulkan]") {
     mylib::VulkanContext context = mylib::createVulkanContext();
     std::shared_ptr<mylib::VulkanContext> contextPtr = std::make_shared<mylib::VulkanContext>(context);
-    mylib::ComputePipeline pipeline(contextPtr);
+    mylib::ComputePipeline<float> pipeline(contextPtr);
 
     std::vector<float> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {

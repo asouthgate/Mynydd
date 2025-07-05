@@ -10,7 +10,7 @@
 #include "compute_context.hpp"
 using namespace mylib;
 
-namespace {
+namespace mylib {
 
     /**
     * Create a Vulkan instance.
@@ -299,7 +299,7 @@ namespace {
     * The descriptor set contains information about the resources that the compute
     * shader will use. In this case, the buffer will be used as a storage buffer,
     * which means it can be read from and written to by the compute shader. For our
-    * GPU compute abstraction, this will correspond to floats that the compute
+    * GPU compute abstraction, this will correspond to dtypes that the compute
     * shader will process.
     */
     void updateDescriptorSet(
@@ -472,35 +472,6 @@ namespace {
         vkDestroyFence(device, fence, nullptr);
     }
 
-    /**
-    * Maps Vulkan device memory and copies float data into a CPU vector.
-    */
-    std::vector<float> readBufferData(VkDevice device, VkDeviceMemory memory, VkDeviceSize dataSize, uint32_t numElements) {
-        void* mappedData;
-        vkMapMemory(device, memory, 0, dataSize, 0, &mappedData);
-
-        float* floatData = reinterpret_cast<float*>(mappedData);
-        std::vector<float> result(floatData, floatData + numElements);
-
-        vkUnmapMemory(device, memory);
-        return result;
-    }
-
-    /**
-    * Uploads float data from CPU to a Vulkan buffer using mapped memory.
-    * Remember, the buffer doesn't live on the host.
-    */
-    void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<float>& inputData) {
-        void* mapped;
-        VkDeviceSize size = sizeof(float) * inputData.size();
-
-        if (vkMapMemory(device, memory, 0, size, 0, &mapped) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to map buffer memory for upload");
-        }
-
-        std::memcpy(mapped, inputData.data(), static_cast<size_t>(size));
-        vkUnmapMemory(device, memory);
-    }
 
     VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr) {
         const char *shaderPath =
@@ -522,57 +493,12 @@ namespace {
         };
     }
 
-    VulkanDynamicResources create_dynamic_resources(
-        std::shared_ptr<VulkanContext> contextPtr,
-        VkDescriptorSetLayout descriptorLayout,
-        size_t n_data_elements
-    ) {
-        const size_t dataSize = n_data_elements * sizeof(float);
-
-        VkBuffer buffer = createBuffer(
-            contextPtr->device, dataSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        );
-
-        VkDeviceMemory bufferMemory = allocateAndBindMemory(
-            contextPtr->physicalDevice, 
-            contextPtr->device,
-            buffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );
-
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSet =
-            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
-
-        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize);
-
-        VkCommandPool commandPool = createCommandPool(
-            contextPtr->device, contextPtr->computeQueueFamilyIndex
-        );
-
-        VkCommandBuffer commandBuffer = allocateCommandBuffer(
-            contextPtr->device, commandPool
-        );
-
-
-        return {
-            buffer,
-            bufferMemory,
-            descriptorPool,
-            descriptorSet, // descriptorSet will be created later
-            commandPool, // commandPool will be created later
-            commandBuffer,  // commandBuffer will be created later
-            dataSize
-        };
-    }
 
 }
 
 
 
 namespace mylib {
-
     VulkanContext createVulkanContext() {
         VulkanContext context;
 
@@ -584,97 +510,5 @@ namespace mylib {
                                             context.computeQueue);
 
         return context;
-    }
-
-    ComputePipeline::ComputePipeline(std::shared_ptr<VulkanContext> contextPtr) {
-        std::cerr << "Creating ComputePipeline resources..." << std::endl;
-        this->contextPtr = contextPtr;
-        this->pipelineResources = create_pipeline_resources(contextPtr);
-    }
-
-    ComputePipeline::~ComputePipeline() {
-        std::cerr << "Destroying ComputePipeline resources..." << std::endl;
-        try {
-            std::cerr << "Destroying command pool..." << std::endl;
-            vkFreeCommandBuffers(this->contextPtr->device, this->dynamicResources.commandPool, 1, &this->dynamicResources.commandBuffer);
-            
-            vkDestroyCommandPool(this->contextPtr->device, this->dynamicResources.commandPool, nullptr);
-            std::cerr << "Destroying pipeline..." << std::endl;
-            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
-            
-            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
-            std::cerr << "Destroying descriptorpool..." << std::endl;
-            vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResources.descriptorPool, nullptr);
-            vkDestroyDescriptorSetLayout(this->contextPtr->device, this->pipelineResources.descriptorSetLayout, nullptr);
-            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
-            std::cerr << "Destroying dynamic resources..." << std::endl;
-            vkDestroyDevice(this->contextPtr->device, nullptr);
-            vkDestroyInstance(this->contextPtr->instance, nullptr);
-
-        } catch (const std::exception &e) {
-            throw;
-        }
-    }
-
-    void ComputePipeline::createDynamicResources(size_t n_data_elements) {
-        // Create dynamic resources with the specified number of data elements
-        this->dynamicResources = create_dynamic_resources(
-            this->contextPtr,
-            this->pipelineResources.descriptorSetLayout,
-            n_data_elements
-        );
-    }
-
-    void ComputePipeline::uploadData(const std::vector<float> &data) {
-
-        if (data.empty()) {
-            throw std::runtime_error("Data vector is empty");
-        }
-
-        this->numElements = static_cast<uint32_t>(data.size());
-        this->dataSize = sizeof(float) * numElements;
-
-        if (this->dataSize > this->dynamicResources.dataSize) {
-            throw std::runtime_error("Data size exceeds allocated buffer size");
-        }
-
-        std::vector<float> inputData(numElements);
-        for (uint32_t i = 0; i < numElements; ++i) {
-            inputData[i] = static_cast<float>(i);
-        }
-
-        // Upload to the GPU buffer
-        uploadBufferData(this->contextPtr->device, this->dynamicResources.memory, inputData);
-        std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
-    }
-
-    void ComputePipeline::execute() {
-        std::cerr<< "Recording command buffer..." << std::endl;
-        recordCommandBuffer(
-            this->dynamicResources.commandBuffer,
-            this->pipelineResources.pipeline,
-            this->pipelineResources.pipelineLayout,
-            this->dynamicResources.descriptorSet,
-            this->numElements
-        );
-        std::cerr << "Submitting command buffer and waiting for execution..." << std::endl;
-        submitAndWait(
-            this->contextPtr->device,
-            this->contextPtr->computeQueue,
-            this->dynamicResources.commandBuffer
-        );
-
-        std::vector<float> output = readBufferData(
-            this->contextPtr->device,
-            this->dynamicResources.memory,
-            this->dataSize,
-            this->numElements
-        );
-
-        // Print the first 10 results
-        for (size_t i = 0; i < std::min<size_t>(output.size(), 10); ++i) {
-            std::cout << "output[" << i << "] = " << output[i] << std::endl;
-        }
-
     }
 }
