@@ -10,7 +10,7 @@ env:
   VULKAN_SDK_VERSION: 1.3.280.0
 
 jobs:
-  build:
+  build-and-test:  # keep it simple
     runs-on: ubuntu-latest
 
     steps:
