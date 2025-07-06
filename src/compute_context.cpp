@@ -8,9 +8,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include "compute_context.hpp"
-using namespace mylib;
+using namespace mynydd;
 
-namespace mylib {
+namespace mynydd {
 
     /**
     * Create a Vulkan instance.
@@ -493,11 +493,6 @@ namespace mylib {
         };
     }
 
-
-}
-
-
-namespace mylib {
     VulkanContext createVulkanContext() {
         VulkanContext context;
 

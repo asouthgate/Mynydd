@@ -7,9 +7,9 @@
 #include "../src/compute_context.hpp"
 
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
-    mylib::VulkanContext context = mylib::createVulkanContext();
-    std::shared_ptr<mylib::VulkanContext> contextPtr = std::make_shared<mylib::VulkanContext>(context);
-    mylib::ComputePipeline<float> pipeline(contextPtr, "shaders/shader.comp.spv");
+    mynydd::VulkanContext context = mynydd::createVulkanContext();
+    std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
+    mynydd::ComputePipeline<float> pipeline(contextPtr, "shaders/shader.comp.spv");
 
     std::vector<float> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -28,9 +28,9 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
 }
 
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
-    mylib::VulkanContext context = mylib::createVulkanContext();
-    std::shared_ptr<mylib::VulkanContext> contextPtr = std::make_shared<mylib::VulkanContext>(context);
-    mylib::ComputePipeline<double> pipeline(contextPtr, "shaders/shader_double.comp.spv");
+    mynydd::VulkanContext context = mynydd::createVulkanContext();
+    std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
+    mynydd::ComputePipeline<double> pipeline(contextPtr, "shaders/shader_double.comp.spv");
 
     std::vector<double> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {

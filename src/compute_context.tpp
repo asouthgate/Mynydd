@@ -11,7 +11,7 @@
 
 #include "compute_context.hpp"
 
-namespace mylib {
+namespace mynydd {
     
     VulkanContext createVulkanContext();
     // Required forward declarations for Vulkan functions used in the template

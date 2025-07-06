@@ -8,7 +8,7 @@
 #include <vulkan/vulkan_core.h>
 
 
-namespace mylib {
+namespace mynydd {
 
     /**
     * Context variables required for Vulkan compute.
