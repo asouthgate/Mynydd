@@ -60,7 +60,7 @@ namespace mylib {
         VkBuffer buffer,
         VkDeviceSize size
     );
-    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr);
+    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr, const char* shaderPath);
     VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
     VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
     void recordCommandBuffer(
@@ -76,7 +76,7 @@ namespace mylib {
     template<typename T>
     class ComputePipeline {
         public:
-            ComputePipeline(std::shared_ptr<VulkanContext> contextPtr); 
+            ComputePipeline(std::shared_ptr<VulkanContext> contextPtr, const char* shaderPath); 
             ~ComputePipeline();
 
             void createPipelineResources();
@@ -94,10 +94,10 @@ namespace mylib {
     };
 
     template<typename T>
-    ComputePipeline<T>::ComputePipeline(std::shared_ptr<VulkanContext> contextPtr) {
+    ComputePipeline<T>::ComputePipeline(std::shared_ptr<VulkanContext> contextPtr, const char* shaderPath) {
         std::cerr << "Creating ComputePipeline resources..." << std::endl;
         this->contextPtr = contextPtr;
-        this->pipelineResources = create_pipeline_resources(contextPtr);
+        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath);
     }
 
     template<typename T>

@@ -473,9 +473,9 @@ namespace mylib {
     }
 
 
-    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr) {
-        const char *shaderPath =
-            "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
+    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr, const char* shaderPath) {
+        // const char *shaderPath =
+        //     "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
 
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
         VkDescriptorSetLayout descriptorLayout =
