@@ -2,28 +2,58 @@ cmake_minimum_required(VERSION 3.10)
 project(nanovulkan)
 
 set(CMAKE_CXX_STANDARD 17)
-set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-set(SHADER_DIR ${SOURCE_DIR})
-set(SPIRV_DIR ${CMAKE_BINARY_DIR}/shaders)
-
-# Output shader.spv to build directory
-file(MAKE_DIRECTORY ${SPIRV_DIR})
-
-# Add Vulkan
 find_package(Vulkan REQUIRED)
 
-# Shader compilation rule
-set(SHADER_SRC ${SHADER_DIR}/shader.comp)
-set(SHADER_SPV ${SPIRV_DIR}/shader.comp.spv)
+set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 
-add_custom_command(
-    OUTPUT ${SHADER_SPV}
-    COMMAND glslangValidator -V ${SHADER_SRC} -o ${SHADER_SPV}
-    DEPENDS ${SHADER_SRC}
-    COMMENT "Compiling compute shader to SPIR-V"
+add_library(compute_context SHARED
+    ${SOURCE_DIR}/compute_context.cpp
 )
 
-# Add an executable that depends on shader compilation
-add_executable(nanovulkan ${SOURCE_DIR}/main.cpp ${SHADER_SPV})
-target_include_directories(nanovulkan PRIVATE ${SOURCE_DIR})
-target_link_libraries(nanovulkan PRIVATE Vulkan::Vulkan)
+target_include_directories(compute_context PUBLIC ${SOURCE_DIR})
+target_link_libraries(compute_context PRIVATE Vulkan::Vulkan)
+
+# tests
+
+find_package(Catch2 REQUIRED)
+set(TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/tests)
+enable_testing()
+
+# test shaders
+
+set(SHADER_DIR ${TEST_SRC_DIR}/shad)
+set(SPIRV_DIR ${CMAKE_BINARY_DIR}/shaders)
+file(MAKE_DIRECTORY ${SPIRV_DIR})
+file(GLOB SHADER_SRC_FILES "${SHADER_DIR}/*.comp")
+message(STATUS "Found shaders: ${SHADER_SRC_FILES}")
+set(SHADER_SPV_FILES)
+
+foreach(SHADER ${SHADER_SRC_FILES})
+    get_filename_component(SHADER_NAME ${SHADER} NAME)
+    message(STATUS "Adding shader: ${SHADER_NAME}")
+    set(SPIRV_OUT "${SPIRV_DIR}/${SHADER_NAME}.spv")
+
+    add_custom_command(
+        OUTPUT ${SPIRV_OUT}
+        COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT}
+        DEPENDS ${SHADER}
+        COMMENT "Compiling ${SHADER_NAME} to SPIR-V"
+        VERBATIM
+    )
+    
+    list(APPEND SHADER_SPV_FILES ${SPIRV_OUT})
+endforeach()
+
+add_custom_target(compile_shaders ALL DEPENDS ${SHADER_SPV_FILES})
+
+add_executable(tests
+    ${TEST_SRC_DIR}/test_compute.cpp
+    ${SHADER_SPV_FILES}     # Use correct variable here
+)
+
+target_include_directories(tests PRIVATE ${SOURCE_DIR})
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan compute_context)
+
+add_dependencies(tests compile_shaders)
+
+add_test(NAME ComputePipelineTest COMMAND tests)
