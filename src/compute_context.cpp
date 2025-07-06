@@ -497,7 +497,6 @@ namespace mylib {
 }
 
 
-
 namespace mylib {
     VulkanContext createVulkanContext() {
         VulkanContext context;
