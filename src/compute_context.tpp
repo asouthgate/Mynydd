@@ -180,7 +180,7 @@ namespace mylib {
     }
 
     template<typename T>
-    void ComputePipeline<T>::execute() {
+    std::vector<T> ComputePipeline<T>::execute() {
         std::cerr<< "Recording command buffer..." << std::endl;
         recordCommandBuffer(
             this->dynamicResources.commandBuffer,
@@ -203,9 +203,6 @@ namespace mylib {
             this->numElements
         );
 
-        // Print the first 10 results
-        for (size_t i = 0; i < std::min<size_t>(output.size(), 10); ++i) {
-            std::cout << "output[" << i << "] = " << output[i] << std::endl;
-        }
+        return output;
     }
 }

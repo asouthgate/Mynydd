@@ -48,7 +48,7 @@ namespace mylib {
 
             void createDynamicResources(size_t n_data_elements);
             void uploadData(const std::vector<T> &data);
-            void execute();            
+            std::vector<T> execute();            
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
