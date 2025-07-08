@@ -473,13 +473,17 @@ namespace mynydd {
     }
 
 
-    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr, const char* shaderPath) {
+    VulkanPipelineResources create_pipeline_resources(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const char* shaderPath,
+        VkDescriptorSetLayout &descriptorLayout
+    ) {
         // const char *shaderPath =
         //     "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
 
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
-        VkDescriptorSetLayout descriptorLayout =
-            createDescriptorSetLayout(contextPtr->device);
+        // VkDescriptorSetLayout descriptorLayout =
+        //     createDescriptorSetLayout(contextPtr->device);
 
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
@@ -488,8 +492,7 @@ namespace mynydd {
         return {
             pipelineLayout,
             computePipeline,
-            shader,
-            descriptorLayout
+            shader
         };
     }
 
