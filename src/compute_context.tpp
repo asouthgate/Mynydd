@@ -82,12 +82,11 @@ namespace mynydd {
         }
     }
 
-        template<typename T>
     VulkanDynamicResources create_dynamic_resources(
         std::shared_ptr<VulkanContext> contextPtr,
-        size_t n_data_elements
+        size_t dataSize
     ) {
-        const size_t dataSize = n_data_elements * sizeof(T);
+        // const size_t dataSize = n_data_elements * sizeof(T);
 
         VkBuffer buffer = createBuffer(
             contextPtr->device, dataSize,
@@ -124,9 +123,9 @@ namespace mynydd {
     template<typename T>
     VulkanDynamicResources createDataResources(std::shared_ptr<VulkanContext> contextPtr, size_t n_data_elements) {
         // Create dynamic resources with the specified number of data elements
-        return create_dynamic_resources<T>(
+        return create_dynamic_resources(
             contextPtr,
-            n_data_elements
+            n_data_elements * sizeof(T)
         );
     }
 

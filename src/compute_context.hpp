@@ -38,9 +38,38 @@ namespace mynydd {
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
         size_t dataSize;
-    };    
+    };
 
     VulkanContext createVulkanContext();
+
+    VulkanDynamicResources create_dynamic_resources(
+        std::shared_ptr<VulkanContext> contextPtr,
+        size_t dataSize
+    );
+
+    template<typename T>
+    class DataResources {
+        public:
+            DataResources(
+                std::shared_ptr<VulkanContext> contextPtr,
+                size_t n_data_elements
+            ) {
+                this->dynamicResources = create_dynamic_resources(contextPtr, n_data_elements);
+            }
+
+            ~DataResources<T>() {
+                // Destructor to clean up resources
+                vkDestroyBuffer(this->contextPtr->device, this->dynamicResources.buffer, nullptr);
+                vkFreeMemory(this->contextPtr->device, this->dynamicResources.memory, nullptr);
+                vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResourcesPtr->descriptorPool, nullptr);
+                vkDestroyDescriptorSetLayout(
+                    this->contextPtr->device, this->dynamicResources.descriptorSetLayout, nullptr
+                );
+            }
+        private:
+            VulkanDynamicResources dynamicResources;
+            std::shared_ptr<VulkanContext> contextPtr;
+    };
 
     template<typename T>
     class ComputeEngine {
