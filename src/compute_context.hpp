@@ -52,7 +52,6 @@ namespace mynydd {
             ); 
             ~ComputeEngine();
 
-            // void createDynamicResources(size_t n_data_elements);
             void uploadData(const std::vector<T> &data);
             std::vector<T> execute();            
 

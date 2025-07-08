@@ -9,7 +9,7 @@
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     mynydd::VulkanContext context = mynydd::createVulkanContext();
     std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDynamicResources<float>(contextPtr, 1024);
+    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<float>(contextPtr, 1024);
     std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
 
     mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
@@ -32,7 +32,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     mynydd::VulkanContext context = mynydd::createVulkanContext();
     std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDynamicResources<double>(contextPtr, 1024);
+    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<double>(contextPtr, 1024);
     std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
 
     mynydd::ComputeEngine<double> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader_double.comp.spv");

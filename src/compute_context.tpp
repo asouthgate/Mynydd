@@ -122,7 +122,7 @@ namespace mynydd {
     }
 
     template<typename T>
-    VulkanDynamicResources createDynamicResources(std::shared_ptr<VulkanContext> contextPtr, size_t n_data_elements) {
+    VulkanDynamicResources createDataResources(std::shared_ptr<VulkanContext> contextPtr, size_t n_data_elements) {
         // Create dynamic resources with the specified number of data elements
         return create_dynamic_resources<T>(
             contextPtr,
