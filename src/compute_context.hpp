@@ -19,6 +19,8 @@ namespace mynydd {
         VkDevice device; // logical device used for interface
         VkQueue computeQueue; // compute queue used for commands
         uint32_t computeQueueFamilyIndex;
+        VkCommandPool commandPool;
+        VkCommandBuffer commandBuffer;
     };
 
     struct VulkanPipelineResources {
@@ -33,8 +35,6 @@ namespace mynydd {
         VkDeviceMemory memory;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
-        VkCommandPool commandPool;
-        VkCommandBuffer commandBuffer;
         size_t dataSize;
     };    
 

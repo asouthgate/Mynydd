@@ -56,8 +56,8 @@ namespace mynydd {
     ComputePipeline<T>::~ComputePipeline() {
         std::cerr << "Destroying ComputePipeline resources..." << std::endl;
         try {
-            vkFreeCommandBuffers(this->contextPtr->device, this->dynamicResources.commandPool, 1, &this->dynamicResources.commandBuffer);
-            vkDestroyCommandPool(this->contextPtr->device, this->dynamicResources.commandPool, nullptr);
+            vkFreeCommandBuffers(this->contextPtr->device, this->contextPtr->commandPool, 1, &this->contextPtr->commandBuffer);
+            vkDestroyCommandPool(this->contextPtr->device, this->contextPtr->commandPool, nullptr);
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
             vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResources.descriptorPool, nullptr);
@@ -97,22 +97,11 @@ namespace mynydd {
 
         updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize);
 
-        VkCommandPool commandPool = createCommandPool(
-            contextPtr->device, contextPtr->computeQueueFamilyIndex
-        );
-
-        VkCommandBuffer commandBuffer = allocateCommandBuffer(
-            contextPtr->device, commandPool
-        );
-
-
         return {
             buffer,
             bufferMemory,
             descriptorPool,
             descriptorSet, // descriptorSet will be created later
-            commandPool, // commandPool will be created later
-            commandBuffer,  // commandBuffer will be created later
             dataSize
         };
     }
@@ -183,7 +172,7 @@ namespace mynydd {
     std::vector<T> ComputePipeline<T>::execute() {
         std::cerr<< "Recording command buffer..." << std::endl;
         recordCommandBuffer(
-            this->dynamicResources.commandBuffer,
+            this->contextPtr->commandBuffer,
             this->pipelineResources.pipeline,
             this->pipelineResources.pipelineLayout,
             this->dynamicResources.descriptorSet,
@@ -193,7 +182,7 @@ namespace mynydd {
         submitAndWait(
             this->contextPtr->device,
             this->contextPtr->computeQueue,
-            this->dynamicResources.commandBuffer
+            this->contextPtr->commandBuffer
         );
 
         std::vector<T> output = readBufferData<T>(

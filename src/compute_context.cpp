@@ -503,6 +503,14 @@ namespace mynydd {
                                             context.computeQueueFamilyIndex,
                                             context.computeQueue);
 
+        context.commandPool = createCommandPool(
+            context.device, context.computeQueueFamilyIndex
+        );
+
+        context.commandBuffer = allocateCommandBuffer(
+            context.device, context.commandPool
+        );
+
         return context;
     }
 }
