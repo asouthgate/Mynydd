@@ -7,7 +7,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#include "compute_context.hpp"
+#include "../include/mynydd/mynydd.hpp"
 using namespace mynydd;
 
 namespace mynydd {
@@ -473,13 +473,17 @@ namespace mynydd {
     }
 
 
-    VulkanPipelineResources create_pipeline_resources(std::shared_ptr<VulkanContext> contextPtr, const char* shaderPath) {
+    VulkanPipelineResources create_pipeline_resources(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const char* shaderPath,
+        VkDescriptorSetLayout &descriptorLayout
+    ) {
         // const char *shaderPath =
         //     "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
 
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
-        VkDescriptorSetLayout descriptorLayout =
-            createDescriptorSetLayout(contextPtr->device);
+        // VkDescriptorSetLayout descriptorLayout =
+        //     createDescriptorSetLayout(contextPtr->device);
 
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
@@ -488,8 +492,7 @@ namespace mynydd {
         return {
             pipelineLayout,
             computePipeline,
-            shader,
-            descriptorLayout
+            shader
         };
     }
 
@@ -502,6 +505,14 @@ namespace mynydd {
         context.device = createLogicalDevice(context.physicalDevice,
                                             context.computeQueueFamilyIndex,
                                             context.computeQueue);
+
+        context.commandPool = createCommandPool(
+            context.device, context.computeQueueFamilyIndex
+        );
+
+        context.commandBuffer = allocateCommandBuffer(
+            context.device, context.commandPool
+        );
 
         return context;
     }

@@ -4,19 +4,22 @@
 
 #include <vector>
 #include <memory>
-#include "../src/compute_context.hpp"
+#include <mynydd/mynydd.hpp>
 
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     mynydd::VulkanContext context = mynydd::createVulkanContext();
     std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
-    mynydd::ComputePipeline<float> pipeline(contextPtr, "shaders/shader.comp.spv");
+    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<float>(contextPtr, 1024);
+    
+    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+
+    mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
 
     std::vector<float> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<float>(i);
     }
 
-    pipeline.createDynamicResources(1024);
     pipeline.uploadData(inputData);
     std::vector<float> output = pipeline.execute();
     for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
@@ -30,14 +33,16 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     mynydd::VulkanContext context = mynydd::createVulkanContext();
     std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
-    mynydd::ComputePipeline<double> pipeline(contextPtr, "shaders/shader_double.comp.spv");
+    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<double>(contextPtr, 1024);
+    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+
+    mynydd::ComputeEngine<double> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader_double.comp.spv");
 
     std::vector<double> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<double>(i);
     }
 
-    pipeline.createDynamicResources(1024);
     pipeline.uploadData(inputData);
     std::vector<double> output = pipeline.execute();
     for (size_t i = 0; i < std::min<size_t>(output.size(), 10); ++i) {
@@ -46,4 +51,3 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     }
     SUCCEED("Compute shader produced expected results for doubles * 2.");
 }
-
