@@ -96,4 +96,4 @@ namespace mynydd {
 
 // Template implementation must be in the header file or a separate file included at the end of the header file.
 // Included here beause it looks messy otherwise
-#include "compute_context.tpp"
+#include "mynydd.tpp"

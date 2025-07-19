@@ -4,7 +4,7 @@
 
 #include <vector>
 #include <memory>
-#include "../src/compute_context.hpp"
+#include <mynydd.hpp>
 
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     mynydd::VulkanContext context = mynydd::createVulkanContext();

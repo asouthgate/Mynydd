@@ -5,13 +5,15 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(Vulkan REQUIRED)
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
+set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 
-add_library(compute_context SHARED
-    ${SOURCE_DIR}/compute_context.cpp
+
+add_library(mynydd SHARED
+    ${SOURCE_DIR}/mynydd.cpp
 )
 
-target_include_directories(compute_context PUBLIC ${SOURCE_DIR})
-target_link_libraries(compute_context PRIVATE Vulkan::Vulkan)
+target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
+target_link_libraries(mynydd PRIVATE Vulkan::Vulkan)
 
 # tests
 
@@ -52,8 +54,7 @@ add_executable(tests
     ${SHADER_SPV_FILES}
 )
 
-target_include_directories(tests PRIVATE ${SOURCE_DIR})
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan compute_context)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
 
 add_dependencies(tests compile_shaders)
 

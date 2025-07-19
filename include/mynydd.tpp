@@ -9,7 +9,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#include "compute_context.hpp"
+// #include "mynydd.hpp"
 
 namespace mynydd {
     
