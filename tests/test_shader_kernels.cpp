@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
-#include "shader_test_compatibility.h"
+#include <mynydd/shader_interop.hpp>
 #include "shaders/kernels.comp.glsl"
 
 TEST_CASE("Shader kernels produce expected results", "[shader_kernels]") {

@@ -7,7 +7,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#include "../include/mynydd.hpp"
+#include "../include/mynydd/mynydd.hpp"
 using namespace mynydd;
 
 namespace mynydd {
