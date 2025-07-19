@@ -49,7 +49,7 @@ endforeach()
 add_custom_target(compile_shaders ALL DEPENDS ${SHADER_SPV_FILES})
 
 add_executable(tests
-    ${TEST_SRC_DIR}/test_compute.cpp
+    ${TEST_SRC_DIR}/test_mynydd.cpp
     ${TEST_SRC_DIR}/test_shader_kernels.cpp
     ${SHADER_SPV_FILES}
 )
