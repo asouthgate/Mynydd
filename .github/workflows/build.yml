@@ -39,7 +39,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y cmake ninja-build build-essential libvulkan-dev vulkan-tools catch2
+        sudo apt install -y cmake ninja-build build-essential libvulkan-dev vulkan-tools catch2 libglm-dev
 
     - name: Configure project
       run: cmake -S . -B build -G Ninja
