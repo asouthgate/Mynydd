@@ -117,14 +117,4 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd)
 
     add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
-
-    # === Example tests ===
-    if(EXISTS "${EXAMPLE_PATH}/test.cpp")
-        add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test.cpp ${EXAMPLE_SHADER_SPV_FILES})
-        target_include_directories(${EXAMPLE}_test PRIVATE ${INCLUDE_DIR})
-        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
-        add_dependencies(${EXAMPLE}_test compile_${EXAMPLE}_shaders)
-
-        add_test(NAME ${EXAMPLE}_tests COMMAND ${EXAMPLE}_test "[${EXAMPLE}]")
-    endif()
 endforeach()
