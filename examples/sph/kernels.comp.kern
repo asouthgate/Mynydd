@@ -30,21 +30,7 @@ float cal_r(float dx, float dy) {
 
 vec2 debrun_spiky_kernel_grad(float dx, float dy, float h) {
     float r = cal_r(dx, dy);
-    float safe_r = max(r, 1e-6f); // avoid divide-by-zero
+    float safe_r = max(r, 1e-6); // avoid divide-by-zero
     float dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
     return vec2(dx * dwdror, dy * dwdror);
-}
-
-float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
-    // bweak is a constant for this call
-    float bweak = c2 * rho0 / gamma;
-    return bweak * (pow(rho / rho0, gamma) - 1.0f);
-}
-
-float cal_rho_ij(float mass_j, float dist_ij, float h) {
-    return mass_j * debrun_spiky_kernel(dist_ij, h);
-}
-
-float cal_pressure_force_coefficient(float pi, float pj, float rhoi, float rhoj, float mj) {
-    return ((pi / (rhoi * rhoi)) + (pj / (rhoj * rhoj))) * mj;
 }
