@@ -62,3 +62,44 @@ add_dependencies(tests compile_shaders)
 
 add_test(NAME compute_tests COMMAND tests "[vulkan]")
 add_test(NAME shader_kernel_tests COMMAND tests "[shader_kernels]")
+
+
+# === Compile example folders ===
+
+file(GLOB EXAMPLE_DIRS RELATIVE ${CMAKE_SOURCE_DIR}/examples ${CMAKE_SOURCE_DIR}/examples/*)
+
+foreach(EXAMPLE ${EXAMPLE_DIRS})
+    set(EXAMPLE_PATH ${CMAKE_SOURCE_DIR}/examples/${EXAMPLE})
+    set(EXAMPLE_SHADER_DIR ${EXAMPLE_PATH})
+    set(EXAMPLE_SPIRV_DIR ${CMAKE_BINARY_DIR}/examples/${EXAMPLE})
+    file(MAKE_DIRECTORY ${EXAMPLE_SPIRV_DIR})
+
+    # Collect shaders
+    file(GLOB EXAMPLE_SHADER_SRC_FILES "${EXAMPLE_SHADER_DIR}/*.comp")
+    set(EXAMPLE_SHADER_SPV_FILES)
+
+    foreach(SHADER ${EXAMPLE_SHADER_SRC_FILES})
+        get_filename_component(SHADER_NAME ${SHADER} NAME)
+        set(SPIRV_OUT "${EXAMPLE_SPIRV_DIR}/${SHADER_NAME}.spv")
+
+        add_custom_command(
+            OUTPUT ${SPIRV_OUT}
+            COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT}
+            DEPENDS ${SHADER}
+            COMMENT "Compiling ${EXAMPLE}/${SHADER_NAME} to SPIR-V"
+            VERBATIM
+        )
+
+        list(APPEND EXAMPLE_SHADER_SPV_FILES ${SPIRV_OUT})
+    endforeach()
+
+    add_custom_target(compile_${EXAMPLE}_shaders ALL DEPENDS ${EXAMPLE_SHADER_SPV_FILES})
+
+    # Add executable
+    add_executable(${EXAMPLE}_example ${EXAMPLE_PATH}/main.cpp ${EXAMPLE_SHADER_SPV_FILES})
+
+    target_include_directories(${EXAMPLE}_example PRIVATE ${INCLUDE_DIR})
+    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd)
+
+    add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
+endforeach()
