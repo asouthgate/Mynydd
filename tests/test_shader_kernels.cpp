@@ -3,7 +3,7 @@
 #include <catch2/catch_approx.hpp>
 
 #include <mynydd/shader_interop.hpp>
-#include "shaders/kernels.comp.glsl"
+#include "shaders/kernels.comp.kern"
 
 TEST_CASE("Shader kernels produce expected results", "[shader_kernels]") {
     REQUIRE(cubic_spline_2d_kernel(0.50, 1.0) == Catch::Approx(0.71875 * cubic_spline_2d_fac(1.0)));
