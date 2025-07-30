@@ -79,25 +79,22 @@ namespace mynydd {
 
 
     template<typename T>
-    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<Buffer> buffer) {
-        try {
-            if (inputData.empty()) {
-                throw std::runtime_error("Data vector is empty");
-            }
+    void ComputeEngine<T>::uploadData(const std::vector<T> &inputData) {
 
-            size_t numElements = static_cast<uint32_t>(inputData.size());
-            size_t dataSize = sizeof(T) * numElements;
-
-            if (dataSize > buffer->getSize()) {
-                throw std::runtime_error("Data size exceeds allocated buffer size");
-            }
-
-            uploadBufferData<T>(vkc->device, buffer->getMemory(), inputData);
+        if (inputData.empty()) {
+            throw std::runtime_error("Data vector is empty");
         }
-        catch (const std::exception& e) {
-            std::cerr << "Exception in uploadData: " << e.what() << std::endl;
-            throw;
+
+        this->numElements = static_cast<uint32_t>(inputData.size());
+        this->dataSize = sizeof(T) * numElements;
+
+        if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
+            throw std::runtime_error("Data size exceeds allocated buffer size");
         }
+
+        // Upload to the GPU buffer
+        uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->memory, inputData);
+        std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
     }
 
     /**
