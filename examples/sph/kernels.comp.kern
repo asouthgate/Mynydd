@@ -30,7 +30,7 @@ float cal_r(float dx, float dy) {
 
 vec2 debrun_spiky_kernel_grad(float dx, float dy, float h) {
     float r = cal_r(dx, dy);
-    float safe_r = max(r, 1e-6); // avoid divide-by-zero
+    float safe_r = max(r, 1e-6f); // avoid divide-by-zero
     float dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
     return vec2(dx * dwdror, dy * dwdror);
 }
