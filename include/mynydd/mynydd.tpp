@@ -143,22 +143,17 @@ namespace mynydd {
     }
 
     template<typename T>
-    void ComputeEngine<T>::uploadData(const std::vector<T> &data) {
+    void ComputeEngine<T>::uploadData(const std::vector<T> &inputData) {
 
-        if (data.empty()) {
+        if (inputData.empty()) {
             throw std::runtime_error("Data vector is empty");
         }
 
-        this->numElements = static_cast<uint32_t>(data.size());
+        this->numElements = static_cast<uint32_t>(inputData.size());
         this->dataSize = sizeof(T) * numElements;
 
         if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
             throw std::runtime_error("Data size exceeds allocated buffer size");
-        }
-
-        std::vector<T> inputData(numElements);
-        for (uint32_t i = 0; i < numElements; ++i) {
-            inputData[i] = static_cast<T>(i);
         }
 
         // Upload to the GPU buffer
