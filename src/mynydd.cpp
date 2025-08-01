@@ -594,7 +594,8 @@ namespace mynydd {
             descriptorLayout,
             descriptorPool,
             descriptorSet, // descriptorSet will be created later
-            dataSize
+            dataSize,
+            uniformSize
         };
     }
 

@@ -38,6 +38,7 @@ namespace mynydd {
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
         size_t dataSize;
+        size_t uniformSize;
     };
 
     VulkanContext createVulkanContext();
@@ -82,6 +83,7 @@ namespace mynydd {
             ); 
             ~ComputeEngine();
 
+            template<typename U> void uploadUniformData(const U uniform);
             void uploadData(const std::vector<T> &data);
             void execute();     
             std::vector<T> fetchData();                   
