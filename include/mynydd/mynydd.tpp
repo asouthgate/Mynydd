@@ -45,6 +45,18 @@ namespace mynydd {
         float dummy = 0.0f;
     };
 
+    template<typename T, typename U = TrivialUniform>
+    VulkanDynamicResources createDataResources(
+        std::shared_ptr<VulkanContext> contextPtr,
+        size_t n_data_elements
+    ) {
+        return create_dynamic_resources(
+            contextPtr,
+            n_data_elements * sizeof(T),
+            sizeof(U) // always valid, even if it's trivial
+        );
+    }
+
     template<typename T>
     void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<T>& inputData) {
         void* mapped;
@@ -113,7 +125,38 @@ namespace mynydd {
     }
 
     template<typename T>
-    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<Buffer> buffer, size_t n_elements) {
+    void ComputeEngine<T>::execute() {
+        std::cerr<< "Recording command buffer..." << std::endl;
+        try {
+            if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid Vulkan context or device handle");
+            }
+            if (!this->dynamicResourcesPtr || this->dynamicResourcesPtr->descriptorSet == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid dynamic resources or descriptor set handle");
+            }
+            if (this->pipelineResources.pipeline == VK_NULL_HANDLE || this->pipelineResources.pipelineLayout == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid pipeline or pipeline layout handle");
+            }
+            recordCommandBuffer(
+                this->contextPtr->commandBuffer,
+                this->pipelineResources.pipeline,
+                this->pipelineResources.pipelineLayout,
+                this->dynamicResourcesPtr->descriptorSet,
+                numElements
+            );
+        } catch (const std::exception &e) {
+            std::cerr << "Error during execution setup: " << e.what() << std::endl;
+            throw;
+        }
+        submitAndWait(
+            this->contextPtr->device,
+            this->contextPtr->computeQueue,
+            this->contextPtr->commandBuffer
+        );
+    }
+
+    template<typename T>
+    std::vector<T> ComputeEngine<T>::fetchData() {
 
         std::vector<T> output = readBufferData<T>(
             vkc->device,
@@ -125,6 +168,25 @@ namespace mynydd {
         return output;
     }
 
+    // template<typename T>
+    // VkBuffer createBuffer(
+    //     VkDevice device,
+    //     VkDeviceSize size,
+    //     VkBufferUsageFlags usage
+    // ) {
+    //     VkBuffer uniformBuffer = createBuffer(
+    //         device,
+    //         sizeof(T), // struct size
+    //         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+    //     );
+
+    //     VkDeviceMemory uniformMemory = allocateAndBindMemory(
+    //         physicalDevice,
+    //         device,
+    //         uniformBuffer,
+    //         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    //     );    
+    // }
 
 
 }

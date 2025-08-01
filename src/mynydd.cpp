@@ -202,25 +202,34 @@ namespace mynydd {
         return shaderModule;
     }
 
-    VkDescriptorSetLayout createDescriptorSetLayout(
-        VkDevice device,
-        const std::vector<std::shared_ptr<Buffer>>& buffers
-) {
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
+    /**
+    * Creates a descriptor set layout with one storage buffer binding.
+    * A descriptor set layout defines the structure of a descriptor set,
+    * which is used to bind resources (like buffers) to shaders.
+    * In turn, a descriptor set is a collection of descriptors that describe
+    * resources, for example, a storage buffer that can be accessed by a compute
+    * shader. We have to inform the GPU about the resources that will be used in
+    * the compute shader. This is analogous to telling a scheduler like SLURM what
+    * resources (like CPUs, memory) a job will need.
+    */
+    VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device) {
+        VkDescriptorSetLayoutBinding storageBufferBinding{};
+        storageBufferBinding.binding = 0;
+        storageBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        storageBufferBinding.descriptorCount = 1;
+        storageBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        size_t bindingIndex = 0;
-        for (const auto &buffer : buffers) {
-            VkDescriptorSetLayoutBinding binding{};
-            binding.binding = bindingIndex++;
-            binding.descriptorType = buffer->getType();
-            binding.descriptorCount = 1;
-            binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            bindings.push_back(binding);
-        }
+        VkDescriptorSetLayoutBinding uniformBufferBinding{};
+        uniformBufferBinding.binding = 1;
+        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniformBufferBinding.descriptorCount = 1;
+        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {storageBufferBinding, uniformBufferBinding};
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = bindings.size();
+        layoutInfo.bindingCount = 2;
         layoutInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout layout;
@@ -238,12 +247,13 @@ namespace mynydd {
         VkDescriptorPool &pool,
         const std::vector<std::shared_ptr<Buffer>>& buffers
     ) {
-        std::vector<VkDescriptorPoolSize> poolSizes(buffers.size());
+        std::array<VkDescriptorPoolSize, 2> poolSizes{};
 
-        for (size_t i = 0; i < buffers.size(); ++i) {
-            poolSizes[i].type = buffers[i]->getType();
-            poolSizes[i].descriptorCount = 1;
-        }
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        poolSizes[0].descriptorCount = 1;
+
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSizes[1].descriptorCount = 1;
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -272,7 +282,55 @@ namespace mynydd {
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
-        const std::vector<std::shared_ptr<Buffer>> &buffers
+        VkBuffer storageBuffer,
+        VkDeviceSize storageSize,
+        VkBuffer uniformBuffer,
+        VkDeviceSize uniformSize
+    ) {
+        VkDescriptorBufferInfo storageBufferInfo{};
+        storageBufferInfo.buffer = storageBuffer;
+        storageBufferInfo.offset = 0;
+        storageBufferInfo.range = storageSize;
+
+        // Uniform buffer info
+        VkDescriptorBufferInfo uniformBufferInfo{};
+        uniformBufferInfo.buffer = uniformBuffer;
+        uniformBufferInfo.offset = 0;
+        uniformBufferInfo.range = uniformSize;
+        VkWriteDescriptorSet storageWrite{};
+        storageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        storageWrite.dstSet = descriptorSet;
+        storageWrite.dstBinding = 0; // binding 0: storage buffer
+        storageWrite.dstArrayElement = 0;
+        storageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        storageWrite.descriptorCount = 1;
+        storageWrite.pBufferInfo = &storageBufferInfo;
+
+        VkWriteDescriptorSet uniformWrite{};
+        uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        uniformWrite.dstSet = descriptorSet;
+        uniformWrite.dstBinding = 1; // binding 1: uniform buffer
+        uniformWrite.dstArrayElement = 0;
+        uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniformWrite.descriptorCount = 1;
+        uniformWrite.pBufferInfo = &uniformBufferInfo;
+
+        std::array<VkWriteDescriptorSet, 2> writes = { storageWrite, uniformWrite };
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    }
+
+    /**
+    * Binds a buffer to the given descriptor set at binding 0.
+    * The descriptor set contains information about the resources that the compute
+    * shader will use. In this case, the buffer will be used as a storage buffer,
+    * which means it can be read from and written to by the compute shader. For our
+    * GPU compute abstraction, this will correspond to dtypes that the compute
+    * shader will process.
+    */
+    void updateDescriptorSet(
+        VkDevice device,
+        VkDescriptorSet descriptorSet,
+        const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
     ) {
         if (buffers.empty()) {
             throw std::runtime_error("No buffers provided for descriptor set update");
@@ -464,174 +522,57 @@ namespace mynydd {
         );
     }
 
-    VulkanDynamicResources::VulkanDynamicResources(
+    VulkanDynamicResources create_dynamic_resources(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<Buffer>> buffers
-    ) : contextPtr(contextPtr) {
+        size_t dataSize,
+        size_t uniformSize
+    ) {
+        // const size_t dataSize = n_data_elements * sizeof(T);
 
-        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device, buffers);
+        VkBuffer buffer = createBuffer(
+            contextPtr->device, dataSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        );
 
-        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool, buffers);
-
-        updateDescriptorSet(
+        VkDeviceMemory bufferMemory = allocateAndBindMemory(
+            contextPtr->physicalDevice, 
             contextPtr->device,
-            descriptorSet,
-            buffers
+            buffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
-    }
 
-
-    void recordCommandBuffer(
-        VkCommandBuffer cmdBuffer,
-        std::shared_ptr<PipelineStep> pipeline_step,
-        bool memory_barrier = true
-    ) {
-            const auto& pipeline      = pipeline_step->getPipelineResourcesPtr()->pipeline;
-            const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
-            const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
-
-            if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
-            }
-
-            // Bind pipeline and descriptor sets
-            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
-
-
-            if (pipeline_step->hasPushConstantData()) {
-                PushConstantData pcData = pipeline_step->getPushConstantData();
-                uint32_t value = 0;
-                std::memcpy(&value, pcData.push_data.data(), sizeof(value));
-                vkCmdPushConstants(
-                    cmdBuffer,
-                    pipeline_step->getPipelineResourcesPtr()->pipelineLayout,
-                    VK_SHADER_STAGE_COMPUTE_BIT,
-                    0,
-                    pcData.size,
-                    pcData.push_data.data()
-                );
-            }
-
-            // Dispatch compute shader
-            vkCmdDispatch(cmdBuffer, 
-                pipeline_step->groupCountX,
-                pipeline_step->groupCountY,
-                pipeline_step->groupCountZ
-            );
-
-            // Insert memory barrier between shaders (except after last one)
-            if (memory_barrier) {
-                VkMemoryBarrier memoryBarrier{};
-                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-                memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-                vkCmdPipelineBarrier(
-                    cmdBuffer,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    0,
-                    1, &memoryBarrier,
-                    0, nullptr,
-                    0, nullptr
-                );
-            }
-
-    }
-
-    PipelineStep::PipelineStep(
-        std::shared_ptr<VulkanContext> contextPtr, 
-        const char* shaderPath,
-        std::vector<std::shared_ptr<Buffer>> buffers,
-        uint32_t groupCountX,
-        uint32_t groupCountY,
-        uint32_t groupCountZ,
-        std::vector<uint32_t> pushConstantSizes
-    ) : contextPtr(contextPtr), groupCountX(groupCountX), groupCountY(groupCountY), groupCountZ(groupCountZ) {  
-        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
-            contextPtr,
-            buffers
+        VkBuffer uniformBuffer = createBuffer(
+            contextPtr->device,
+            uniformSize, // struct size
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
         );
-        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
-        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes);
+
+        VkDeviceMemory uniformMemory = allocateAndBindMemory(
+            contextPtr->physicalDevice,
+            contextPtr->device,
+            uniformBuffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );    
+
+        VkDescriptorSetLayout descriptorLayout =
+            createDescriptorSetLayout(contextPtr->device);
+
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet descriptorSet =
+            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
+
+        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize, uniformBuffer, uniformSize);
+
+        return {
+            buffer,
+            bufferMemory,
+            uniformBuffer,
+            uniformMemory,
+            descriptorLayout,
+            descriptorPool,
+            descriptorSet, // descriptorSet will be created later
+            dataSize
+        };
     }
-
-    PipelineStep::~PipelineStep() {
-        try {
-            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
-                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
-            } else {
-                std::cerr << "Invalid handles in vkDestroyPipeline\n";
-                throw std::runtime_error("PipelineStep destructor failed");
-            }
-            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
-            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
-            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
-        } catch (const std::exception &e) {
-            std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
-            throw std::runtime_error("PipelineStep destructor failed");
-        }
-    }
-
-    void executeBatch(
-        std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps,
-        bool beginCommandBuffer
-    ) {
-        if (PipelineSteps.empty()) {
-            throw std::runtime_error("No compute engines provided for batch execution.");
-        }
-
-        if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid Vulkan context in batch execution.");
-        }
-
-        VkCommandBuffer cmdBuffer = contextPtr->commandBuffer;
-
-        if (beginCommandBuffer) {
-            VkCommandBufferBeginInfo beginInfo{};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
-                throw std::runtime_error("Failed to begin command buffer for batch execution.");
-            }        
-        } // else already begun
-        
-        for (size_t i = 0; i < PipelineSteps.size(); ++i) {
-            auto& pipelineStep = PipelineSteps[i];
-            if (!pipelineStep) {
-                throw std::runtime_error("Null PipelineStep pointer at index " + std::to_string(i));
-            }
-            recordCommandBuffer(
-                cmdBuffer,
-                pipelineStep,
-                i + 1 < PipelineSteps.size()
-            );
-        }
-
-        if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to end command buffer for batch execution.");
-        }
-
-        // Submit command buffer
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmdBuffer;
-
-        VkFence fence;
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        if (vkCreateFence(contextPtr->device, &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create fence for batch execution.");
-        }
-
-        if (vkQueueSubmit(contextPtr->computeQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
-            vkDestroyFence(contextPtr->device, fence, nullptr);
-            throw std::runtime_error("Failed to submit batched command buffer.");
-        }
-        vkWaitForFences(contextPtr->device, 1, &fence, VK_TRUE, UINT64_MAX);
-        vkDestroyFence(contextPtr->device, fence, nullptr);
-    }
-
 
 }
