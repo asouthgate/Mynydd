@@ -32,8 +32,8 @@ namespace mynydd {
     struct VulkanDynamicResources {
         VkBuffer buffer;
         VkDeviceMemory memory;
-        // A single descriptor set layout set/binding is used per buffer
-        // This is for convenience; in future may use multiple bindings
+        VkBuffer uniformBuffer;
+        VkDeviceMemory uniformMemory;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
@@ -44,32 +44,33 @@ namespace mynydd {
 
     VulkanDynamicResources create_dynamic_resources(
         std::shared_ptr<VulkanContext> contextPtr,
-        size_t dataSize
+        size_t dataSize,
+        size_t uniformSize
     );
 
-    template<typename T>
-    class DataResources {
-        public:
-            DataResources(
-                std::shared_ptr<VulkanContext> contextPtr,
-                size_t n_data_elements
-            ) {
-                this->dynamicResources = create_dynamic_resources(contextPtr, n_data_elements);
-            }
+    // template<typename T>
+    // class DataResources {
+    //     public:
+    //         DataResources(
+    //             std::shared_ptr<VulkanContext> contextPtr,
+    //             size_t n_data_elements
+    //         ) {
+    //             this->dynamicResources = create_dynamic_resources(contextPtr, n_data_elements);
+    //         }
 
-            ~DataResources<T>() {
-                // Destructor to clean up resources
-                vkDestroyBuffer(this->contextPtr->device, this->dynamicResources.buffer, nullptr);
-                vkFreeMemory(this->contextPtr->device, this->dynamicResources.memory, nullptr);
-                vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResourcesPtr->descriptorPool, nullptr);
-                vkDestroyDescriptorSetLayout(
-                    this->contextPtr->device, this->dynamicResources.descriptorSetLayout, nullptr
-                );
-            }
-        private:
-            VulkanDynamicResources dynamicResources;
-            std::shared_ptr<VulkanContext> contextPtr;
-    };
+    //         ~DataResources<T>() {
+    //             // Destructor to clean up resources
+    //             vkDestroyBuffer(this->contextPtr->device, this->dynamicResources.buffer, nullptr);
+    //             vkFreeMemory(this->contextPtr->device, this->dynamicResources.memory, nullptr);
+    //             vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResourcesPtr->descriptorPool, nullptr);
+    //             vkDestroyDescriptorSetLayout(
+    //                 this->contextPtr->device, this->dynamicResources.descriptorSetLayout, nullptr
+    //             );
+    //         }
+    //     private:
+    //         VulkanDynamicResources dynamicResources;
+    //         std::shared_ptr<VulkanContext> contextPtr;
+    // };
 
     template<typename T>
     class ComputeEngine {
@@ -82,7 +83,8 @@ namespace mynydd {
             ~ComputeEngine();
 
             void uploadData(const std::vector<T> &data);
-            std::vector<T> execute();            
+            void execute();     
+            std::vector<T> fetchData();                   
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context

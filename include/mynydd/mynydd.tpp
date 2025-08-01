@@ -82,50 +82,19 @@ namespace mynydd {
         }
     }
 
-    VulkanDynamicResources create_dynamic_resources(
+    struct TrivialUniform {
+        float dummy = 0.0f;
+    };
+
+    template<typename T, typename U = TrivialUniform>
+    VulkanDynamicResources createDataResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        size_t dataSize
+        size_t n_data_elements
     ) {
-        // const size_t dataSize = n_data_elements * sizeof(T);
-
-        VkBuffer buffer = createBuffer(
-            contextPtr->device, dataSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        );
-
-        VkDeviceMemory bufferMemory = allocateAndBindMemory(
-            contextPtr->physicalDevice, 
-            contextPtr->device,
-            buffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );
-
-        VkDescriptorSetLayout descriptorLayout =
-            createDescriptorSetLayout(contextPtr->device);
-
-
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSet =
-            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
-
-        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize);
-
-        return {
-            buffer,
-            bufferMemory,
-            descriptorLayout,
-            descriptorPool,
-            descriptorSet, // descriptorSet will be created later
-            dataSize
-        };
-    }
-
-    template<typename T>
-    VulkanDynamicResources createDataResources(std::shared_ptr<VulkanContext> contextPtr, size_t n_data_elements) {
-        // Create dynamic resources with the specified number of data elements
         return create_dynamic_resources(
             contextPtr,
-            n_data_elements * sizeof(T)
+            n_data_elements * sizeof(T),
+            sizeof(U) // always valid, even if it's trivial
         );
     }
 
@@ -177,7 +146,7 @@ namespace mynydd {
     }
 
     template<typename T>
-    std::vector<T> ComputeEngine<T>::execute() {
+    void ComputeEngine<T>::execute() {
         std::cerr<< "Recording command buffer..." << std::endl;
         recordCommandBuffer(
             this->contextPtr->commandBuffer,
@@ -192,6 +161,10 @@ namespace mynydd {
             this->contextPtr->computeQueue,
             this->contextPtr->commandBuffer
         );
+    }
+
+    template<typename T>
+    std::vector<T> ComputeEngine<T>::fetchData() {
 
         std::vector<T> output = readBufferData<T>(
             this->contextPtr->device,
@@ -202,4 +175,26 @@ namespace mynydd {
 
         return output;
     }
+
+    // template<typename T>
+    // VkBuffer createBuffer(
+    //     VkDevice device,
+    //     VkDeviceSize size,
+    //     VkBufferUsageFlags usage
+    // ) {
+    //     VkBuffer uniformBuffer = createBuffer(
+    //         device,
+    //         sizeof(T), // struct size
+    //         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+    //     );
+
+    //     VkDeviceMemory uniformMemory = allocateAndBindMemory(
+    //         physicalDevice,
+    //         device,
+    //         uniformBuffer,
+    //         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    //     );    
+    // }
+
+
 }

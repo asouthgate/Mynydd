@@ -21,7 +21,8 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     }
 
     pipeline.uploadData(inputData);
-    std::vector<float> output = pipeline.execute();
+    pipeline.execute();
+    std::vector<float> output = pipeline.fetchData();
     for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
         std::cout << "output[" << i << "] = " << output[i] << std::endl;
         REQUIRE(output[i] == Catch::Approx(1.0 / static_cast<float>(i)));
@@ -44,7 +45,8 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     }
 
     pipeline.uploadData(inputData);
-    std::vector<double> output = pipeline.execute();
+    pipeline.execute();
+    std::vector<double> output = pipeline.fetchData();
     for (size_t i = 0; i < std::min<size_t>(output.size(), 10); ++i) {
         std::cout << "output[" << i << "] = " << output[i] << std::endl;
         REQUIRE(output[i] == static_cast<double>(i) * 2.0);
