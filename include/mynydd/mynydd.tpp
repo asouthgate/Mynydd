@@ -91,6 +91,28 @@ namespace mynydd {
 
 
     template<typename T>
+    template<typename U>
+    void ComputeEngine<T>::uploadUniformData(const U uniform) {
+
+        if (sizeof(U) > this->dynamicResourcesPtr->uniformSize) {
+            throw std::runtime_error(
+                "Uniform size (" + std::to_string(sizeof(U)) + 
+                " bytes) does not match expected size (" + 
+                std::to_string(this->dynamicResourcesPtr->uniformSize) + " bytes)!"
+            );
+        }
+        void* mapped;
+        VkDeviceSize size = sizeof(U);
+
+        if (vkMapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniformMemory, 0, size, 0, &mapped) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to map uniform buffer memory for upload");
+        }
+
+        std::memcpy(mapped, &uniform, static_cast<size_t>(size));
+        vkUnmapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniformMemory);
+    }
+
+    template<typename T>
     void ComputeEngine<T>::uploadData(const std::vector<T> &inputData) {
 
         if (inputData.empty()) {
