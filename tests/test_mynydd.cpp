@@ -83,30 +83,27 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
         0.187777f
     };
 
-    size_t n = 1024;
+    mynydd::VulkanContext context = mynydd::createVulkanContext();
+    std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
+    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
+    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    mynydd::ComputeEngine<TestData> compeng(contextPtr, dynamicResourcesPtr, "shaders/shader_uniform.comp.spv");
 
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
-    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(TestData), false);
-    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(TestData), false);
-    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(TestParams), true);
-
-    mynydd::ComputeEngine<TestData> compeng(contextPtr, "shaders/shader_uniform.comp.spv", {input, output, uniform});
-
-    std::vector<TestData> inputData(n);
+    std::vector<TestData> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = TestData{
             glm::vec2(static_cast<float>(i % 32), static_cast<float>(i / 32)),
         };
     }
 
-    mynydd::uploadUniformData<TestParams>(contextPtr, params, uniform);
-    mynydd::uploadData<TestData>(contextPtr, inputData, input);
-    compeng.execute(n);
-    std::vector<TestData> outv = mynydd::fetchData<TestData>(contextPtr, output, n);
+    compeng.uploadUniformData(params);
+    compeng.uploadData(inputData);
+    compeng.execute();
+    std::vector<TestData> output = compeng.fetchData();
 
-    for (size_t i = 1; i < std::min<size_t>(outv.size(), 10); ++i) {
-        REQUIRE(outv[i].position.x == params.val);
-        REQUIRE(outv[i].position.y == params.val + i);
+    for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
+        REQUIRE(output[i].position.x == params.val);
+        REQUIRE(output[i].position.y == params.val + i);
     }
 
 }
