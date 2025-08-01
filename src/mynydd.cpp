@@ -231,29 +231,23 @@ namespace mynydd {
     * resources (like CPUs, memory) a job will need.
     */
     VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device) {
-        VkDescriptorSetLayoutBinding inputBufferBinding{};
-        inputBufferBinding.binding = 0;
-        inputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        inputBufferBinding.descriptorCount = 1;
-        inputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayoutBinding outputBufferBinding{};
-        outputBufferBinding.binding = 1;
-        outputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        outputBufferBinding.descriptorCount = 1;
-        outputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        VkDescriptorSetLayoutBinding storageBufferBinding{};
+        storageBufferBinding.binding = 0;
+        storageBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        storageBufferBinding.descriptorCount = 1;
+        storageBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
         VkDescriptorSetLayoutBinding uniformBufferBinding{};
-        uniformBufferBinding.binding = 2;
+        uniformBufferBinding.binding = 1;
         uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uniformBufferBinding.descriptorCount = 1;
         uniformBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {inputBufferBinding, outputBufferBinding, uniformBufferBinding};
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {storageBufferBinding, uniformBufferBinding};
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 3;
+        layoutInfo.bindingCount = 2;
         layoutInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout layout;
@@ -279,17 +273,13 @@ namespace mynydd {
         VkDescriptorSetLayout layout,
         VkDescriptorPool &pool
     ) {
-        std::array<VkDescriptorPoolSize, 3> poolSizes{};
+        std::array<VkDescriptorPoolSize, 2> poolSizes{};
 
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSizes[0].descriptorCount = 1;
 
-        poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[1].descriptorCount = 1;
-
-        poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[2].descriptorCount = 1;
-
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -326,67 +316,41 @@ namespace mynydd {
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
-        VkBuffer inputBuffer,
-        VkDeviceSize inputBufferSize,
+        VkBuffer storageBuffer,
+        VkDeviceSize storageSize,
         VkBuffer uniformBuffer,
-        VkDeviceSize uniformSize,
-        VkBuffer outputBuffer,
-        VkDeviceSize outputBufferSize
+        VkDeviceSize uniformSize
     ) {
-        VkDescriptorBufferInfo inputBufferInfo{};
-        inputBufferInfo.buffer = inputBuffer;
-        inputBufferInfo.offset = 0;
-        inputBufferInfo.range = inputBufferSize;
-
-        VkDescriptorBufferInfo outputBufferInfo{};
-        outputBufferInfo.buffer = outputBuffer;
-        outputBufferInfo.offset = 0;
-        outputBufferInfo.range = outputBufferSize;
+        VkDescriptorBufferInfo storageBufferInfo{};
+        storageBufferInfo.buffer = storageBuffer;
+        storageBufferInfo.offset = 0;
+        storageBufferInfo.range = storageSize;
 
         // Uniform buffer info
         VkDescriptorBufferInfo uniformBufferInfo{};
         uniformBufferInfo.buffer = uniformBuffer;
         uniformBufferInfo.offset = 0;
         uniformBufferInfo.range = uniformSize;
-
-        VkWriteDescriptorSet inputWrite{};
-        inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        inputWrite.dstSet = descriptorSet;
-        inputWrite.dstBinding = 0; // binding 0: storage buffer
-        inputWrite.dstArrayElement = 0;
-        inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        inputWrite.descriptorCount = 1;
-        inputWrite.pBufferInfo = &inputBufferInfo;
-
-        VkWriteDescriptorSet outputWrite{};
-        outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        outputWrite.dstSet = descriptorSet;
-        outputWrite.dstBinding = 1; // binding 0: storage buffer
-        outputWrite.dstArrayElement = 0;
-        outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        outputWrite.descriptorCount = 1;
-        outputWrite.pBufferInfo = &outputBufferInfo;
+        VkWriteDescriptorSet storageWrite{};
+        storageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        storageWrite.dstSet = descriptorSet;
+        storageWrite.dstBinding = 0; // binding 0: storage buffer
+        storageWrite.dstArrayElement = 0;
+        storageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        storageWrite.descriptorCount = 1;
+        storageWrite.pBufferInfo = &storageBufferInfo;
 
         VkWriteDescriptorSet uniformWrite{};
         uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         uniformWrite.dstSet = descriptorSet;
-        uniformWrite.dstBinding = 2; // binding 1: uniform buffer
+        uniformWrite.dstBinding = 1; // binding 1: uniform buffer
         uniformWrite.dstArrayElement = 0;
         uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uniformWrite.descriptorCount = 1;
         uniformWrite.pBufferInfo = &uniformBufferInfo;
 
-        std::array<VkWriteDescriptorSet, 3> writes = {
-            inputWrite, outputWrite, uniformWrite
-        };
-
-        vkUpdateDescriptorSets(
-            device,
-            static_cast<uint32_t>(writes.size()),
-            writes.data(),
-            0,
-            nullptr
-        );
+        std::array<VkWriteDescriptorSet, 2> writes = { storageWrite, uniformWrite };
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }
 
     /**
@@ -645,22 +609,57 @@ namespace mynydd {
         );
     }
 
-    VulkanDynamicResources::VulkanDynamicResources(
+    VulkanDynamicResources create_dynamic_resources(
         std::shared_ptr<VulkanContext> contextPtr,
-        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
-    ) : contextPtr(contextPtr) {
+        size_t dataSize,
+        size_t uniformSize
+    ) {
+        // const size_t dataSize = n_data_elements * sizeof(T);
 
-        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
-
-        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
-
-        updateDescriptorSet(
-            contextPtr->device,
-            descriptorSet,
-            buffers
+        VkBuffer buffer = createBuffer(
+            contextPtr->device, dataSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
         );
+
+        VkDeviceMemory bufferMemory = allocateAndBindMemory(
+            contextPtr->physicalDevice, 
+            contextPtr->device,
+            buffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+        VkBuffer uniformBuffer = createBuffer(
+            contextPtr->device,
+            uniformSize, // struct size
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+        );
+
+        VkDeviceMemory uniformMemory = allocateAndBindMemory(
+            contextPtr->physicalDevice,
+            contextPtr->device,
+            uniformBuffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );    
+
+        VkDescriptorSetLayout descriptorLayout =
+            createDescriptorSetLayout(contextPtr->device);
+
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet descriptorSet =
+            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
+
+        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize, uniformBuffer, uniformSize);
+
+        return {
+            buffer,
+            bufferMemory,
+            uniformBuffer,
+            uniformMemory,
+            descriptorLayout,
+            descriptorPool,
+            descriptorSet, // descriptorSet will be created later
+            dataSize
+        };
     }
-
-
 
 }
