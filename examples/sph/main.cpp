@@ -9,12 +9,22 @@ struct Particle {
     float pressure;
 };
 
+struct Params {
+    float dt;
+    float _pad[3];
+};
+
 int main(int argc, char** argv) {
+
+    Params params = {
+        0.187777f
+    };
+
     std::cout << "Running SPH example..." << std::endl;
 
     mynydd::VulkanContext context = mynydd::createVulkanContext();
     std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<Particle>(contextPtr, 1024);
+    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<Particle, Params>(contextPtr, 1024);
     std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
     mynydd::ComputeEngine<Particle> compeng(contextPtr, dynamicResourcesPtr, "examples/sph/shader.comp.spv");
 
@@ -28,9 +38,11 @@ int main(int argc, char** argv) {
         };
     }
 
+    compeng.uploadUniformData(inputData);
     compeng.uploadData(inputData);
+    compeng.execute();
+    std::vector<Particle> output = compeng.fetchData();
 
-    std::vector<Particle> output = compeng.execute();
     for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
         std::cout << "output[" << i << "] = (" << output[i].position.x << "," << output[i].position.y << ")" << std::endl;
     }
