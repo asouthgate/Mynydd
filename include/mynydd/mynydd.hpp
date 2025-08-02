@@ -66,6 +66,8 @@ namespace mynydd {
         VkDeviceMemory memory;
         VkBuffer uniformBuffer;
         VkDeviceMemory uniformMemory;
+        VkBuffer outputBuffer;
+        VkDeviceMemory outputMemory;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
