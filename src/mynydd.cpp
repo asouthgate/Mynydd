@@ -43,53 +43,53 @@ namespace mynydd {
     // 2. Select physical device with compute support
     VkPhysicalDevice pickPhysicalDevice(VkInstance instance,
                                         uint32_t &computeQueueFamilyIndex) {
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-    if (deviceCount == 0)
-        throw std::runtime_error("No Vulkan-compatible GPUs found");
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+        if (deviceCount == 0)
+            throw std::runtime_error("No Vulkan-compatible GPUs found");
 
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-    // Check for a suitable physical device with compute capabilities
-    // Iterate through the devices and find one with a compute queue
-    // computeQueueFamilyIndex will be set to the index of the compute queue
-    // family This will pick the first device that has a compute queue
-    for (const auto &device : devices) {
-        uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
-                                                nullptr);
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
-                                                queueFamilies.data());
+        // Check for a suitable physical device with compute capabilities
+        // Iterate through the devices and find one with a compute queue
+        // computeQueueFamilyIndex will be set to the index of the compute queue
+        // family This will pick the first device that has a compute queue
+        for (const auto &device : devices) {
+            uint32_t queueFamilyCount = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                                    nullptr);
+            std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                                    queueFamilies.data());
 
-        for (uint32_t i = 0; i < queueFamilyCount; ++i) {
-        // Print the number of queue families this GPU has
-        std::cout << "Number of queue families: " << queueFamilyCount
-                    << std::endl;
-        // Print the properties of each queue family
-        std::cout << "Queue family " << i << ": "
-                    << "Count: " << queueFamilies[i].queueCount
-                    << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
-        if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            VkPhysicalDeviceProperties props;
-            vkGetPhysicalDeviceProperties(device, &props);
-            std::cout << "Selected device: " << props.deviceName << std::endl;
-            // Set compute queue family index
-            // A compute queue family index is a queue family that supports compute
-            // operations A queue family is a group of queues that share the same
-            // properties A queue is a submission point for commands to the GPU Why
-            // do GPUs have multiple queues? Because different types of operations
-            // (graphics, compute, transfer) can be executed in parallel Is there
-            // one type of queue per operation? No, a queue family can support
-            // multiple types of operations What does a queue family correspond to
-            // physically? A queue family corresponds to a physical hardware unit
-            // that can execute commands How many queue families does a GPU have? It
-            // varies by GPU, but typically there are several queue families for
-            // different operations
-            computeQueueFamilyIndex = i;
-            return device;
-        }
+            for (uint32_t i = 0; i < queueFamilyCount; ++i) {
+            // Print the number of queue families this GPU has
+            std::cout << "Number of queue families: " << queueFamilyCount
+                        << std::endl;
+            // Print the properties of each queue family
+            std::cout << "Queue family " << i << ": "
+                        << "Count: " << queueFamilies[i].queueCount
+                        << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
+            if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                VkPhysicalDeviceProperties props;
+                vkGetPhysicalDeviceProperties(device, &props);
+                std::cout << "Selected device: " << props.deviceName << std::endl;
+                // Set compute queue family index
+                // A compute queue family index is a queue family that supports compute
+                // operations A queue family is a group of queues that share the same
+                // properties A queue is a submission point for commands to the GPU Why
+                // do GPUs have multiple queues? Because different types of operations
+                // (graphics, compute, transfer) can be executed in parallel Is there
+                // one type of queue per operation? No, a queue family can support
+                // multiple types of operations What does a queue family correspond to
+                // physically? A queue family corresponds to a physical hardware unit
+                // that can execute commands How many queue families does a GPU have? It
+                // varies by GPU, but typically there are several queue families for
+                // different operations
+                computeQueueFamilyIndex = i;
+                return device;
+            }
         }
     }
 
@@ -231,23 +231,29 @@ namespace mynydd {
     * resources (like CPUs, memory) a job will need.
     */
     VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device) {
-        VkDescriptorSetLayoutBinding storageBufferBinding{};
-        storageBufferBinding.binding = 0;
-        storageBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        storageBufferBinding.descriptorCount = 1;
-        storageBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        VkDescriptorSetLayoutBinding inputBufferBinding{};
+        inputBufferBinding.binding = 0;
+        inputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        inputBufferBinding.descriptorCount = 1;
+        inputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        VkDescriptorSetLayoutBinding outputBufferBinding{};
+        outputBufferBinding.binding = 1;
+        outputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        outputBufferBinding.descriptorCount = 1;
+        outputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
         VkDescriptorSetLayoutBinding uniformBufferBinding{};
-        uniformBufferBinding.binding = 1;
+        uniformBufferBinding.binding = 2;
         uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uniformBufferBinding.descriptorCount = 1;
         uniformBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {storageBufferBinding, uniformBufferBinding};
+        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {inputBufferBinding, outputBufferBinding, uniformBufferBinding};
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 2;
+        layoutInfo.bindingCount = 3;
         layoutInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout layout;
@@ -273,13 +279,17 @@ namespace mynydd {
         VkDescriptorSetLayout layout,
         VkDescriptorPool &pool
     ) {
-        std::array<VkDescriptorPoolSize, 2> poolSizes{};
+        std::array<VkDescriptorPoolSize, 3> poolSizes{};
 
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSizes[0].descriptorCount = 1;
 
-        poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSizes[1].descriptorCount = 1;
+
+        poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSizes[2].descriptorCount = 1;
+
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -316,41 +326,67 @@ namespace mynydd {
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
-        VkBuffer storageBuffer,
-        VkDeviceSize storageSize,
+        VkBuffer inputBuffer,
+        VkDeviceSize inputBufferSize,
         VkBuffer uniformBuffer,
-        VkDeviceSize uniformSize
+        VkDeviceSize uniformSize,
+        VkBuffer outputBuffer,
+        VkDeviceSize outputBufferSize
     ) {
-        VkDescriptorBufferInfo storageBufferInfo{};
-        storageBufferInfo.buffer = storageBuffer;
-        storageBufferInfo.offset = 0;
-        storageBufferInfo.range = storageSize;
+        VkDescriptorBufferInfo inputBufferInfo{};
+        inputBufferInfo.buffer = inputBuffer;
+        inputBufferInfo.offset = 0;
+        inputBufferInfo.range = inputBufferSize;
+
+        VkDescriptorBufferInfo outputBufferInfo{};
+        outputBufferInfo.buffer = outputBuffer;
+        outputBufferInfo.offset = 0;
+        outputBufferInfo.range = outputBufferSize;
 
         // Uniform buffer info
         VkDescriptorBufferInfo uniformBufferInfo{};
         uniformBufferInfo.buffer = uniformBuffer;
         uniformBufferInfo.offset = 0;
         uniformBufferInfo.range = uniformSize;
-        VkWriteDescriptorSet storageWrite{};
-        storageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        storageWrite.dstSet = descriptorSet;
-        storageWrite.dstBinding = 0; // binding 0: storage buffer
-        storageWrite.dstArrayElement = 0;
-        storageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        storageWrite.descriptorCount = 1;
-        storageWrite.pBufferInfo = &storageBufferInfo;
+
+        VkWriteDescriptorSet inputWrite{};
+        inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        inputWrite.dstSet = descriptorSet;
+        inputWrite.dstBinding = 0; // binding 0: storage buffer
+        inputWrite.dstArrayElement = 0;
+        inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        inputWrite.descriptorCount = 1;
+        inputWrite.pBufferInfo = &inputBufferInfo;
+
+        VkWriteDescriptorSet outputWrite{};
+        outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        outputWrite.dstSet = descriptorSet;
+        outputWrite.dstBinding = 1; // binding 0: storage buffer
+        outputWrite.dstArrayElement = 0;
+        outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        outputWrite.descriptorCount = 1;
+        outputWrite.pBufferInfo = &outputBufferInfo;
 
         VkWriteDescriptorSet uniformWrite{};
         uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         uniformWrite.dstSet = descriptorSet;
-        uniformWrite.dstBinding = 1; // binding 1: uniform buffer
+        uniformWrite.dstBinding = 2; // binding 1: uniform buffer
         uniformWrite.dstArrayElement = 0;
         uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uniformWrite.descriptorCount = 1;
         uniformWrite.pBufferInfo = &uniformBufferInfo;
 
-        std::array<VkWriteDescriptorSet, 2> writes = { storageWrite, uniformWrite };
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+        std::array<VkWriteDescriptorSet, 3> writes = {
+            inputWrite, outputWrite, uniformWrite
+        };
+
+        vkUpdateDescriptorSets(
+            device,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr
+        );
     }
 
     /**
@@ -552,15 +588,27 @@ namespace mynydd {
     ) {
         // const size_t dataSize = n_data_elements * sizeof(T);
 
-        VkBuffer buffer = createBuffer(
+        VkBuffer inputBuffer = createBuffer(
             contextPtr->device, dataSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
         );
 
-        VkDeviceMemory bufferMemory = allocateAndBindMemory(
+        VkDeviceMemory inputBufferMemory = allocateAndBindMemory(
             contextPtr->physicalDevice, 
             contextPtr->device,
-            buffer,
+            inputBuffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+        VkBuffer outputBuffer = createBuffer(
+            contextPtr->device, dataSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        );
+
+        VkDeviceMemory outputBufferMemory = allocateAndBindMemory(
+            contextPtr->physicalDevice, 
+            contextPtr->device,
+            outputBuffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
 
@@ -584,13 +632,24 @@ namespace mynydd {
         VkDescriptorSet descriptorSet =
             allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
 
-        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize, uniformBuffer, uniformSize);
+        updateDescriptorSet(
+            contextPtr->device,
+            descriptorSet,
+            inputBuffer,
+            dataSize,
+            uniformBuffer,
+            uniformSize,
+            outputBuffer,
+            dataSize
+        );
 
         return {
-            buffer,
-            bufferMemory,
+            inputBuffer,
+            inputBufferMemory,
             uniformBuffer,
             uniformMemory,
+            outputBuffer,
+            outputBufferMemory,
             descriptorLayout,
             descriptorPool,
             descriptorSet, // descriptorSet will be created later
