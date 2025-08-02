@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
         };
     }
 
-    compeng.uploadUniformData(inputData);
+    compeng.uploadUniformData(params);
     compeng.uploadData(inputData);
     compeng.execute();
     std::vector<Particle> output = compeng.fetchData();
