@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "kernels.comp.kern"
+
+layout(local_size_x = 64) in;
+
+struct Particle {
+    vec2 position;
+};
+
+layout(set = 0, binding = 0) buffer Data {
+    Particle particles[];
+} data;
+
+// Binding 1: uniform buffer (constants)
+layout(set = 0, binding = 1) uniform Params {
+    float val;
+} params;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    data.particles[index].position.x = params.val;
+    data.particles[index].position.y = params.val + index;
+}
