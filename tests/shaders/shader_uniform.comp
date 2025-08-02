@@ -9,12 +9,15 @@ struct Particle {
     vec2 position;
 };
 
-layout(set = 0, binding = 0) buffer Data {
+layout(set = 0, binding = 0) buffer inputData {
     Particle particles[];
 } data;
 
-// Binding 1: uniform buffer (constants)
-layout(set = 0, binding = 1) uniform Params {
+layout(set = 0, binding = 1) buffer outputData {
+    Particle particles[];
+} outv;
+
+layout(set = 0, binding = 2) uniform Params {
     float val;
 } params;
 

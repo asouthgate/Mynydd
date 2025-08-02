@@ -9,6 +9,10 @@ layout(set = 0, binding = 0) buffer Data {
     float values[];
 };
 
+layout(set = 0, binding = 1) buffer outputData {
+    float outvalues[];
+};
+
 void main() {
     uint index = gl_GlobalInvocationID.x;
     values[index] = 1.0/values[index];
