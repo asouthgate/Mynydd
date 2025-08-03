@@ -12,6 +12,7 @@
 
 namespace mynydd {
 
+    // TODO: much of this should be private, in a class
     /**
     * Context variables required for Vulkan compute.
     */
@@ -61,7 +62,7 @@ namespace mynydd {
     public:
         AllocatedBuffer() = default;
 
-        AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size, bool uniform=false);
+        AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform=false);
 
         // Prevent copying
         AllocatedBuffer(const AllocatedBuffer&) = delete;
@@ -121,23 +122,23 @@ namespace mynydd {
         std::shared_ptr<VulkanContext> contextPtr;
         // VkBuffer buffer;
         // VkDeviceMemory memory;
-        VkBuffer uniformBuffer;
-        VkDeviceMemory uniformMemory;
-        VkBuffer outputBuffer;
-        VkDeviceMemory outputMemory;
+        // VkBuffer uniformBuffer;
+        // VkDeviceMemory uniformMemory;
+        // VkBuffer outputBuffer;
+        // VkDeviceMemory outputMemory;
         std::shared_ptr<AllocatedBuffer> input;
-        // std::shared_ptr<AllocatedBuffer> output;
-        // std::shared_ptr<AllocatedBuffer> uniform;
+        std::shared_ptr<AllocatedBuffer> output;
+        std::shared_ptr<AllocatedBuffer> uniform;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
-        size_t dataSize;
-        size_t uniformSize;
+        // size_t dataSize;
+        // size_t uniformSize;
         VulkanDynamicResources(
             std::shared_ptr<VulkanContext> contextPtr,
             std::shared_ptr<AllocatedBuffer> input,
-            size_t _dataSize,
-            size_t _uniformSize
+            std::shared_ptr<AllocatedBuffer> output,
+            std::shared_ptr<AllocatedBuffer> uniform
         );
         ~VulkanDynamicResources() {
             std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
