@@ -65,7 +65,8 @@ namespace mynydd {
     template<typename T>
     ComputeEngine<T>::~ComputeEngine() {
         std::cerr << "Destroying ComputeEngine resources..." << std::endl;
-        std::cerr << "WARNING: TODO RAII" << std::endl;
+        std::cerr << "WARNING: TODO RAII:" << std::endl;
+        std::cerr << "WARNING: TODO RAII: DESTROY BUFFERS" << std::endl;
         try {
             vkFreeCommandBuffers(this->contextPtr->device, this->contextPtr->commandPool, 1, &this->contextPtr->commandBuffer);
             vkDestroyCommandPool(this->contextPtr->device, this->contextPtr->commandPool, nullptr);
