@@ -722,4 +722,64 @@ namespace mynydd {
         };
     }
 
+    VulkanDynamicResources create_dynamic_resources_from_buffers(
+        std::shared_ptr<VulkanContext> contextPtr,
+        AllocatedBuffer input,
+        AllocatedBuffer output,
+        AllocatedBuffer uniform
+    ) {
+
+        VkDescriptorSetLayout descriptorLayout =
+            createDescriptorSetLayout(contextPtr->device);
+
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet descriptorSet =
+            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
+
+        updateDescriptorSet(
+            contextPtr->device,
+            descriptorSet,
+            input.getBuffer(),
+            input.getSize(),
+            uniform.getBuffer(),
+            uniform.getSize(),
+            output.getBuffer(),
+            output.getSize()
+        );
+
+        return {
+            input.getBuffer(),
+            input.getMemory(),
+            uniform.getBuffer(),
+            uniform.getMemory(),
+            output.getBuffer(),
+            output.getMemory(),
+            descriptorLayout,
+            descriptorPool,
+            descriptorSet, // descriptorSet will be created later
+            input.getSize(),
+            uniform.getSize()
+        };
+    }
+
+    AllocatedBuffer::AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size)
+        : device(device), size(size) 
+    {
+        VkBuffer newBuffer = createBuffer(
+            device, size,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        );
+
+        VkDeviceMemory newBufferMemory = allocateAndBindMemory(
+            physicalDevice, 
+            device,
+            newBuffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+        this->buffer = newBuffer;
+        this->memory = newBufferMemory;
+    }
+
+
 }

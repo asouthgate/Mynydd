@@ -58,8 +58,6 @@ namespace mynydd {
         VkShaderModule computeShaderModule;
     };
 
-    VulkanContext createVulkanContext();
-
 
     struct VulkanDynamicResources {
         VkBuffer buffer;
@@ -82,6 +80,65 @@ namespace mynydd {
         size_t dataSize,
         size_t uniformSize
     );
+
+    class AllocatedBuffer {
+    public:
+        AllocatedBuffer() = default;
+
+        AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size);
+
+        // Prevent copying
+        AllocatedBuffer(const AllocatedBuffer&) = delete;
+        AllocatedBuffer& operator=(const AllocatedBuffer&) = delete;
+
+        // Move implementation
+        AllocatedBuffer(AllocatedBuffer&& other) noexcept
+            : device(other.device), buffer(other.buffer), memory(other.memory), size(other.size) {
+            other.buffer = VK_NULL_HANDLE;
+            other.memory = VK_NULL_HANDLE;
+        }
+
+        AllocatedBuffer& operator=(AllocatedBuffer&& other) noexcept {
+            if (this != &other) {
+                destroy();
+                device = other.device;
+                buffer = other.buffer;
+                memory = other.memory;
+                size = other.size;
+
+                other.buffer = VK_NULL_HANDLE;
+                other.memory = VK_NULL_HANDLE;
+            }
+            return *this;
+        }
+
+        ~AllocatedBuffer() {
+            destroy();
+        }
+
+        VkBuffer getBuffer() const { return buffer; }
+        VkDeviceMemory getMemory() const { return memory; }
+        VkDeviceSize getSize() const { return size; }
+
+        explicit operator bool() const { return buffer != VK_NULL_HANDLE; }
+
+    private:
+        VkDevice device = VK_NULL_HANDLE;
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkDeviceSize size = 0;
+
+        void destroy() {
+            if (buffer != VK_NULL_HANDLE) {
+                vkDestroyBuffer(device, buffer, nullptr);
+            }
+            if (memory != VK_NULL_HANDLE) {
+                vkFreeMemory(device, memory, nullptr);
+            }
+            buffer = VK_NULL_HANDLE;
+            memory = VK_NULL_HANDLE;
+        }
+    };
 
     // template<typename T>
     // class DataResources {

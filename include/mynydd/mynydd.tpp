@@ -67,6 +67,8 @@ namespace mynydd {
     template<typename T>
     ComputeEngine<T>::~ComputeEngine() {
         std::cerr << "Destroying ComputeEngine resources..." << std::endl;
+        std::cerr << "WARNING: TODO RAII:" << std::endl;
+        std::cerr << "WARNING: TODO RAII: DESTROY BUFFERS" << std::endl;
         try {
             std::cerr << "Destroying ComputeEngine..." << std::endl;
             if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
