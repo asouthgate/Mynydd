@@ -542,7 +542,7 @@ namespace mynydd {
         instance = createInstance();
         physicalDevice =
             pickPhysicalDevice(instance, computeQueueFamilyIndex);
-
+            
         device = createLogicalDevice(
             physicalDevice,
             computeQueueFamilyIndex,
@@ -632,46 +632,6 @@ namespace mynydd {
             descriptorSet, // descriptorSet will be created later
             dataSize,
             uniformSize
-        };
-    }
-
-    VulkanDynamicResources create_dynamic_resources_from_buffers(
-        std::shared_ptr<VulkanContext> contextPtr,
-        AllocatedBuffer input,
-        AllocatedBuffer output,
-        AllocatedBuffer uniform
-    ) {
-
-        VkDescriptorSetLayout descriptorLayout =
-            createDescriptorSetLayout(contextPtr->device);
-
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSet =
-            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
-
-        updateDescriptorSet(
-            contextPtr->device,
-            descriptorSet,
-            input.getBuffer(),
-            input.getSize(),
-            uniform.getBuffer(),
-            uniform.getSize(),
-            output.getBuffer(),
-            output.getSize()
-        );
-
-        return {
-            input.getBuffer(),
-            input.getMemory(),
-            uniform.getBuffer(),
-            uniform.getMemory(),
-            output.getBuffer(),
-            output.getMemory(),
-            descriptorLayout,
-            descriptorPool,
-            descriptorSet, // descriptorSet will be created later
-            input.getSize(),
-            uniform.getSize()
         };
     }
 
