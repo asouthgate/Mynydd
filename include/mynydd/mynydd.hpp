@@ -41,6 +41,11 @@ namespace mynydd {
                 vkDestroyInstance(instance, nullptr);
             }
         }
+
+        VulkanContext(const VulkanContext&) = delete;            // No copy
+        VulkanContext& operator=(const VulkanContext&) = delete; // No copy
+        VulkanContext(VulkanContext&&) = default;                // Allow move
+        VulkanContext& operator=(VulkanContext&&) = default;     // Allow move
     };
 
     struct VulkanPipelineResources {
