@@ -26,14 +26,16 @@ int main(int argc, char** argv) {
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
 
-    auto buffer = std::make_shared<mynydd::AllocatedBuffer>(
-        contextPtr->device,
-        contextPtr->physicalDevice,
-        n * sizeof(Particle),
-        false
+    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
+    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
+    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(Params), true);
+
+    auto dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
+        contextPtr,
+        input,
+        output,
+        uniform
     );
-    
-    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, buffer, n);
     mynydd::ComputeEngine<Particle> compeng(contextPtr, dynamicResourcesPtr, "examples/sph/shader.comp.spv");
 
     std::vector<Particle> inputData(n);
@@ -49,10 +51,10 @@ int main(int argc, char** argv) {
     compeng.uploadUniformData(params);
     compeng.uploadData(inputData);
     compeng.execute();
-    std::vector<Particle> output = compeng.fetchData();
+    std::vector<Particle> out = compeng.fetchData();
 
-    for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
-        std::cout << "output[" << i << "] = (" << output[i].position.x << "," << output[i].position.y << ")" << std::endl;
+    for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
+        std::cout << "output[" << i << "] = (" << out[i].position.x << "," << out[i].position.y << ")" << std::endl;
     }
 
 }
