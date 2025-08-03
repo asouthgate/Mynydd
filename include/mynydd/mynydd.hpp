@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -22,6 +23,24 @@ namespace mynydd {
         uint32_t computeQueueFamilyIndex;
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
+
+        VulkanContext();
+
+        ~VulkanContext() {
+            std::cerr << "DESTROYING VulkanContext..." << std::endl;
+            if (commandBuffer != VK_NULL_HANDLE) {
+                vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+            }
+            if (commandPool != VK_NULL_HANDLE) {
+                vkDestroyCommandPool(device, commandPool, nullptr);
+            }
+            if (device != VK_NULL_HANDLE) {
+                vkDestroyDevice(device, nullptr);
+            }
+            if (instance != VK_NULL_HANDLE) {
+                vkDestroyInstance(instance, nullptr);
+            }
+        }
     };
 
     struct VulkanPipelineResources {
@@ -111,30 +130,6 @@ namespace mynydd {
             memory = VK_NULL_HANDLE;
         }
     };
-
-    // template<typename T>
-    // class DataResources {
-    //     public:
-    //         DataResources(
-    //             std::shared_ptr<VulkanContext> contextPtr,
-    //             size_t n_data_elements
-    //         ) {
-    //             this->dynamicResources = create_dynamic_resources(contextPtr, n_data_elements);
-    //         }
-
-    //         ~DataResources<T>() {
-    //             // Destructor to clean up resources
-    //             vkDestroyBuffer(this->contextPtr->device, this->dynamicResources.buffer, nullptr);
-    //             vkFreeMemory(this->contextPtr->device, this->dynamicResources.memory, nullptr);
-    //             vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResourcesPtr->descriptorPool, nullptr);
-    //             vkDestroyDescriptorSetLayout(
-    //                 this->contextPtr->device, this->dynamicResources.descriptorSetLayout, nullptr
-    //             );
-    //         }
-    //     private:
-    //         VulkanDynamicResources dynamicResources;
-    //         std::shared_ptr<VulkanContext> contextPtr;
-    // };
 
     template<typename T>
     class ComputeEngine {

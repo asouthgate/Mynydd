@@ -9,11 +9,12 @@
 #include <mynydd/mynydd.hpp>
 
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
-    mynydd::VulkanContext context = mynydd::createVulkanContext();
-    std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
+    std::cerr << "Created context ptr" << std::endl;
     mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<float>(contextPtr, 1024);
-    
+    std::cerr << "Created dynamicResources" << std::endl;
     std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    std::cerr << "Created dynamicResources Ptr" << std::endl;
 
     mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
 
@@ -33,8 +34,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
 }
 
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
-    mynydd::VulkanContext context = mynydd::createVulkanContext();
-    std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<double>(contextPtr, 1024);
     std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
 
@@ -69,8 +69,7 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
         0.187777f
     };
 
-    mynydd::VulkanContext context = mynydd::createVulkanContext();
-    std::shared_ptr<mynydd::VulkanContext> contextPtr = std::make_shared<mynydd::VulkanContext>(context);
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
     std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
     mynydd::ComputeEngine<TestData> compeng(contextPtr, dynamicResourcesPtr, "shaders/shader_uniform.comp.spv");
