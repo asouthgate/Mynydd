@@ -181,10 +181,10 @@ namespace mynydd {
     std::vector<T> ComputeEngine<T>::fetchData() {
 
         std::vector<T> output = readBufferData<T>(
-            vkc->device,
-            buffer->getMemory(),
-            buffer->getSize(),
-            n_elements
+            this->contextPtr->device,
+            this->dynamicResourcesPtr->outputMemory,
+            this->dataSize,
+            this->numElements
         );
 
         return output;
