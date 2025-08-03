@@ -30,7 +30,7 @@ namespace mynydd {
         VulkanContext();
 
         ~VulkanContext() {
-            std::cerr << "DESTROYING VulkanContext..." << std::endl;
+            std::cerr << "Destroying Vulkan context..." << std::endl;
             if (commandBuffer != VK_NULL_HANDLE) {
                 vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
             }
@@ -43,6 +43,7 @@ namespace mynydd {
             if (instance != VK_NULL_HANDLE) {
                 vkDestroyInstance(instance, nullptr);
             }
+            std::cerr << "Vulkan context destroyed." << std::endl;
         }
 
         VulkanContext(const VulkanContext&) = delete;            // No copy
@@ -57,28 +58,7 @@ namespace mynydd {
         VkShaderModule computeShaderModule;
     };
 
-
-    struct VulkanDynamicResources {
-        VkBuffer buffer;
-        VkDeviceMemory memory;
-        VkBuffer uniformBuffer;
-        VkDeviceMemory uniformMemory;
-        VkBuffer outputBuffer;
-        VkDeviceMemory outputMemory;
-        VkDescriptorSetLayout descriptorSetLayout;
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSet;
-        size_t dataSize;
-        size_t uniformSize;
-    };
-
     VulkanContext createVulkanContext();
-
-    VulkanDynamicResources create_dynamic_resources(
-        std::shared_ptr<VulkanContext> contextPtr,
-        size_t dataSize,
-        size_t uniformSize
-    );
 
     class AllocatedBuffer {
     public:
@@ -112,6 +92,7 @@ namespace mynydd {
         }
 
         ~AllocatedBuffer() {
+            std::cerr << "Destroying AllocatedBuffer..." << std::endl;
             destroy();
         }
 
@@ -137,6 +118,44 @@ namespace mynydd {
             buffer = VK_NULL_HANDLE;
             memory = VK_NULL_HANDLE;
         }
+    };
+
+    struct VulkanDynamicResources {
+        std::shared_ptr<VulkanContext> contextPtr;
+        VkBuffer buffer;
+        VkDeviceMemory memory;
+        VkBuffer uniformBuffer;
+        VkDeviceMemory uniformMemory;
+        VkBuffer outputBuffer;
+        VkDeviceMemory outputMemory;
+        // std::shared_ptr<AllocatedBuffer> input;
+        // std::shared_ptr<AllocatedBuffer> output;
+        // std::shared_ptr<AllocatedBuffer> uniform;
+        VkDescriptorSetLayout descriptorSetLayout;
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet descriptorSet;
+        size_t dataSize;
+        size_t uniformSize;
+        VulkanDynamicResources(
+            std::shared_ptr<VulkanContext> contextPtr,
+            size_t _dataSize,
+            size_t _uniformSize
+        );
+        ~VulkanDynamicResources() {
+            std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
+            if (contextPtr && contextPtr->device != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE) {
+            } else {
+                std::cerr << "vkDestroyDescriptorPool about to fail to invalid handles." << std::endl;
+            }
+            vkDestroyDescriptorPool(this->contextPtr->device, descriptorPool, nullptr);
+            std::cerr << "Descriptor pool destroyed." << std::endl;
+            vkDestroyDescriptorSetLayout(this->contextPtr->device, descriptorSetLayout, nullptr);
+            std::cerr << "VulkanDynamicResources destroyed." << std::endl;
+        }
+        VulkanDynamicResources(const VulkanDynamicResources&) = delete;            // No copy
+        VulkanDynamicResources& operator=(const VulkanDynamicResources&) = delete; // No copy
+        VulkanDynamicResources(VulkanDynamicResources&&) = default;                // Allow move
+        VulkanDynamicResources& operator=(VulkanDynamicResources&&) = default;     // Allow move
     };
 
     template<typename T>

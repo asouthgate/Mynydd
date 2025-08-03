@@ -23,8 +23,7 @@ int main(int argc, char** argv) {
     std::cout << "Running SPH example..." << std::endl;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<Particle, Params>(contextPtr, 1024);
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, 1024);
     mynydd::ComputeEngine<Particle> compeng(contextPtr, dynamicResourcesPtr, "examples/sph/shader.comp.spv");
 
     std::vector<Particle> inputData(1024);
