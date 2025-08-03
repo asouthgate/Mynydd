@@ -11,45 +11,30 @@
 #include <mynydd/mynydd.hpp>
 
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
+    std::cerr << "Starting compute pipeline test for float..." << std::endl;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     std::cerr << "Created context ptr" << std::endl;
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<float>(contextPtr, 1024);
-    std::cerr << "Created dynamicResources" << std::endl;
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, 1024);
     std::cerr << "Created dynamicResources Ptr" << std::endl;
 
-    size_t n = 1024;
-
-    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(float), false);
-    auto pipeline = std::make_shared<mynydd::PipelineStep>(
-        contextPtr, "shaders/shader.comp.spv", std::vector<std::shared_ptr<mynydd::Buffer>>{input}, 256
-
-    );
-    std::cerr << "Initialized PipelineStep" << std::endl;
-    std::vector<float> inputData(n);
+    mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
+    std::cerr << "Created compute engine pipeline" << std::endl;
+    std::vector<float> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<float>(i);
     }
 
+    std::cerr << "Input data prepared with size: " << inputData.size() << std::endl;
     pipeline.uploadData(inputData);
+    std::cerr << "Data uploaded to pipeline." << std::endl;
     pipeline.execute();
+    std::cerr << "Pipeline executed." << std::endl;
     std::vector<float> output = pipeline.fetchData();
+    std::cerr << "Data fetched from pipeline." << std::endl;
     for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
         REQUIRE(output[i] == Catch::Approx(1.0 / static_cast<float>(i)));
     }
-
-    mynydd::uploadData<float>(contextPtr, inputData, input);
-    std::cerr << "Uploaded data" << std::endl;
-    // pipeline.execute(n);
-    mynydd::executeBatch(contextPtr, {pipeline});
-    std::cerr << "Executed" << std::endl;
-    std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
-    std::cerr << "Fetched" << std::endl;
-    for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
-        // std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
-        REQUIRE(out[i] == Catch::Approx(1.0 / static_cast<float>(i)));
-    }
-    std::cerr << "Checked output" << std::endl;
+    std::cerr << "Compute shader executed for 1.0/floats." << std::endl;
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
 
@@ -90,10 +75,8 @@ TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
 
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<double>(contextPtr, 1024);
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
-
-    size_t n = 512;
+    auto dynamicResourcesPtr = mynydd::createDataResources<double>(contextPtr, 1024);
+    mynydd::ComputeEngine<double> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader_double.comp.spv");
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
@@ -175,8 +158,7 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
     };
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    auto dynamicResourcesPtr = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
     mynydd::ComputeEngine<TestData> compeng(contextPtr, dynamicResourcesPtr, "shaders/shader_uniform.comp.spv");
 
     std::vector<TestData> inputData(1024);
