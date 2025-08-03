@@ -16,15 +16,19 @@ layout(set = 0, binding = 0) buffer Data {
     Particle particles[];
 } data;
 
+layout(set = 0, binding = 1) buffer outputData {
+    Particle particles[];
+} outv;
+
 // Binding 1: uniform buffer (constants)
-layout(set = 0, binding = 1) uniform Params {
+layout(set = 0, binding = 2) uniform Params {
     float dt;
 } params;
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
     // Example operation: invert density (just for demo)
-    data.particles[index].density = 1.0 / data.particles[index].density;
-    data.particles[index].position.x = params.dt;
-    data.particles[index].position.y = 1.0 / index;
+    outv.particles[index].density = 1.0 / data.particles[index].density;
+    outv.particles[index].position.x = params.dt;
+    outv.particles[index].position.y = 1.0 / index;
 }
