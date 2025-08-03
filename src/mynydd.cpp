@@ -673,12 +673,12 @@ namespace mynydd {
         );
     }
 
-    AllocatedBuffer::AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size)
+    AllocatedBuffer::AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size, bool uniform=false)
         : device(device), size(size) 
     {
         VkBuffer newBuffer = createBuffer(
             device, size,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            uniform ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
         );
 
         VkDeviceMemory newBufferMemory = allocateAndBindMemory(

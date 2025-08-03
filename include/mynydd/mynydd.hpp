@@ -64,7 +64,7 @@ namespace mynydd {
     public:
         AllocatedBuffer() = default;
 
-        AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size);
+        AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size, bool uniform);
 
         // Prevent copying
         AllocatedBuffer(const AllocatedBuffer&) = delete;
