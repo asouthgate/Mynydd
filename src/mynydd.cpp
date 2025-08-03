@@ -629,7 +629,7 @@ namespace mynydd {
         instance = createInstance();
         physicalDevice =
             pickPhysicalDevice(instance, computeQueueFamilyIndex);
-            
+
         device = createLogicalDevice(
             physicalDevice,
             computeQueueFamilyIndex,

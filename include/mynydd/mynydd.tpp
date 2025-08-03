@@ -70,13 +70,9 @@ namespace mynydd {
         std::cerr << "WARNING: TODO RAII:" << std::endl;
         std::cerr << "WARNING: TODO RAII: DESTROY BUFFERS" << std::endl;
         try {
-            // vkFreeCommandBuffers(this->contextPtr->device, this->contextPtr->commandPool, 1, &this->contextPtr->commandBuffer);
-            // vkDestroyCommandPool(this->contextPtr->device, this->contextPtr->commandPool, nullptr);
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
             vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
-            // vkDestroyDevice(this->contextPtr->device, nullptr);
-            // vkDestroyInstance(this->contextPtr->instance, nullptr);
 
         } catch (const std::exception &e) {
             std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
