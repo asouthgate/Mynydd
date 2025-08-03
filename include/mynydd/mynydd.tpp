@@ -40,6 +40,42 @@ namespace mynydd {
     // void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer);
     // VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
 
+    template<typename T>
+    ComputeEngine<T>::ComputeEngine(
+        std::shared_ptr<VulkanContext> contextPtr, 
+        const char* shaderPath,
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+    ) : contextPtr(contextPtr) {
+        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
+            contextPtr,
+            buffers
+        );
+        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
+        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout);
+    }
+
+    template<typename T>
+    ComputeEngine<T>::~ComputeEngine() {
+        std::cerr << "Destroying ComputeEngine resources..." << std::endl;
+        std::cerr << "WARNING: TODO RAII:" << std::endl;
+        std::cerr << "WARNING: TODO RAII: DESTROY BUFFERS" << std::endl;
+        try {
+            std::cerr << "Destroying ComputeEngine..." << std::endl;
+            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
+                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+            } else {
+                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                throw;
+            }
+            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
+            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
+            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+        } catch (const std::exception &e) {
+            std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
+            throw;
+        }
+        std::cerr << "ComputeEngine resources destroyed." << std::endl;
+    }
 
     struct TrivialUniform {
         float dummy = 0.0f;
