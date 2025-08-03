@@ -13,12 +13,22 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     std::cerr << "Starting compute pipeline test for float..." << std::endl;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     std::cerr << "Created context ptr" << std::endl;
-    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, 1024);
+
+    size_t n = 1024;
+
+    auto buffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr->device,
+        contextPtr->physicalDevice,
+        n * sizeof(float),
+        false
+    );
+
+    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, buffer, n);
     std::cerr << "Created dynamicResources Ptr" << std::endl;
 
     mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
     std::cerr << "Created compute engine pipeline" << std::endl;
-    std::vector<float> inputData(1024);
+    std::vector<float> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<float>(i);
     }
@@ -38,15 +48,18 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
 }
 
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
+
+    size_t n = 1024;
+
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto dynamicResourcesPtr = mynydd::createDataResources<double>(contextPtr, 1024);
+    auto buffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr->device,
+        contextPtr->physicalDevice,
+        n * sizeof(double),
+        false
+    );
+    auto dynamicResourcesPtr = mynydd::createDataResources<double>(contextPtr, buffer, n);
     mynydd::ComputeEngine<double> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader_double.comp.spv");
-
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
-    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
-
-    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_double.comp.spv", {input, output});
 
     std::vector<double> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -77,11 +90,19 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
         0.187777f
     };
 
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto dynamicResourcesPtr = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
+    size_t n = 1024;
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    auto buffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr->device,
+        contextPtr->physicalDevice,
+        n * sizeof(TestData),
+        false
+    );
+    auto dynamicResourcesPtr = mynydd::createDataResources<TestData, TestParams>(contextPtr, buffer, n);
     mynydd::ComputeEngine<TestData> compeng(contextPtr, dynamicResourcesPtr, "shaders/shader_uniform.comp.spv");
 
-    std::vector<TestData> inputData(1024);
+    std::vector<TestData> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = TestData{
             glm::vec2(static_cast<float>(i % 32), static_cast<float>(i / 32)),

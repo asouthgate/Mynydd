@@ -94,10 +94,12 @@ namespace mynydd {
     template<typename T, typename U = TrivialUniform>
     std::shared_ptr<VulkanDynamicResources> createDataResources(
         std::shared_ptr<VulkanContext> contextPtr,
+        std::shared_ptr<AllocatedBuffer> input,
         size_t n_data_elements
     ) {
         return std::make_shared<VulkanDynamicResources>(
             contextPtr,
+            input,
             n_data_elements * sizeof(T),
             sizeof(U)
         );
@@ -168,12 +170,12 @@ namespace mynydd {
 
             this->numElements = static_cast<uint32_t>(inputData.size());
             this->dataSize = sizeof(T) * numElements;
-
+            std::cerr << "WARNING: dataSize is going to be deprecated out of ComputeEngine" << std::endl;
             if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
                 throw std::runtime_error("Data size exceeds allocated buffer size");
             }
 
-            uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->memory, inputData);
+            uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->input->getMemory(), inputData);
             std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
         }
         catch (const std::exception& e) {
