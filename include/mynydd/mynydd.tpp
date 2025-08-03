@@ -60,16 +60,14 @@ namespace mynydd {
         std::cerr << "WARNING: TODO RAII:" << std::endl;
         std::cerr << "WARNING: TODO RAII: DESTROY BUFFERS" << std::endl;
         try {
-            std::cerr << "Destroying ComputeEngine..." << std::endl;
-            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
-                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
-            } else {
-                std::cerr << "Invalid handles in vkDestroyPipeline\n";
-                throw;
-            }
+            // vkFreeCommandBuffers(this->contextPtr->device, this->contextPtr->commandPool, 1, &this->contextPtr->commandBuffer);
+            // vkDestroyCommandPool(this->contextPtr->device, this->contextPtr->commandPool, nullptr);
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
             vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+            // vkDestroyDevice(this->contextPtr->device, nullptr);
+            // vkDestroyInstance(this->contextPtr->instance, nullptr);
+
         } catch (const std::exception &e) {
             std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
             throw;
