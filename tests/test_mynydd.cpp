@@ -1,3 +1,4 @@
+#include <iostream>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -9,35 +10,36 @@
 #include <mynydd/mynydd.hpp>
 
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
+    std::cerr << "Starting compute pipeline test for float..." << std::endl;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     std::cerr << "Created context ptr" << std::endl;
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<float>(contextPtr, 1024);
-    std::cerr << "Created dynamicResources" << std::endl;
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, 1024);
     std::cerr << "Created dynamicResources Ptr" << std::endl;
 
     mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
-
+    std::cerr << "Created compute engine pipeline" << std::endl;
     std::vector<float> inputData(1024);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<float>(i);
     }
 
+    std::cerr << "Input data prepared with size: " << inputData.size() << std::endl;
     pipeline.uploadData(inputData);
+    std::cerr << "Data uploaded to pipeline." << std::endl;
     pipeline.execute();
+    std::cerr << "Pipeline executed." << std::endl;
     std::vector<float> output = pipeline.fetchData();
+    std::cerr << "Data fetched from pipeline." << std::endl;
     for (size_t i = 1; i < std::min<size_t>(output.size(), 10); ++i) {
         REQUIRE(output[i] == Catch::Approx(1.0 / static_cast<float>(i)));
     }
-
+    std::cerr << "Compute shader executed for 1.0/floats." << std::endl;
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
 
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<double>(contextPtr, 1024);
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
-
+    auto dynamicResourcesPtr = mynydd::createDataResources<double>(contextPtr, 1024);
     mynydd::ComputeEngine<double> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader_double.comp.spv");
 
     std::vector<double> inputData(1024);
@@ -70,8 +72,7 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
     };
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    mynydd::VulkanDynamicResources dynamicResources = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
-    std::shared_ptr<mynydd::VulkanDynamicResources> dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(dynamicResources);
+    auto dynamicResourcesPtr = mynydd::createDataResources<TestData, TestParams>(contextPtr, 1024);
     mynydd::ComputeEngine<TestData> compeng(contextPtr, dynamicResourcesPtr, "shaders/shader_uniform.comp.spv");
 
     std::vector<TestData> inputData(1024);
