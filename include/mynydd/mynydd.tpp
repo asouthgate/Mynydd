@@ -190,7 +190,7 @@ namespace mynydd {
 
         std::vector<T> output = readBufferData<T>(
             this->contextPtr->device,
-            this->dynamicResourcesPtr->memory,
+            this->dynamicResourcesPtr->outputMemory,
             this->dataSize,
             this->numElements
         );
