@@ -23,6 +23,6 @@ layout(set = 0, binding = 2) uniform Params {
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    data.particles[index].position.x = params.val;
-    data.particles[index].position.y = params.val + index;
+    outv.particles[index].position.x = params.val;
+    outv.particles[index].position.y = params.val + index;
 }
