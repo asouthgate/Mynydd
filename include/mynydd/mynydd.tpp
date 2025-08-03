@@ -81,19 +81,21 @@ namespace mynydd {
         float dummy = 0.0f;
     };
 
-    template<typename T, typename U = TrivialUniform>
-    std::shared_ptr<VulkanDynamicResources> createDataResources(
-        std::shared_ptr<VulkanContext> contextPtr,
-        std::shared_ptr<AllocatedBuffer> input,
-        size_t n_data_elements
-    ) {
-        return std::make_shared<VulkanDynamicResources>(
-            contextPtr,
-            input,
-            n_data_elements * sizeof(T),
-            sizeof(U)
-        );
-    }
+    // template<typename T, typename U = TrivialUniform>
+    // std::shared_ptr<VulkanDynamicResources> createDataResources(
+    //     std::shared_ptr<VulkanContext> contextPtr,
+    //     std::shared_ptr<AllocatedBuffer> input,
+    //     size_t n_data_elements
+    // ) {
+    //     return std::make_shared<VulkanDynamicResources>(
+    //         contextPtr,
+    //         input,
+    //         output,
+    //         uniform,
+    //         n_data_elements * sizeof(T),
+    //         sizeof(U)
+    //     );
+    // }
 
     template<typename T>
     void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<T>& inputData) {
@@ -132,22 +134,22 @@ namespace mynydd {
     template<typename U>
     void ComputeEngine<T>::uploadUniformData(const U uniform) {
 
-        if (sizeof(U) > this->dynamicResourcesPtr->uniformSize) {
+        if (sizeof(U) > this->dynamicResourcesPtr->uniform->getSize()) {
             throw std::runtime_error(
                 "Uniform size (" + std::to_string(sizeof(U)) + 
                 " bytes) does not match expected size (" + 
-                std::to_string(this->dynamicResourcesPtr->uniformSize) + " bytes)!"
+                std::to_string(this->dynamicResourcesPtr->uniform->getSize()) + " bytes)!"
             );
         }
         void* mapped;
         VkDeviceSize size = sizeof(U);
 
-        if (vkMapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniformMemory, 0, size, 0, &mapped) != VK_SUCCESS) {
+        if (vkMapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniform->getMemory(), 0, size, 0, &mapped) != VK_SUCCESS) {
             throw std::runtime_error("Failed to map uniform buffer memory for upload");
         }
 
         std::memcpy(mapped, &uniform, static_cast<size_t>(size));
-        vkUnmapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniformMemory);
+        vkUnmapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniform->getMemory());
     }
 
     template<typename T>
@@ -160,7 +162,7 @@ namespace mynydd {
             this->numElements = static_cast<uint32_t>(inputData.size());
             this->dataSize = sizeof(T) * numElements;
             std::cerr << "WARNING: dataSize is going to be deprecated out of ComputeEngine" << std::endl;
-            if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
+            if (this->dataSize > this->dynamicResourcesPtr->input->getSize()) {
                 throw std::runtime_error("Data size exceeds allocated buffer size");
             }
 
@@ -225,7 +227,7 @@ namespace mynydd {
 
         std::vector<T> output = readBufferData<T>(
             this->contextPtr->device,
-            this->dynamicResourcesPtr->outputMemory,
+            this->dynamicResourcesPtr->output->getMemory(),
             this->dataSize,
             this->numElements
         );

@@ -614,48 +614,12 @@ namespace mynydd {
     VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
         std::shared_ptr<AllocatedBuffer> input,
-        size_t _dataSize,
-        size_t _uniformSize
-    ) : contextPtr(contextPtr), input(input) {
+        std::shared_ptr<AllocatedBuffer> output,
+        std::shared_ptr<AllocatedBuffer> uniform
+    ) : contextPtr(contextPtr), input(input), output(output), uniform(uniform) {
         // const size_t dataSize = n_data_elements * sizeof(T);
-        dataSize = _dataSize;
-        uniformSize = _uniformSize;
-        // buffer = createBuffer(
-        //     contextPtr->device, dataSize,
-        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        // );
-
-        // memory = allocateAndBindMemory(
-        //     contextPtr->physicalDevice, 
-        //     contextPtr->device,
-        //     buffer,
-        //     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        // );
-
-        outputBuffer = createBuffer(
-            contextPtr->device, dataSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        );
-
-        outputMemory = allocateAndBindMemory(
-            contextPtr->physicalDevice, 
-            contextPtr->device,
-            outputBuffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );
-
-        uniformBuffer = createBuffer(
-            contextPtr->device,
-            uniformSize, // struct size
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
-        );
-
-        uniformMemory = allocateAndBindMemory(
-            contextPtr->physicalDevice,
-            contextPtr->device,
-            uniformBuffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );    
+        // dataSize = input->getSize();
+        // uniformSize = uniform->getSize();
 
         descriptorSetLayout =
             createDescriptorSetLayout(contextPtr->device);
@@ -666,16 +630,17 @@ namespace mynydd {
             contextPtr->device,
             descriptorSet,
             input->getBuffer(),
-            dataSize,
-            uniformBuffer,
-            uniformSize,
-            outputBuffer,
-            dataSize
+            input->getSize(),
+            uniform->getBuffer(),
+            uniform->getSize(),
+            output->getBuffer(),
+            output->getSize()
         );
     }
 
-    AllocatedBuffer::AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size, bool uniform)
-        : device(device), size(size) 
+    // TODO: should store pointer to context, not device; in fact device should be private
+    AllocatedBuffer::AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform)
+        : device(vkc->device), size(size) 
     {
         VkBuffer newBuffer = createBuffer(
             device, size,
@@ -683,7 +648,7 @@ namespace mynydd {
         );
 
         VkDeviceMemory newBufferMemory = allocateAndBindMemory(
-            physicalDevice, 
+            vkc->physicalDevice, 
             device,
             newBuffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
