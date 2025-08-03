@@ -64,7 +64,7 @@ namespace mynydd {
     public:
         AllocatedBuffer() = default;
 
-        AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size, bool uniform);
+        AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size, bool uniform=false);
 
         // Prevent copying
         AllocatedBuffer(const AllocatedBuffer&) = delete;
@@ -122,13 +122,13 @@ namespace mynydd {
 
     struct VulkanDynamicResources {
         std::shared_ptr<VulkanContext> contextPtr;
-        VkBuffer buffer;
-        VkDeviceMemory memory;
+        // VkBuffer buffer;
+        // VkDeviceMemory memory;
         VkBuffer uniformBuffer;
         VkDeviceMemory uniformMemory;
         VkBuffer outputBuffer;
         VkDeviceMemory outputMemory;
-        // std::shared_ptr<AllocatedBuffer> input;
+        std::shared_ptr<AllocatedBuffer> input;
         // std::shared_ptr<AllocatedBuffer> output;
         // std::shared_ptr<AllocatedBuffer> uniform;
         VkDescriptorSetLayout descriptorSetLayout;
@@ -138,6 +138,7 @@ namespace mynydd {
         size_t uniformSize;
         VulkanDynamicResources(
             std::shared_ptr<VulkanContext> contextPtr,
+            std::shared_ptr<AllocatedBuffer> input,
             size_t _dataSize,
             size_t _uniformSize
         );
