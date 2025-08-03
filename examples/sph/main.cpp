@@ -22,11 +22,21 @@ int main(int argc, char** argv) {
 
     std::cout << "Running SPH example..." << std::endl;
 
+    size_t n = 1024;
+
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, 1024);
+
+    auto buffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr->device,
+        contextPtr->physicalDevice,
+        n * sizeof(Particle),
+        false
+    );
+    
+    auto dynamicResourcesPtr = mynydd::createDataResources<float>(contextPtr, buffer, n);
     mynydd::ComputeEngine<Particle> compeng(contextPtr, dynamicResourcesPtr, "examples/sph/shader.comp.spv");
 
-    std::vector<Particle> inputData(1024);
+    std::vector<Particle> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = Particle{
             glm::vec2(static_cast<float>(i % 32), static_cast<float>(i / 32)),
