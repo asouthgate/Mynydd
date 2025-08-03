@@ -558,11 +558,16 @@ namespace mynydd {
         if (descriptorSet == VK_NULL_HANDLE) {
             throw std::runtime_error("Invalid descriptor set handle");
         }
+
+        std::cerr << "[recordCommandBuffer] All Vulkan handles are valid." << std::endl;
+        std::cerr << "[recordCommandBuffer] numElements: " << numElements << std::endl;
         
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+        std::cerr << "[recordCommandBuffer] Beginning command buffer recording..." << std::endl;
         VkResult result = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        std::cerr << "[recordCommandBuffer] vkBeginCommandBuffer result: " << result << std::endl;
         if (result != VK_SUCCESS) {
             throw std::runtime_error("vkBeginCommandBuffer failed with error: " + std::to_string(result));
         }
@@ -577,6 +582,7 @@ namespace mynydd {
         if (result != VK_SUCCESS) {
             throw std::runtime_error("vkEndCommandBuffer failed with error: " + std::to_string(result));
         }
+        std::cerr << "[recordCommandBuffer] Command buffer recorded successfully." << std::endl;
     }
 
 
@@ -645,81 +651,66 @@ namespace mynydd {
         );
     }
 
-    VulkanDynamicResources create_dynamic_resources(
+    VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        size_t dataSize,
-        size_t uniformSize
-    ) {
+        size_t _dataSize,
+        size_t _uniformSize
+    ) : contextPtr(contextPtr) {
         // const size_t dataSize = n_data_elements * sizeof(T);
-
-        VkBuffer inputBuffer = createBuffer(
+        dataSize = _dataSize;
+        uniformSize = _uniformSize;
+        buffer = createBuffer(
             contextPtr->device, dataSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
         );
 
-        VkDeviceMemory inputBufferMemory = allocateAndBindMemory(
+        memory = allocateAndBindMemory(
             contextPtr->physicalDevice, 
             contextPtr->device,
-            inputBuffer,
+            buffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
 
-        VkBuffer outputBuffer = createBuffer(
+        outputBuffer = createBuffer(
             contextPtr->device, dataSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
         );
 
-        VkDeviceMemory outputBufferMemory = allocateAndBindMemory(
+        outputMemory = allocateAndBindMemory(
             contextPtr->physicalDevice, 
             contextPtr->device,
             outputBuffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
 
-        VkBuffer uniformBuffer = createBuffer(
+        uniformBuffer = createBuffer(
             contextPtr->device,
             uniformSize, // struct size
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
         );
 
-        VkDeviceMemory uniformMemory = allocateAndBindMemory(
+        uniformMemory = allocateAndBindMemory(
             contextPtr->physicalDevice,
             contextPtr->device,
             uniformBuffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );    
 
-        VkDescriptorSetLayout descriptorLayout =
+        descriptorSetLayout =
             createDescriptorSetLayout(contextPtr->device);
 
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSet =
-            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
+        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
 
         updateDescriptorSet(
             contextPtr->device,
             descriptorSet,
-            inputBuffer,
+            buffer,
             dataSize,
             uniformBuffer,
             uniformSize,
             outputBuffer,
             dataSize
         );
-
-        return {
-            inputBuffer,
-            inputBufferMemory,
-            uniformBuffer,
-            uniformMemory,
-            outputBuffer,
-            outputBufferMemory,
-            descriptorLayout,
-            descriptorPool,
-            descriptorSet, // descriptorSet will be created later
-            dataSize,
-            uniformSize
-        };
     }
 
     AllocatedBuffer::AllocatedBuffer(VkDevice device, VkPhysicalDevice physicalDevice, size_t size)

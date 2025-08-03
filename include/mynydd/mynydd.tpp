@@ -1,6 +1,5 @@
 #pragma once
 
-#include "mynydd/memory.hpp"
 #include "mynydd/mynydd.hpp"
 #include <assert.h>
 #include <cstring>
@@ -67,13 +66,20 @@ namespace mynydd {
     template<typename T>
     ComputeEngine<T>::~ComputeEngine() {
         std::cerr << "Destroying ComputeEngine resources..." << std::endl;
-        std::cerr << "WARNING: TODO RAII:" << std::endl;
-        std::cerr << "WARNING: TODO RAII: DESTROY BUFFERS" << std::endl;
         try {
+            std::cerr << "vkDestroyPipeline" << std::endl;
+            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
+                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+                std::cerr << "Handles seem valid?\n";
+            } else {
+                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                throw;
+            }
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
+            std::cerr << "vkDestroyPipelineLayout" << std::endl;
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
+            std::cerr << "vkDestroyShaderModule" << std::endl;
             vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
-
         } catch (const std::exception &e) {
             std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
             throw;
@@ -86,14 +92,14 @@ namespace mynydd {
     };
 
     template<typename T, typename U = TrivialUniform>
-    VulkanDynamicResources createDataResources(
+    std::shared_ptr<VulkanDynamicResources> createDataResources(
         std::shared_ptr<VulkanContext> contextPtr,
         size_t n_data_elements
     ) {
-        return create_dynamic_resources(
+        return std::make_shared<VulkanDynamicResources>(
             contextPtr,
             n_data_elements * sizeof(T),
-            sizeof(U) // always valid, even if it's trivial
+            sizeof(U)
         );
     }
 
@@ -155,21 +161,25 @@ namespace mynydd {
 
     template<typename T>
     void ComputeEngine<T>::uploadData(const std::vector<T> &inputData) {
+        try {
+            if (inputData.empty()) {
+                throw std::runtime_error("Data vector is empty");
+            }
 
-        if (inputData.empty()) {
-            throw std::runtime_error("Data vector is empty");
+            this->numElements = static_cast<uint32_t>(inputData.size());
+            this->dataSize = sizeof(T) * numElements;
+
+            if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
+                throw std::runtime_error("Data size exceeds allocated buffer size");
+            }
+
+            uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->memory, inputData);
+            std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
         }
-
-        this->numElements = static_cast<uint32_t>(inputData.size());
-        this->dataSize = sizeof(T) * numElements;
-
-        if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
-            throw std::runtime_error("Data size exceeds allocated buffer size");
+        catch (const std::exception& e) {
+            std::cerr << "Exception in uploadData: " << e.what() << std::endl;
+            throw;
         }
-
-        // Upload to the GPU buffer
-        uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->memory, inputData);
-        std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
     }
 
     /**
@@ -201,16 +211,17 @@ namespace mynydd {
                 throw std::runtime_error("Invalid pipeline or pipeline layout handle");
             }
             recordCommandBuffer(
-                this->contextPtr->commandBuffer,
-                this->pipelineResources.pipeline,
-                this->pipelineResources.pipelineLayout,
-                this->dynamicResourcesPtr->descriptorSet,
-                numElements
+                    this->contextPtr->commandBuffer,
+                    this->pipelineResources.pipeline,
+                    this->pipelineResources.pipelineLayout,
+                    this->dynamicResourcesPtr->descriptorSet,
+                    this->numElements
             );
         } catch (const std::exception &e) {
             std::cerr << "Error during execution setup: " << e.what() << std::endl;
             throw;
         }
+        std::cerr << "Submitting command buffer and waiting for execution..." << std::endl;
         submitAndWait(
             this->contextPtr->device,
             this->contextPtr->computeQueue,
@@ -230,26 +241,5 @@ namespace mynydd {
 
         return output;
     }
-
-    // template<typename T>
-    // VkBuffer createBuffer(
-    //     VkDevice device,
-    //     VkDeviceSize size,
-    //     VkBufferUsageFlags usage
-    // ) {
-    //     VkBuffer uniformBuffer = createBuffer(
-    //         device,
-    //         sizeof(T), // struct size
-    //         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
-    //     );
-
-    //     VkDeviceMemory uniformMemory = allocateAndBindMemory(
-    //         physicalDevice,
-    //         device,
-    //         uniformBuffer,
-    //         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    //     );    
-    // }
-
 
 }
