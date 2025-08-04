@@ -16,10 +16,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     size_t n = 1024;
 
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
-    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
-    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(float), true);
-
-    mynydd::ComputeEngine<float> pipeline(contextPtr, "shaders/shader.comp.spv", {input, output, uniform});
+    mynydd::ComputeEngine<float> pipeline(contextPtr, "shaders/shader.comp.spv", {input});
     std::cerr << "Initialized ComputeEngine" << std::endl;
     std::vector<float> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -31,7 +28,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     std::cerr << "Uploaded data" << std::endl;
     pipeline.execute(n);
     std::cerr << "Executed" << std::endl;
-    std::vector<float> out = mynydd::fetchData<float>(contextPtr, output, n);
+    std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
     std::cerr << "Fetched" << std::endl;
     for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
         REQUIRE(out[i] == Catch::Approx(1.0 / static_cast<float>(i)));
@@ -46,9 +43,8 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
-    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(double), true);
 
-    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_double.comp.spv", {input, output, uniform});
+    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_double.comp.spv", {input, output});
 
     std::vector<double> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
