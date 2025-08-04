@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mynydd/memory.hpp"
 #include "mynydd/mynydd.hpp"
 #include <assert.h>
 #include <cstring>
@@ -53,15 +54,14 @@ namespace mynydd {
     ComputeEngine<T>::ComputeEngine(
         std::shared_ptr<VulkanContext> contextPtr, 
         const char* shaderPath,
-        std::shared_ptr<AllocatedBuffer> input,
-        std::shared_ptr<AllocatedBuffer> output,
-        std::shared_ptr<AllocatedBuffer> uniform
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+        // std::shared_ptr<AllocatedBuffer> input,
+        // std::shared_ptr<AllocatedBuffer> output,
+        // std::shared_ptr<AllocatedBuffer> uniform
     ) : contextPtr(contextPtr) {
         this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
             contextPtr,
-            input,
-            output,
-            uniform
+            buffers
         );
         assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
         this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout);
@@ -127,44 +127,21 @@ namespace mynydd {
 
 
     template<typename T>
-    template<typename U>
-    void ComputeEngine<T>::uploadUniformData(const U uniform) {
-
-        if (sizeof(U) > this->dynamicResourcesPtr->uniform->getSize()) {
-            throw std::runtime_error(
-                "Uniform size (" + std::to_string(sizeof(U)) + 
-                " bytes) does not match expected size (" + 
-                std::to_string(this->dynamicResourcesPtr->uniform->getSize()) + " bytes)!"
-            );
-        }
-        void* mapped;
-        VkDeviceSize size = sizeof(U);
-
-        if (vkMapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniform->getMemory(), 0, size, 0, &mapped) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to map uniform buffer memory for upload");
-        }
-
-        std::memcpy(mapped, &uniform, static_cast<size_t>(size));
-        vkUnmapMemory(this->contextPtr->device, this->dynamicResourcesPtr->uniform->getMemory());
-    }
-
-    template<typename T>
-    void ComputeEngine<T>::uploadData(const std::vector<T> &inputData) {
+    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<AllocatedBuffer> buffer) {
         try {
             if (inputData.empty()) {
                 throw std::runtime_error("Data vector is empty");
             }
 
-            this->numElements = static_cast<uint32_t>(inputData.size());
-            this->dataSize = sizeof(T) * numElements;
-            std::cerr << "WARNING: dataSize is going to be deprecated out of ComputeEngine" << std::endl;
+            size_t numElements = static_cast<uint32_t>(inputData.size());
+            size_t dataSize = sizeof(T) * numElements;
 
-            if (this->dataSize > this->dynamicResourcesPtr->input->getSize()) {
+            if (dataSize > buffer->getSize()) {
                 throw std::runtime_error("Data size exceeds allocated buffer size");
             }
 
             std::cerr << "About to upload buffer data" << std::endl;
-            uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->input->getMemory(), inputData);
+            uploadBufferData<T>(vkc->device, buffer->getMemory(), inputData);
         }
         catch (const std::exception& e) {
             std::cerr << "Exception in uploadData: " << e.what() << std::endl;
@@ -188,7 +165,7 @@ namespace mynydd {
     }
 
     template<typename T>
-    void ComputeEngine<T>::execute() {
+    void ComputeEngine<T>::execute(size_t numElements) {
         std::cerr<< "Recording command buffer..." << std::endl;
         try {
             if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
@@ -205,7 +182,7 @@ namespace mynydd {
                 this->pipelineResources.pipeline,
                 this->pipelineResources.pipelineLayout,
                 this->dynamicResourcesPtr->descriptorSet,
-                this->numElements
+                numElements
             );
         } catch (const std::exception &e) {
             std::cerr << "Error during execution setup: " << e.what() << std::endl;
@@ -219,13 +196,13 @@ namespace mynydd {
     }
 
     template<typename T>
-    std::vector<T> ComputeEngine<T>::fetchData() {
+    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<AllocatedBuffer> buffer, size_t n_elements) {
 
         std::vector<T> output = readBufferData<T>(
-            this->contextPtr->device,
-            this->dynamicResourcesPtr->output->getMemory(),
-            this->dataSize,
-            this->numElements
+            vkc->device,
+            buffer->getMemory(),
+            buffer->getSize(),
+            n_elements
         );
 
         return output;
