@@ -390,6 +390,56 @@ namespace mynydd {
     }
 
     /**
+    * Binds a buffer to the given descriptor set at binding 0.
+    * The descriptor set contains information about the resources that the compute
+    * shader will use. In this case, the buffer will be used as a storage buffer,
+    * which means it can be read from and written to by the compute shader. For our
+    * GPU compute abstraction, this will correspond to dtypes that the compute
+    * shader will process.
+    */
+    void updateDescriptorSet(
+        VkDevice device,
+        VkDescriptorSet descriptorSet,
+        const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
+    ) {
+        if (buffers.empty()) {
+            throw std::runtime_error("No buffers provided for descriptor set update");
+        }
+
+        std::vector<VkWriteDescriptorSet> writes;
+        std::vector<VkDescriptorBufferInfo> bufferInfos; 
+        bufferInfos.reserve(buffers.size());
+
+        for (const auto &buffer : buffers) {
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = buffer->getBuffer();
+            bufferInfo.offset = 0;
+            bufferInfo.range = buffer->getSize();
+
+            bufferInfos.push_back(bufferInfo);
+
+            VkWriteDescriptorSet write{};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = descriptorSet;
+            write.dstBinding = static_cast<uint32_t>(writes.size()); // use different bindings if needed
+            write.dstArrayElement = 0;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write.descriptorCount = 1;
+            write.pBufferInfo = &bufferInfos.back();
+
+            writes.push_back(write);
+        }
+
+        vkUpdateDescriptorSets(
+            device,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr
+        );
+    }
+    
+    /**
     * Creates a compute pipeline with given shader and descriptor set layout.
     * A compute pipeline is a set of instructions that the GPU will execute for
     * compute operations. For pure compute, it's quite simple, as it only requires
@@ -601,46 +651,19 @@ namespace mynydd {
         std::shared_ptr<AllocatedBuffer> output,
         std::shared_ptr<AllocatedBuffer> uniform
     ) : contextPtr(contextPtr), input(input), output(output), uniform(uniform) {
-        // const size_t dataSize = n_data_elements * sizeof(T);
-        // dataSize = input->getSize();
-        // uniformSize = uniform->getSize();
 
-        descriptorSetLayout =
-            createDescriptorSetLayout(contextPtr->device);
+        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
 
         descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
 
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers = { input, output, uniform };
         updateDescriptorSet(
             contextPtr->device,
             descriptorSet,
-            input->getBuffer(),
-            input->getSize(),
-            uniform->getBuffer(),
-            uniform->getSize(),
-            output->getBuffer(),
-            output->getSize()
+            buffers
         );
     }
 
-    // TODO: should store pointer to context, not device; in fact device should be private
-    AllocatedBuffer::AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform)
-        : device(vkc->device), size(size) 
-    {
-        VkBuffer newBuffer = createBuffer(
-            device, size,
-            uniform ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        );
-
-        VkDeviceMemory newBufferMemory = allocateAndBindMemory(
-            vkc->physicalDevice, 
-            device,
-            newBuffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );
-
-        this->buffer = newBuffer;
-        this->memory = newBufferMemory;
-    }
 
 
 }

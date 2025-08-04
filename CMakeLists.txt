@@ -12,6 +12,7 @@ set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 
 add_library(mynydd SHARED
     ${SOURCE_DIR}/mynydd.cpp
+    ${SOURCE_DIR}/memory.cpp
 )
 
 target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
