@@ -5,6 +5,11 @@ namespace mynydd {
     AllocatedBuffer::AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform)
         : device(vkc->device), size(size) 
     {
+
+        if (uniform) {
+            type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        }
+
         VkBuffer newBuffer = createBuffer(
             device, size,
             uniform ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
