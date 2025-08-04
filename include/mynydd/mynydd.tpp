@@ -45,9 +45,6 @@ namespace mynydd {
         std::shared_ptr<VulkanContext> contextPtr, 
         const char* shaderPath,
         std::vector<std::shared_ptr<AllocatedBuffer>> buffers
-        // std::shared_ptr<AllocatedBuffer> input,
-        // std::shared_ptr<AllocatedBuffer> output,
-        // std::shared_ptr<AllocatedBuffer> uniform
     ) : contextPtr(contextPtr) {
         this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
             contextPtr,
