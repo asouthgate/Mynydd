@@ -20,7 +20,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
     auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(float), true);
 
-    mynydd::ComputeEngine<float> pipeline(contextPtr, "shaders/shader.comp.spv", input, output, uniform);
+    mynydd::ComputeEngine<float> pipeline(contextPtr, "shaders/shader.comp.spv", {input, output, uniform});
     std::cerr << "Initialized ComputeEngine" << std::endl;
     std::vector<float> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -28,11 +28,11 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     }
 
 
-    pipeline.uploadData(inputData);
+    mynydd::uploadData<float>(contextPtr, inputData, input);
     std::cerr << "Uploaded data" << std::endl;
-    pipeline.execute();
+    pipeline.execute(n);
     std::cerr << "Executed" << std::endl;
-    std::vector<float> out = pipeline.fetchData();
+    std::vector<float> out = mynydd::fetchData<float>(contextPtr, output, n);
     std::cerr << "Fetched" << std::endl;
     for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
         REQUIRE(out[i] == Catch::Approx(1.0 / static_cast<float>(i)));
@@ -84,16 +84,16 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
     auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(double), true);
 
-    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_double.comp.spv", input, output, uniform);
+    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_double.comp.spv", {input, output, uniform});
 
     std::vector<double> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<double>(i);
     }
 
-    pipeline.uploadData(inputData);
-    pipeline.execute();
-    std::vector<double> out = pipeline.fetchData();
+    mynydd::uploadData<double>(contextPtr, inputData, input);
+    pipeline.execute(n);
+    std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
     for (size_t i = 0; i < std::min<size_t>(out.size(), 10); ++i) {
         REQUIRE(out[i] == static_cast<double>(i) * 2.0);
     }
@@ -161,7 +161,7 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(TestData), false);
     auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(TestParams), true);
 
-    mynydd::ComputeEngine<TestData> compeng(contextPtr, "shaders/shader_uniform.comp.spv", input, output, uniform);
+    mynydd::ComputeEngine<TestData> compeng(contextPtr, "shaders/shader_uniform.comp.spv", {input, output, uniform});
 
     std::vector<TestData> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -170,10 +170,10 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
         };
     }
 
-    compeng.uploadUniformData(params);
-    compeng.uploadData(inputData);
-    compeng.execute();
-    std::vector<TestData> outv = compeng.fetchData();
+    mynydd::uploadUniformData<TestParams>(contextPtr, params, uniform);
+    mynydd::uploadData<TestData>(contextPtr, inputData, input);
+    compeng.execute(n);
+    std::vector<TestData> outv = mynydd::fetchData<TestData>(contextPtr, output, n);
 
     for (size_t i = 1; i < std::min<size_t>(outv.size(), 10); ++i) {
         REQUIRE(outv[i].position.x == params.val);

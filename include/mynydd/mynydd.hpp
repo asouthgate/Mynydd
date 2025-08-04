@@ -63,17 +63,12 @@ namespace mynydd {
 
     struct VulkanDynamicResources {
         std::shared_ptr<VulkanContext> contextPtr;
-        std::shared_ptr<AllocatedBuffer> input;
-        std::shared_ptr<AllocatedBuffer> output;
-        std::shared_ptr<AllocatedBuffer> uniform;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
         VulkanDynamicResources(
             std::shared_ptr<VulkanContext> contextPtr,
-            std::shared_ptr<AllocatedBuffer> input,
-            std::shared_ptr<AllocatedBuffer> output,
-            std::shared_ptr<AllocatedBuffer> uniform
+            std::vector<std::shared_ptr<AllocatedBuffer>> buffers
         );
         ~VulkanDynamicResources() {
             std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
@@ -97,23 +92,21 @@ namespace mynydd {
             PipelineStep(
                 std::shared_ptr<VulkanContext> contextPtr,
                 const char* shaderPath,
-                std::shared_ptr<AllocatedBuffer> input,
-                std::shared_ptr<AllocatedBuffer> output,
-                std::shared_ptr<AllocatedBuffer> uniform
+                std::vector<std::shared_ptr<AllocatedBuffer>> buffers
             ); 
             ~ComputeEngine();
 
-            template<typename U> void uploadUniformData(const U uniform);
-            void uploadData(const std::vector<T> &data);
-            void execute();     
-            std::vector<T> fetchData();                   
+            // template<typename U> void uploadUniformData(const U uniform, std::shared_ptr<AllocatedBuffer> ubuffer);
+            // void uploadData(const std::vector<T> &data);
+            void execute(size_t numElements); //numElements required for computing nthreads
+            // std::vector<T> fetchData();                   
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
             VulkanPipelineResources pipelineResources;
-
-            PushConstantData m_pushConstantData{0, 0, std::vector<std::byte>{}};
+            // uint32_t numElements; // number of elements in the data buffer
+            // VkDeviceSize dataSize;
     };
 
 
