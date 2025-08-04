@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
     auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(Params), true);
-    mynydd::ComputeEngine<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", input, output, uniform);
+    mynydd::ComputeEngine<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform});
 
     std::vector<Particle> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -40,11 +40,10 @@ int main(int argc, char** argv) {
             0.0f
         };
     }
-
-    compeng.uploadUniformData(params);
-    compeng.uploadData(inputData);
-    compeng.execute();
-    std::vector<Particle> out = compeng.fetchData();
+    mynydd::uploadUniformData<Params>(contextPtr, params, uniform);
+    mynydd::uploadData<Particle>(contextPtr, inputData, input);
+    compeng.execute(n);
+    std::vector<Particle> out = mynydd::fetchData<Particle>(contextPtr, output, n);
 
     for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
         std::cout << "output[" << i << "] = (" << out[i].position.x << "," << out[i].position.y << ")" << std::endl;
