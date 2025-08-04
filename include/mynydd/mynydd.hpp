@@ -80,7 +80,6 @@ namespace mynydd {
             if (contextPtr && contextPtr->device != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE) {
             } else {
                 std::cerr << "VulkanDynamicResources destructor failure due to invalid dependency handles." << std::endl;
-                throw;
             }
             vkDestroyDescriptorPool(this->contextPtr->device, descriptorPool, nullptr);
             vkDestroyDescriptorSetLayout(this->contextPtr->device, descriptorSetLayout, nullptr);
@@ -98,7 +97,9 @@ namespace mynydd {
             ComputeEngine(
                 std::shared_ptr<VulkanContext> contextPtr,
                 const char* shaderPath,
-                std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+                std::shared_ptr<AllocatedBuffer> input,
+                std::shared_ptr<AllocatedBuffer> output,
+                std::shared_ptr<AllocatedBuffer> uniform
             ); 
             ~ComputeEngine();
 
