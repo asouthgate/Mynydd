@@ -120,20 +120,12 @@ namespace mynydd {
 
     struct VulkanDynamicResources {
         std::shared_ptr<VulkanContext> contextPtr;
-        // VkBuffer buffer;
-        // VkDeviceMemory memory;
-        // VkBuffer uniformBuffer;
-        // VkDeviceMemory uniformMemory;
-        // VkBuffer outputBuffer;
-        // VkDeviceMemory outputMemory;
         std::shared_ptr<AllocatedBuffer> input;
         std::shared_ptr<AllocatedBuffer> output;
         std::shared_ptr<AllocatedBuffer> uniform;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
-        // size_t dataSize;
-        // size_t uniformSize;
         VulkanDynamicResources(
             std::shared_ptr<VulkanContext> contextPtr,
             std::shared_ptr<AllocatedBuffer> input,
@@ -144,10 +136,10 @@ namespace mynydd {
             std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
             if (contextPtr && contextPtr->device != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE) {
             } else {
-                std::cerr << "vkDestroyDescriptorPool about to fail to invalid handles." << std::endl;
+                std::cerr << "VulkanDynamicResources destructor failure due to invalid dependency handles." << std::endl;
+                throw;
             }
             vkDestroyDescriptorPool(this->contextPtr->device, descriptorPool, nullptr);
-            std::cerr << "Descriptor pool destroyed." << std::endl;
             vkDestroyDescriptorSetLayout(this->contextPtr->device, descriptorSetLayout, nullptr);
             std::cerr << "VulkanDynamicResources destroyed." << std::endl;
         }
@@ -175,7 +167,6 @@ namespace mynydd {
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
-            // VulkanDynamicResources dynamicResources;
             VulkanPipelineResources pipelineResources;
             uint32_t numElements; // number of elements in the data buffer
             VkDeviceSize dataSize;
