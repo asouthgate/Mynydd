@@ -1,5 +1,7 @@
 #pragma once
 
+#include "mynydd/memory.hpp"
+#include "mynydd/mynydd.hpp"
 #include <assert.h>
 #include <cstring>
 #include <memory>
@@ -8,8 +10,6 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-
-// #include "mynydd.hpp"
 
 namespace mynydd {
     
@@ -53,87 +53,47 @@ namespace mynydd {
     template<typename T>
     ComputeEngine<T>::ComputeEngine(
         std::shared_ptr<VulkanContext> contextPtr, 
-        std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr,
-        const char* shaderPath
-    ) {
-        std::cerr << "Creating ComputeEngine resources..." << std::endl;
-        this->contextPtr = contextPtr;
-        this->dynamicResourcesPtr = dynamicResourcesPtr;
+        const char* shaderPath,
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+    ) : contextPtr(contextPtr) {
+        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
+            contextPtr,
+            buffers
+        );
+        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
         this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout);
     }
 
     template<typename T>
     ComputeEngine<T>::~ComputeEngine() {
         std::cerr << "Destroying ComputeEngine resources..." << std::endl;
-        std::cerr << "WARNING: TODO RAII" << std::endl;
         try {
-            vkFreeCommandBuffers(this->contextPtr->device, this->contextPtr->commandPool, 1, &this->contextPtr->commandBuffer);
-            vkDestroyCommandPool(this->contextPtr->device, this->contextPtr->commandPool, nullptr);
+            std::cerr << "Destroying ComputeEngine..." << std::endl;
+            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
+                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+            } else {
+                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                throw;
+            }
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
-            vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResourcesPtr->descriptorPool, nullptr);
-            vkDestroyDescriptorSetLayout(this->contextPtr->device, this->dynamicResourcesPtr->descriptorSetLayout, nullptr);
             vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
-            vkDestroyDevice(this->contextPtr->device, nullptr);
-            vkDestroyInstance(this->contextPtr->instance, nullptr);
-
         } catch (const std::exception &e) {
+            std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
             throw;
         }
+        std::cerr << "ComputeEngine resources destroyed." << std::endl;
     }
 
-    VulkanDynamicResources create_dynamic_resources(
-        std::shared_ptr<VulkanContext> contextPtr,
-        size_t dataSize
-    ) {
-        // const size_t dataSize = n_data_elements * sizeof(T);
-
-        VkBuffer buffer = createBuffer(
-            contextPtr->device, dataSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        );
-
-        VkDeviceMemory bufferMemory = allocateAndBindMemory(
-            contextPtr->physicalDevice, 
-            contextPtr->device,
-            buffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );
-
-        VkDescriptorSetLayout descriptorLayout =
-            createDescriptorSetLayout(contextPtr->device);
-
-
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSet =
-            allocateDescriptorSet(contextPtr->device, descriptorLayout, descriptorPool);
-
-        updateDescriptorSet(contextPtr->device, descriptorSet, buffer, dataSize);
-
-        return {
-            buffer,
-            bufferMemory,
-            descriptorLayout,
-            descriptorPool,
-            descriptorSet, // descriptorSet will be created later
-            dataSize
-        };
-    }
-
-    template<typename T>
-    VulkanDynamicResources createDataResources(std::shared_ptr<VulkanContext> contextPtr, size_t n_data_elements) {
-        // Create dynamic resources with the specified number of data elements
-        return create_dynamic_resources(
-            contextPtr,
-            n_data_elements * sizeof(T)
-        );
-    }
+    struct TrivialUniform {
+        float dummy = 0.0f;
+    };
 
     template<typename T>
     void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<T>& inputData) {
         void* mapped;
         VkDeviceSize size = sizeof(T) * inputData.size();
-
+        std::cerr << "Uploading buffer data" << std::endl;
         if (vkMapMemory(device, memory, 0, size, 0, &mapped) != VK_SUCCESS) {
             throw std::runtime_error("Failed to map buffer memory for upload");
         }
@@ -142,28 +102,48 @@ namespace mynydd {
         vkUnmapMemory(device, memory);
     }
 
+    template<typename U>
+    void uploadUniformData(std::shared_ptr<VulkanContext> vkc, const U uniform, std::shared_ptr<AllocatedBuffer> buff) {
+        if (sizeof(U) > buff->getSize()) {
+            throw std::runtime_error(
+                "Uniform size (" + std::to_string(sizeof(U)) + 
+                " bytes) does not match expected size (" + 
+                std::to_string(buff->getSize()) + " bytes)!"
+            );
+        }
+        void* mapped;
+        VkDeviceSize size = sizeof(U);
+
+        if (vkMapMemory(vkc->device, buff->getMemory(), 0, size, 0, &mapped) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to map uniform buffer memory for upload");
+        }
+
+        std::memcpy(mapped, &uniform, static_cast<size_t>(size));
+        vkUnmapMemory(vkc->device, buff->getMemory());
+    }
+
+
     template<typename T>
-    void ComputeEngine<T>::uploadData(const std::vector<T> &data) {
+    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<AllocatedBuffer> buffer) {
+        try {
+            if (inputData.empty()) {
+                throw std::runtime_error("Data vector is empty");
+            }
 
-        if (data.empty()) {
-            throw std::runtime_error("Data vector is empty");
+            size_t numElements = static_cast<uint32_t>(inputData.size());
+            size_t dataSize = sizeof(T) * numElements;
+
+            if (dataSize > buffer->getSize()) {
+                throw std::runtime_error("Data size exceeds allocated buffer size");
+            }
+
+            std::cerr << "About to upload buffer data" << std::endl;
+            uploadBufferData<T>(vkc->device, buffer->getMemory(), inputData);
         }
-
-        this->numElements = static_cast<uint32_t>(data.size());
-        this->dataSize = sizeof(T) * numElements;
-
-        if (this->dataSize > this->dynamicResourcesPtr->dataSize) {
-            throw std::runtime_error("Data size exceeds allocated buffer size");
+        catch (const std::exception& e) {
+            std::cerr << "Exception in uploadData: " << e.what() << std::endl;
+            throw;
         }
-
-        std::vector<T> inputData(numElements);
-        for (uint32_t i = 0; i < numElements; ++i) {
-            inputData[i] = static_cast<T>(i);
-        }
-
-        // Upload to the GPU buffer
-        uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->memory, inputData);
-        std::cerr << "Upload complete. Data size: " << this->dataSize << " bytes." << std::endl;
     }
 
     /**
@@ -182,29 +162,47 @@ namespace mynydd {
     }
 
     template<typename T>
-    std::vector<T> ComputeEngine<T>::execute() {
+    void ComputeEngine<T>::execute(size_t numElements) {
         std::cerr<< "Recording command buffer..." << std::endl;
-        recordCommandBuffer(
-            this->contextPtr->commandBuffer,
-            this->pipelineResources.pipeline,
-            this->pipelineResources.pipelineLayout,
-            this->dynamicResourcesPtr->descriptorSet,
-            this->numElements
-        );
-        std::cerr << "Submitting command buffer and waiting for execution..." << std::endl;
+        try {
+            if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid Vulkan context or device handle");
+            }
+            if (!this->dynamicResourcesPtr || this->dynamicResourcesPtr->descriptorSet == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid dynamic resources or descriptor set handle");
+            }
+            if (this->pipelineResources.pipeline == VK_NULL_HANDLE || this->pipelineResources.pipelineLayout == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid pipeline or pipeline layout handle");
+            }
+            recordCommandBuffer(
+                this->contextPtr->commandBuffer,
+                this->pipelineResources.pipeline,
+                this->pipelineResources.pipelineLayout,
+                this->dynamicResourcesPtr->descriptorSet,
+                numElements
+            );
+        } catch (const std::exception &e) {
+            std::cerr << "Error during execution setup: " << e.what() << std::endl;
+            throw;
+        }
         submitAndWait(
             this->contextPtr->device,
             this->contextPtr->computeQueue,
             this->contextPtr->commandBuffer
         );
+    }
+
+    template<typename T>
+    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<AllocatedBuffer> buffer, size_t n_elements) {
 
         std::vector<T> output = readBufferData<T>(
-            this->contextPtr->device,
-            this->dynamicResourcesPtr->memory,
-            this->dataSize,
-            this->numElements
+            vkc->device,
+            buffer->getMemory(),
+            buffer->getSize(),
+            n_elements
         );
 
         return output;
     }
+
 }

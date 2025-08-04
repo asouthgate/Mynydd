@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(nanovulkan)
 
+
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Vulkan REQUIRED)
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
@@ -10,6 +12,7 @@ set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 
 add_library(mynydd SHARED
     ${SOURCE_DIR}/mynydd.cpp
+    ${SOURCE_DIR}/memory.cpp
 )
 
 target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
@@ -60,3 +63,54 @@ add_dependencies(tests compile_shaders)
 
 add_test(NAME compute_tests COMMAND tests "[vulkan]")
 add_test(NAME shader_kernel_tests COMMAND tests "[shader_kernels]")
+
+
+# === Compile example folders ===
+
+file(GLOB EXAMPLE_DIRS RELATIVE ${CMAKE_SOURCE_DIR}/examples ${CMAKE_SOURCE_DIR}/examples/*)
+
+foreach(EXAMPLE ${EXAMPLE_DIRS})
+    set(EXAMPLE_PATH ${CMAKE_SOURCE_DIR}/examples/${EXAMPLE})
+    set(EXAMPLE_SHADER_DIR ${EXAMPLE_PATH})
+    set(EXAMPLE_SPIRV_DIR ${CMAKE_BINARY_DIR}/examples/${EXAMPLE})
+    file(MAKE_DIRECTORY ${EXAMPLE_SPIRV_DIR})
+
+    # Collect shaders
+    file(GLOB EXAMPLE_SHADER_SRC_FILES "${EXAMPLE_SHADER_DIR}/*.comp")
+    set(EXAMPLE_SHADER_SPV_FILES)
+
+    foreach(SHADER ${EXAMPLE_SHADER_SRC_FILES})
+        get_filename_component(SHADER_NAME ${SHADER} NAME)
+        set(SPIRV_OUT "${EXAMPLE_SPIRV_DIR}/${SHADER_NAME}.spv")
+
+        add_custom_command(
+            OUTPUT ${SPIRV_OUT}
+            COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT}
+            DEPENDS ${SHADER}
+            COMMENT "Compiling ${EXAMPLE}/${SHADER_NAME} to SPIR-V"
+            VERBATIM
+        )
+
+        list(APPEND EXAMPLE_SHADER_SPV_FILES ${SPIRV_OUT})
+    endforeach()
+
+    add_custom_target(compile_${EXAMPLE}_shaders ALL DEPENDS ${EXAMPLE_SHADER_SPV_FILES})
+
+    # Add executable
+    add_executable(${EXAMPLE}_example ${EXAMPLE_PATH}/main.cpp ${EXAMPLE_SHADER_SPV_FILES})
+
+    target_include_directories(${EXAMPLE}_example PRIVATE ${INCLUDE_DIR})
+    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd)
+
+    add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
+
+    # === Example tests ===
+    if(EXISTS "${EXAMPLE_PATH}/test.cpp")
+        add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test.cpp ${EXAMPLE_SHADER_SPV_FILES})
+        target_include_directories(${EXAMPLE}_test PRIVATE ${INCLUDE_DIR})
+        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
+        add_dependencies(${EXAMPLE}_test compile_${EXAMPLE}_shaders)
+
+        add_test(NAME ${EXAMPLE}_tests COMMAND ${EXAMPLE}_test "[${EXAMPLE}]")
+    endif()
+endforeach()

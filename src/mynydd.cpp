@@ -1,3 +1,4 @@
+#include <array>
 #include <assert.h>
 #include <cstring>
 #include <fstream>
@@ -42,53 +43,53 @@ namespace mynydd {
     // 2. Select physical device with compute support
     VkPhysicalDevice pickPhysicalDevice(VkInstance instance,
                                         uint32_t &computeQueueFamilyIndex) {
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-    if (deviceCount == 0)
-        throw std::runtime_error("No Vulkan-compatible GPUs found");
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+        if (deviceCount == 0)
+            throw std::runtime_error("No Vulkan-compatible GPUs found");
 
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-    // Check for a suitable physical device with compute capabilities
-    // Iterate through the devices and find one with a compute queue
-    // computeQueueFamilyIndex will be set to the index of the compute queue
-    // family This will pick the first device that has a compute queue
-    for (const auto &device : devices) {
-        uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
-                                                nullptr);
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
-                                                queueFamilies.data());
+        // Check for a suitable physical device with compute capabilities
+        // Iterate through the devices and find one with a compute queue
+        // computeQueueFamilyIndex will be set to the index of the compute queue
+        // family This will pick the first device that has a compute queue
+        for (const auto &device : devices) {
+            uint32_t queueFamilyCount = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                                    nullptr);
+            std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                                    queueFamilies.data());
 
-        for (uint32_t i = 0; i < queueFamilyCount; ++i) {
-        // Print the number of queue families this GPU has
-        std::cout << "Number of queue families: " << queueFamilyCount
-                    << std::endl;
-        // Print the properties of each queue family
-        std::cout << "Queue family " << i << ": "
-                    << "Count: " << queueFamilies[i].queueCount
-                    << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
-        if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            VkPhysicalDeviceProperties props;
-            vkGetPhysicalDeviceProperties(device, &props);
-            std::cout << "Selected device: " << props.deviceName << std::endl;
-            // Set compute queue family index
-            // A compute queue family index is a queue family that supports compute
-            // operations A queue family is a group of queues that share the same
-            // properties A queue is a submission point for commands to the GPU Why
-            // do GPUs have multiple queues? Because different types of operations
-            // (graphics, compute, transfer) can be executed in parallel Is there
-            // one type of queue per operation? No, a queue family can support
-            // multiple types of operations What does a queue family correspond to
-            // physically? A queue family corresponds to a physical hardware unit
-            // that can execute commands How many queue families does a GPU have? It
-            // varies by GPU, but typically there are several queue families for
-            // different operations
-            computeQueueFamilyIndex = i;
-            return device;
-        }
+            for (uint32_t i = 0; i < queueFamilyCount; ++i) {
+            // Print the number of queue families this GPU has
+            std::cout << "Number of queue families: " << queueFamilyCount
+                        << std::endl;
+            // Print the properties of each queue family
+            std::cout << "Queue family " << i << ": "
+                        << "Count: " << queueFamilies[i].queueCount
+                        << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
+            if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                VkPhysicalDeviceProperties props;
+                vkGetPhysicalDeviceProperties(device, &props);
+                std::cout << "Selected device: " << props.deviceName << std::endl;
+                // Set compute queue family index
+                // A compute queue family index is a queue family that supports compute
+                // operations A queue family is a group of queues that share the same
+                // properties A queue is a submission point for commands to the GPU Why
+                // do GPUs have multiple queues? Because different types of operations
+                // (graphics, compute, transfer) can be executed in parallel Is there
+                // one type of queue per operation? No, a queue family can support
+                // multiple types of operations What does a queue family correspond to
+                // physically? A queue family corresponds to a physical hardware unit
+                // that can execute commands How many queue families does a GPU have? It
+                // varies by GPU, but typically there are several queue families for
+                // different operations
+                computeQueueFamilyIndex = i;
+                return device;
+            }
         }
     }
 
@@ -141,7 +142,7 @@ namespace mynydd {
 
         VkBuffer buffer;
         if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create buffer");
+            throw std::runtime_error("Failed to create buffer");
         }
 
         return buffer;
@@ -173,7 +174,7 @@ namespace mynydd {
         }
 
         if (memoryTypeIndex == UINT32_MAX) {
-        throw std::runtime_error("Failed to find suitable memory type");
+            throw std::runtime_error("Failed to find suitable memory type");
         }
 
         VkMemoryAllocateInfo allocInfo{};
@@ -183,7 +184,7 @@ namespace mynydd {
 
         VkDeviceMemory memory;
         if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate buffer memory");
+            throw std::runtime_error("Failed to allocate buffer memory");
         }
 
         vkBindBufferMemory(device, buffer, memory, 0);
@@ -230,16 +231,30 @@ namespace mynydd {
     * resources (like CPUs, memory) a job will need.
     */
     VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device) {
-        VkDescriptorSetLayoutBinding layoutBinding{};
-        layoutBinding.binding = 0;
-        layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        layoutBinding.descriptorCount = 1;
-        layoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        VkDescriptorSetLayoutBinding inputBufferBinding{};
+        inputBufferBinding.binding = 0;
+        inputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        inputBufferBinding.descriptorCount = 1;
+        inputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        VkDescriptorSetLayoutBinding outputBufferBinding{};
+        outputBufferBinding.binding = 1;
+        outputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        outputBufferBinding.descriptorCount = 1;
+        outputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        VkDescriptorSetLayoutBinding uniformBufferBinding{};
+        uniformBufferBinding.binding = 2;
+        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniformBufferBinding.descriptorCount = 1;
+        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {inputBufferBinding, outputBufferBinding, uniformBufferBinding};
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 1;
-        layoutInfo.pBindings = &layoutBinding;
+        layoutInfo.bindingCount = 3;
+        layoutInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout layout;
         if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &layout) !=
@@ -264,15 +279,23 @@ namespace mynydd {
         VkDescriptorSetLayout layout,
         VkDescriptorPool &pool
     ) {
-        VkDescriptorPoolSize poolSize{};
-        poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSize.descriptorCount = 1;
+        std::array<VkDescriptorPoolSize, 3> poolSizes{};
+
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        poolSizes[0].descriptorCount = 1;
+
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        poolSizes[1].descriptorCount = 1;
+
+        poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSizes[2].descriptorCount = 1;
+
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = 1;
-        poolInfo.pPoolSizes = &poolSize;
-        poolInfo.maxSets = 1;
+        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+        poolInfo.pPoolSizes = poolSizes.data();
+        poolInfo.maxSets = 1; // One descriptor set
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create descriptor pool");
@@ -285,9 +308,7 @@ namespace mynydd {
         allocInfo.pSetLayouts = &layout;
 
         VkDescriptorSet descriptorSet;
-        if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) !=
-            VK_SUCCESS
-        ) {
+        if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate descriptor set");
         }
 
@@ -305,26 +326,119 @@ namespace mynydd {
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
-        VkBuffer buffer,
-        VkDeviceSize size
+        VkBuffer inputBuffer,
+        VkDeviceSize inputBufferSize,
+        VkBuffer uniformBuffer,
+        VkDeviceSize uniformSize,
+        VkBuffer outputBuffer,
+        VkDeviceSize outputBufferSize
     ) {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = buffer;
-        bufferInfo.offset = 0;
-        bufferInfo.range = size;
+        VkDescriptorBufferInfo inputBufferInfo{};
+        inputBufferInfo.buffer = inputBuffer;
+        inputBufferInfo.offset = 0;
+        inputBufferInfo.range = inputBufferSize;
 
-        VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = descriptorSet;
-        write.dstBinding = 0;
-        write.dstArrayElement = 0;
-        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        write.descriptorCount = 1;
-        write.pBufferInfo = &bufferInfo;
+        VkDescriptorBufferInfo outputBufferInfo{};
+        outputBufferInfo.buffer = outputBuffer;
+        outputBufferInfo.offset = 0;
+        outputBufferInfo.range = outputBufferSize;
 
-        vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+        // Uniform buffer info
+        VkDescriptorBufferInfo uniformBufferInfo{};
+        uniformBufferInfo.buffer = uniformBuffer;
+        uniformBufferInfo.offset = 0;
+        uniformBufferInfo.range = uniformSize;
+
+        VkWriteDescriptorSet inputWrite{};
+        inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        inputWrite.dstSet = descriptorSet;
+        inputWrite.dstBinding = 0; // binding 0: storage buffer
+        inputWrite.dstArrayElement = 0;
+        inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        inputWrite.descriptorCount = 1;
+        inputWrite.pBufferInfo = &inputBufferInfo;
+
+        VkWriteDescriptorSet outputWrite{};
+        outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        outputWrite.dstSet = descriptorSet;
+        outputWrite.dstBinding = 1; // binding 0: storage buffer
+        outputWrite.dstArrayElement = 0;
+        outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        outputWrite.descriptorCount = 1;
+        outputWrite.pBufferInfo = &outputBufferInfo;
+
+        VkWriteDescriptorSet uniformWrite{};
+        uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        uniformWrite.dstSet = descriptorSet;
+        uniformWrite.dstBinding = 2; // binding 1: uniform buffer
+        uniformWrite.dstArrayElement = 0;
+        uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniformWrite.descriptorCount = 1;
+        uniformWrite.pBufferInfo = &uniformBufferInfo;
+
+        std::array<VkWriteDescriptorSet, 3> writes = {
+            inputWrite, outputWrite, uniformWrite
+        };
+
+        vkUpdateDescriptorSets(
+            device,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr
+        );
     }
 
+    /**
+    * Binds a buffer to the given descriptor set at binding 0.
+    * The descriptor set contains information about the resources that the compute
+    * shader will use. In this case, the buffer will be used as a storage buffer,
+    * which means it can be read from and written to by the compute shader. For our
+    * GPU compute abstraction, this will correspond to dtypes that the compute
+    * shader will process.
+    */
+    void updateDescriptorSet(
+        VkDevice device,
+        VkDescriptorSet descriptorSet,
+        const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
+    ) {
+        if (buffers.empty()) {
+            throw std::runtime_error("No buffers provided for descriptor set update");
+        }
+
+        std::vector<VkWriteDescriptorSet> writes;
+        std::vector<VkDescriptorBufferInfo> bufferInfos; 
+        bufferInfos.reserve(buffers.size());
+
+        for (const auto &buffer : buffers) {
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = buffer->getBuffer();
+            bufferInfo.offset = 0;
+            bufferInfo.range = buffer->getSize();
+
+            bufferInfos.push_back(bufferInfo);
+
+            VkWriteDescriptorSet write{};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = descriptorSet;
+            write.dstBinding = static_cast<uint32_t>(writes.size()); // use different bindings if needed
+            write.dstArrayElement = 0;
+            write.descriptorType = buffer->getType();
+            write.descriptorCount = 1;
+            write.pBufferInfo = &bufferInfos.back();
+
+            writes.push_back(write);
+        }
+
+        vkUpdateDescriptorSets(
+            device,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr
+        );
+    }
+    
     /**
     * Creates a compute pipeline with given shader and descriptor set layout.
     * A compute pipeline is a set of instructions that the GPU will execute for
@@ -431,10 +545,27 @@ namespace mynydd {
     * will be executed.
     */
     void recordCommandBuffer(VkCommandBuffer cmdBuffer, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descriptorSet, uint32_t numElements) {
+        
+        if (cmdBuffer == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid command buffer handle");
+        }
+        if (pipeline == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid pipeline handle");
+        }
+        if (layout == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid pipeline layout handle");
+        }
+        if (descriptorSet == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid descriptor set handle");
+        }
+        
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        VkResult result = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("vkBeginCommandBuffer failed with error: " + std::to_string(result));
+        }
 
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
@@ -442,7 +573,10 @@ namespace mynydd {
         uint32_t groupCount = (numElements + 63) / 64; // match local_size_x=64 in shader
         vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
 
-        vkEndCommandBuffer(cmdBuffer);
+        result = vkEndCommandBuffer(cmdBuffer);
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("vkEndCommandBuffer failed with error: " + std::to_string(result));
+        }
     }
 
 
@@ -478,12 +612,7 @@ namespace mynydd {
         const char* shaderPath,
         VkDescriptorSetLayout &descriptorLayout
     ) {
-        // const char *shaderPath =
-        //     "shaders/shader.comp.spv"; // SPIR-V compiled compute shader
-
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
-        // VkDescriptorSetLayout descriptorLayout =
-        //     createDescriptorSetLayout(contextPtr->device);
 
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
@@ -496,24 +625,42 @@ namespace mynydd {
         };
     }
 
-    VulkanContext createVulkanContext() {
-        VulkanContext context;
+    VulkanContext::VulkanContext() {
+        instance = createInstance();
+        physicalDevice =
+            pickPhysicalDevice(instance, computeQueueFamilyIndex);
 
-        context.instance = createInstance();
-        context.physicalDevice =
-            pickPhysicalDevice(context.instance, context.computeQueueFamilyIndex);
-        context.device = createLogicalDevice(context.physicalDevice,
-                                            context.computeQueueFamilyIndex,
-                                            context.computeQueue);
-
-        context.commandPool = createCommandPool(
-            context.device, context.computeQueueFamilyIndex
+        device = createLogicalDevice(
+            physicalDevice,
+            computeQueueFamilyIndex,
+            computeQueue
         );
 
-        context.commandBuffer = allocateCommandBuffer(
-            context.device, context.commandPool
+        commandPool = createCommandPool(
+            device, computeQueueFamilyIndex
         );
 
-        return context;
+        commandBuffer = allocateCommandBuffer(
+            device, commandPool
+        );
     }
+
+    VulkanDynamicResources::VulkanDynamicResources(
+        std::shared_ptr<VulkanContext> contextPtr,
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+    ) : contextPtr(contextPtr) {
+
+        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
+
+        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
+
+        updateDescriptorSet(
+            contextPtr->device,
+            descriptorSet,
+            buffers
+        );
+    }
+
+
+
 }

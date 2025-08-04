@@ -1,0 +1,50 @@
+// Constants
+const float PI = 3.14159265359;
+
+float get_debrun_coeff(float h) {
+    return 10.0 / (PI * pow(h, 5.0));
+}
+
+float debrun_spiky_kernel(float r, float h) {
+    float coeff = get_debrun_coeff(h);
+    float val = coeff * pow(h - r, 3.0);
+    float mask = step(0.0, r) * step(r, h); // 1.0 if 0 <= r <= h, else 0.0
+    return val * mask;
+}
+
+float debrun_spiky_kernel_dwdr(float r, float h) {
+    float coeff = get_debrun_coeff(h) / h;
+    float val = -3.0 * coeff * pow(h - r, 2.0);
+    float mask = step(0.0, r) * step(r, h);
+    return val * mask;
+}
+
+float debrun_spiky_kernel_lap(float r, float h) {
+    float coeff = get_debrun_coeff(h);
+    return coeff * ((12.0 * h) - (3.0 * pow(h, 2.0) / r) - (9.0 * r));
+}
+
+float cal_r(float dx, float dy) {
+    return sqrt(pow(dx, 2.0) + pow(dy, 2.0));
+}
+
+vec2 debrun_spiky_kernel_grad(float dx, float dy, float h) {
+    float r = cal_r(dx, dy);
+    float safe_r = max(r, 1e-6f); // avoid divide-by-zero
+    float dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
+    return vec2(dx * dwdror, dy * dwdror);
+}
+
+float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
+    // bweak is a constant for this call
+    float bweak = c2 * rho0 / gamma;
+    return bweak * (pow(rho / rho0, gamma) - 1.0f);
+}
+
+float cal_rho_ij(float mass_j, float dist_ij, float h) {
+    return mass_j * debrun_spiky_kernel(dist_ij, h);
+}
+
+float cal_pressure_force_coefficient(float pi, float pj, float rhoi, float rhoj, float mj) {
+    return ((pi / (rhoi * rhoi)) + (pj / (rhoj * rhoj))) * mj;
+}

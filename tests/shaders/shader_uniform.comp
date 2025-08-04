@@ -5,21 +5,24 @@
 
 layout(local_size_x = 64) in;
 
-layout(set = 0, binding = 0) buffer Data {
-    double values[];
+struct Particle {
+    vec2 position;
 };
+
+layout(set = 0, binding = 0) buffer inputData {
+    Particle particles[];
+} data;
 
 layout(set = 0, binding = 1) buffer outputData {
-    double outvalues[];
-};
+    Particle particles[];
+} outv;
 
-// Binding 1: uniform buffer (constants)
 layout(set = 0, binding = 2) uniform Params {
     float val;
 } params;
 
-
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    outvalues[index] = 2.0 * values[index];
+    outv.particles[index].position.x = params.val;
+    outv.particles[index].position.y = params.val + index;
 }

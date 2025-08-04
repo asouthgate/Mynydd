@@ -1,15 +1,20 @@
 #pragma once
 
 #include <assert.h>
+#include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
+#include <mynydd/memory.hpp>
+
 
 namespace mynydd {
 
+    // TODO: much of this should be private, in a class
     /**
     * Context variables required for Vulkan compute.
     */
@@ -21,6 +26,30 @@ namespace mynydd {
         uint32_t computeQueueFamilyIndex;
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
+
+        VulkanContext();
+
+        ~VulkanContext() {
+            std::cerr << "Destroying Vulkan context..." << std::endl;
+            if (commandBuffer != VK_NULL_HANDLE) {
+                vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+            }
+            if (commandPool != VK_NULL_HANDLE) {
+                vkDestroyCommandPool(device, commandPool, nullptr);
+            }
+            if (device != VK_NULL_HANDLE) {
+                vkDestroyDevice(device, nullptr);
+            }
+            if (instance != VK_NULL_HANDLE) {
+                vkDestroyInstance(instance, nullptr);
+            }
+            std::cerr << "Vulkan context destroyed." << std::endl;
+        }
+
+        VulkanContext(const VulkanContext&) = delete;            // No copy
+        VulkanContext& operator=(const VulkanContext&) = delete; // No copy
+        VulkanContext(VulkanContext&&) = default;                // Allow move
+        VulkanContext& operator=(VulkanContext&&) = default;     // Allow move
     };
 
     struct VulkanPipelineResources {
@@ -29,46 +58,32 @@ namespace mynydd {
         VkShaderModule computeShaderModule;
     };
 
+    VulkanContext createVulkanContext();
+
+
     struct VulkanDynamicResources {
-        VkBuffer buffer;
-        VkDeviceMemory memory;
-        // A single descriptor set layout set/binding is used per buffer
-        // This is for convenience; in future may use multiple bindings
+        std::shared_ptr<VulkanContext> contextPtr;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
-        size_t dataSize;
-    };
-
-    VulkanContext createVulkanContext();
-
-    VulkanDynamicResources create_dynamic_resources(
-        std::shared_ptr<VulkanContext> contextPtr,
-        size_t dataSize
-    );
-
-    template<typename T>
-    class DataResources {
-        public:
-            DataResources(
-                std::shared_ptr<VulkanContext> contextPtr,
-                size_t n_data_elements
-            ) {
-                this->dynamicResources = create_dynamic_resources(contextPtr, n_data_elements);
+        VulkanDynamicResources(
+            std::shared_ptr<VulkanContext> contextPtr,
+            std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+        );
+        ~VulkanDynamicResources() {
+            std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
+            if (contextPtr && contextPtr->device != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE) {
+            } else {
+                std::cerr << "VulkanDynamicResources destructor failure due to invalid dependency handles." << std::endl;
             }
-
-            ~DataResources<T>() {
-                // Destructor to clean up resources
-                vkDestroyBuffer(this->contextPtr->device, this->dynamicResources.buffer, nullptr);
-                vkFreeMemory(this->contextPtr->device, this->dynamicResources.memory, nullptr);
-                vkDestroyDescriptorPool(this->contextPtr->device, this->dynamicResourcesPtr->descriptorPool, nullptr);
-                vkDestroyDescriptorSetLayout(
-                    this->contextPtr->device, this->dynamicResources.descriptorSetLayout, nullptr
-                );
-            }
-        private:
-            VulkanDynamicResources dynamicResources;
-            std::shared_ptr<VulkanContext> contextPtr;
+            vkDestroyDescriptorPool(this->contextPtr->device, descriptorPool, nullptr);
+            vkDestroyDescriptorSetLayout(this->contextPtr->device, descriptorSetLayout, nullptr);
+            std::cerr << "VulkanDynamicResources destroyed." << std::endl;
+        }
+        VulkanDynamicResources(const VulkanDynamicResources&) = delete;            // No copy
+        VulkanDynamicResources& operator=(const VulkanDynamicResources&) = delete; // No copy
+        VulkanDynamicResources(VulkanDynamicResources&&) = default;                // Allow move
+        VulkanDynamicResources& operator=(VulkanDynamicResources&&) = default;     // Allow move
     };
 
     template<typename T>
@@ -76,21 +91,16 @@ namespace mynydd {
         public:
             ComputeEngine(
                 std::shared_ptr<VulkanContext> contextPtr,
-                std::shared_ptr<VulkanDynamicResources> dynamicResources,
-                const char* shaderPath
+                const char* shaderPath,
+                std::vector<std::shared_ptr<AllocatedBuffer>> buffers
             ); 
             ~ComputeEngine();
-
-            void uploadData(const std::vector<T> &data);
-            std::vector<T> execute();            
+            void execute(size_t numElements); //numElements required for computing nthreads
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
-            // VulkanDynamicResources dynamicResources;
             VulkanPipelineResources pipelineResources;
-            uint32_t numElements; // number of elements in the data buffer
-            VkDeviceSize dataSize;
     };
 };
 

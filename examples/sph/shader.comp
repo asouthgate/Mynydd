@@ -1,0 +1,34 @@
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "kernels.comp.kern"
+
+layout(local_size_x = 64) in;
+
+struct Particle {
+    vec2 position;
+    vec2 velocity;
+    float density;
+    float pressure;
+};
+
+layout(set = 0, binding = 0) buffer Data {
+    Particle particles[];
+} data;
+
+layout(set = 0, binding = 1) buffer outputData {
+    Particle particles[];
+} outv;
+
+// Binding 1: uniform buffer (constants)
+layout(set = 0, binding = 2) uniform Params {
+    float dt;
+} params;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    // Example operation: invert density (just for demo)
+    outv.particles[index].density = 1.0 / data.particles[index].density;
+    outv.particles[index].position.x = params.dt;
+    outv.particles[index].position.y = 1.0 / index;
+}
