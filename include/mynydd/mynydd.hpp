@@ -95,18 +95,12 @@ namespace mynydd {
                 std::vector<std::shared_ptr<AllocatedBuffer>> buffers
             ); 
             ~ComputeEngine();
-
-            // template<typename U> void uploadUniformData(const U uniform, std::shared_ptr<AllocatedBuffer> ubuffer);
-            // void uploadData(const std::vector<T> &data);
             void execute(size_t numElements); //numElements required for computing nthreads
-            // std::vector<T> fetchData();                   
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
             VulkanPipelineResources pipelineResources;
-            // uint32_t numElements; // number of elements in the data buffer
-            // VkDeviceSize dataSize;
     };
 };
 
