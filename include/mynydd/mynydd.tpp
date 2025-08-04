@@ -42,11 +42,18 @@ namespace mynydd {
     template<typename T>
     ComputeEngine<T>::ComputeEngine(
         std::shared_ptr<VulkanContext> contextPtr, 
-        std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr,
-        const char* shaderPath
-    ) {
-        this->contextPtr = contextPtr;
-        this->dynamicResourcesPtr = dynamicResourcesPtr;
+        const char* shaderPath,
+        std::shared_ptr<AllocatedBuffer> input,
+        std::shared_ptr<AllocatedBuffer> output,
+        std::shared_ptr<AllocatedBuffer> uniform
+    ) : contextPtr(contextPtr) {
+        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
+            contextPtr,
+            input,
+            output,
+            uniform
+        );
+        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
         this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout);
     }
 
@@ -145,6 +152,7 @@ namespace mynydd {
                 throw std::runtime_error("Data size exceeds allocated buffer size");
             }
 
+            std::cerr << "About to upload buffer data" << std::endl;
             uploadBufferData<T>(this->contextPtr->device, this->dynamicResourcesPtr->input->getMemory(), inputData);
         }
         catch (const std::exception& e) {
