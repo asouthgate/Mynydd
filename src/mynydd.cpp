@@ -647,16 +647,16 @@ namespace mynydd {
 
     VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        std::shared_ptr<AllocatedBuffer> input,
-        std::shared_ptr<AllocatedBuffer> output,
-        std::shared_ptr<AllocatedBuffer> uniform
-    ) : contextPtr(contextPtr), input(input), output(output), uniform(uniform) {
+        // std::shared_ptr<AllocatedBuffer> input,
+        // std::shared_ptr<AllocatedBuffer> output,
+        // std::shared_ptr<AllocatedBuffer> uniform
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+    ) : contextPtr(contextPtr) {
 
         descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
 
         descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
 
-        std::vector<std::shared_ptr<AllocatedBuffer>> buffers = { input, output, uniform };
         updateDescriptorSet(
             contextPtr->device,
             descriptorSet,
