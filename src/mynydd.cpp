@@ -647,9 +647,6 @@ namespace mynydd {
 
     VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        // std::shared_ptr<AllocatedBuffer> input,
-        // std::shared_ptr<AllocatedBuffer> output,
-        // std::shared_ptr<AllocatedBuffer> uniform
         std::vector<std::shared_ptr<AllocatedBuffer>> buffers
     ) : contextPtr(contextPtr) {
 
