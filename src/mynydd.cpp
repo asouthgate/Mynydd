@@ -389,7 +389,7 @@ namespace mynydd {
             write.dstSet = descriptorSet;
             write.dstBinding = static_cast<uint32_t>(writes.size()); // use different bindings if needed
             write.dstArrayElement = 0;
-            write.descriptorType = buffer->getType();
+            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write.descriptorCount = 1;
             write.pBufferInfo = &bufferInfos.back();
 
@@ -611,46 +611,19 @@ namespace mynydd {
         std::shared_ptr<AllocatedBuffer> output,
         std::shared_ptr<AllocatedBuffer> uniform
     ) : contextPtr(contextPtr), input(input), output(output), uniform(uniform) {
-        // const size_t dataSize = n_data_elements * sizeof(T);
-        // dataSize = input->getSize();
-        // uniformSize = uniform->getSize();
 
-        descriptorSetLayout =
-            createDescriptorSetLayout(contextPtr->device);
+        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
 
         descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
 
+        std::vector<std::shared_ptr<AllocatedBuffer>> buffers = { input, output, uniform };
         updateDescriptorSet(
             contextPtr->device,
             descriptorSet,
-            input->getBuffer(),
-            input->getSize(),
-            uniform->getBuffer(),
-            uniform->getSize(),
-            output->getBuffer(),
-            output->getSize()
+            buffers
         );
     }
 
-    // TODO: should store pointer to context, not device; in fact device should be private
-    AllocatedBuffer::AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform)
-        : device(vkc->device), size(size) 
-    {
-        VkBuffer newBuffer = createBuffer(
-            device, size,
-            uniform ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-        );
-
-        VkDeviceMemory newBufferMemory = allocateAndBindMemory(
-            vkc->physicalDevice, 
-            device,
-            newBuffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        );
-
-        this->buffer = newBuffer;
-        this->memory = newBufferMemory;
-    }
 
 
 }
