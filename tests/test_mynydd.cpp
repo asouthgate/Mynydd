@@ -13,11 +13,8 @@
 TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     std::cerr << "Starting compute pipeline test for float..." << std::endl;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    std::cerr << "Created context ptr" << std::endl;
 
     size_t n = 1024;
-
-    std::cerr << "Warning: make_shared AllocatedBuffer to be replaced with a cleaner, abstracted iface taking context" << std::endl;
 
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
@@ -30,26 +27,18 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
         uniform
     );
     
-    std::cerr << "Created dynamicResources Ptr" << std::endl;
-
     mynydd::ComputeEngine<float> pipeline(contextPtr, dynamicResourcesPtr, "shaders/shader.comp.spv");
-    std::cerr << "Created compute engine pipeline" << std::endl;
     std::vector<float> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<float>(i);
     }
 
-    std::cerr << "Input data prepared with size: " << inputData.size() << std::endl;
     pipeline.uploadData(inputData);
-    std::cerr << "Data uploaded to pipeline." << std::endl;
     pipeline.execute();
-    std::cerr << "Pipeline executed." << std::endl;
     std::vector<float> out = pipeline.fetchData();
-    std::cerr << "Data fetched from pipeline." << std::endl;
     for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
         REQUIRE(out[i] == Catch::Approx(1.0 / static_cast<float>(i)));
     }
-    std::cerr << "Compute shader executed for 1.0/floats." << std::endl;
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
 

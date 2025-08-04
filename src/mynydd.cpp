@@ -512,16 +512,11 @@ namespace mynydd {
         if (descriptorSet == VK_NULL_HANDLE) {
             throw std::runtime_error("Invalid descriptor set handle");
         }
-
-        std::cerr << "[recordCommandBuffer] All Vulkan handles are valid." << std::endl;
-        std::cerr << "[recordCommandBuffer] numElements: " << numElements << std::endl;
         
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        std::cerr << "[recordCommandBuffer] Beginning command buffer recording..." << std::endl;
         VkResult result = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-        std::cerr << "[recordCommandBuffer] vkBeginCommandBuffer result: " << result << std::endl;
         if (result != VK_SUCCESS) {
             throw std::runtime_error("vkBeginCommandBuffer failed with error: " + std::to_string(result));
         }
@@ -536,7 +531,6 @@ namespace mynydd {
         if (result != VK_SUCCESS) {
             throw std::runtime_error("vkEndCommandBuffer failed with error: " + std::to_string(result));
         }
-        std::cerr << "[recordCommandBuffer] Command buffer recorded successfully." << std::endl;
     }
 
 
