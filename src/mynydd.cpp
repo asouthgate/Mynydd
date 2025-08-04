@@ -389,7 +389,7 @@ namespace mynydd {
             write.dstSet = descriptorSet;
             write.dstBinding = static_cast<uint32_t>(writes.size()); // use different bindings if needed
             write.dstArrayElement = 0;
-            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write.descriptorType = buffer->getType();
             write.descriptorCount = 1;
             write.pBufferInfo = &bufferInfos.back();
 

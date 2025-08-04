@@ -49,6 +49,7 @@ namespace mynydd {
         VkBuffer getBuffer() const { return buffer; }
         VkDeviceMemory getMemory() const { return memory; }
         VkDeviceSize getSize() const { return size; }
+        VkDescriptorType getType() const { return type; }
 
         explicit operator bool() const { return buffer != VK_NULL_HANDLE; }
 
@@ -57,6 +58,8 @@ namespace mynydd {
         VkBuffer buffer = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;
         VkDeviceSize size = 0;
+        VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
 
         void destroy() {
             if (buffer != VK_NULL_HANDLE) {
