@@ -205,4 +205,95 @@ namespace mynydd {
         return output;
     }
 
+    template<typename T>
+    void executeBatch(std::shared_ptr<VulkanContext> contextPtr, const std::vector<std::shared_ptr<ComputeEngine<T>>>& computeEngines, size_t numElements) {
+        if (computeEngines.empty()) {
+            throw std::runtime_error("No compute engines provided for batch execution.");
+        }
+
+        if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid Vulkan context in batch execution.");
+        }
+
+        VkCommandBuffer cmdBuffer = contextPtr->commandBuffer;
+
+        // Begin command buffer
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin command buffer for batch execution.");
+        }
+
+        for (size_t i = 0; i < computeEngines.size(); ++i) {
+            std::cerr << "Processing compute engine " << i << " of " << computeEngines.size() << std::endl;
+            auto& engine = computeEngines[i];
+            if (!engine) {
+                throw std::runtime_error("Null ComputeEngine pointer at index " + std::to_string(i));
+            }
+
+            const auto& pipeline      = engine->getPipelineResourcesPtr()->pipeline;
+            const auto& layout        = engine->getPipelineResourcesPtr()->pipelineLayout;
+            const auto& descriptorSet = engine->getDynamicResourcesPtr()->descriptorSet;
+
+            if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid pipeline or descriptor set for engine " + std::to_string(i));
+            }
+
+            std::cerr << "Binding pipeline and descriptor set for engine " << i << std::endl;
+            // Bind pipeline and descriptor sets
+            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
+
+            // Dispatch compute shader
+            uint32_t groupCount = (numElements + 63) / 64; // match shader local_size_x
+            std::cerr << "Dispatching compute shader for engine " << i << " with group count: " << groupCount << std::endl;
+            vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
+
+            // Insert memory barrier between shaders (except after last one)
+            if (i + 1 < computeEngines.size()) {
+                VkMemoryBarrier memoryBarrier{};
+                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                std::cerr << "Inserting memory barrier after engine " << i << std::endl;
+                vkCmdPipelineBarrier(
+                    cmdBuffer,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    0,
+                    1, &memoryBarrier,
+                    0, nullptr,
+                    0, nullptr
+                );
+            }
+        }
+
+        if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to end command buffer for batch execution.");
+        }
+
+        // Submit command buffer
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmdBuffer;
+
+        VkFence fence;
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        if (vkCreateFence(contextPtr->device, &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create fence for batch execution.");
+        }
+
+        if (vkQueueSubmit(contextPtr->computeQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
+            vkDestroyFence(contextPtr->device, fence, nullptr);
+            throw std::runtime_error("Failed to submit batched command buffer.");
+        }
+        std::cerr << "Waiting for fence after batch execution..." << std::endl;
+        vkWaitForFences(contextPtr->device, 1, &fence, VK_TRUE, UINT64_MAX);
+        std::cerr << "Batch execution completed." << std::endl;
+        vkDestroyFence(contextPtr->device, fence, nullptr);
+        std::cerr << "Batch execution finished successfully." << std::endl;
+    }
+
 }
