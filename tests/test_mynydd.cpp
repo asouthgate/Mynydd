@@ -108,3 +108,43 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
     }
 
 }
+
+TEST_CASE("Compute 2 step pipeline process data for float", "[vulkan]") {
+    std::cerr << "Starting compute pipeline test for float..." << std::endl;
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
+
+    size_t n = 1024;
+
+    auto input1 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
+    auto output1 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
+    auto output2 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
+
+    auto pipeline1 = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/multistep_1.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input1, output1}
+
+    );
+
+    auto pipeline2 = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/multistep_2.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{output1, output2}
+    );
+
+    std::cerr << "Initialized ComputeEngine" << std::endl;
+    std::vector<float> inputData(n);
+    for (size_t i = 0; i < inputData.size(); ++i) {
+        inputData[i] = static_cast<float>(i);
+    }
+
+    mynydd::uploadData<float>(contextPtr, inputData, input1);
+
+    std::cerr << "Uploaded data" << std::endl;
+    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2}, n);
+    std::cerr << "Executed" << std::endl;
+    std::vector<float> out = mynydd::fetchData<float>(contextPtr, output2, n);
+    std::cerr << "Fetched" << std::endl;
+    for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
+        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
+        REQUIRE(out[i] == Catch::Approx(1.0 + 2.0 * static_cast<float>(i)));
+    }
+    std::cerr << "Checked output" << std::endl;
+    SUCCEED("Compute shader executed for 1.0/floats.");
+}
