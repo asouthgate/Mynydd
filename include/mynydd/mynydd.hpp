@@ -96,6 +96,12 @@ namespace mynydd {
             ); 
             ~ComputeEngine();
             void execute(size_t numElements); //numElements required for computing nthreads
+            std::shared_ptr<VulkanPipelineResources> getPipelineResourcesPtr() const {
+                return std::make_shared<VulkanPipelineResources>(pipelineResources);
+            }
+            std::shared_ptr<VulkanDynamicResources> getDynamicResourcesPtr() const {
+                return dynamicResourcesPtr;
+            }
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
