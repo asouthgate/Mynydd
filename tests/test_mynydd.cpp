@@ -184,42 +184,61 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
 
 }
 
-TEST_CASE("Compute 2 step pipeline process data for float", "[vulkan]") {
-    std::cerr << "Starting compute pipeline test for float..." << std::endl;
+TEST_CASE("A three-step sequence of pipelines produce expected outputs, using 3 buffers", "[vulkan]") {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
 
     size_t n = 1024;
 
-    auto input1 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
-    auto output1 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
-    auto output2 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
+    auto b1 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
+    auto b2 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
+    auto b3 = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
 
+    // Pipeline 1 takes b1, writes output to b2
     auto pipeline1 = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/multistep_1.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input1, output1}
+        contextPtr, "shaders/multistep_1.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b1, b2}
 
     );
 
+    // Pipeline 2 takes b2, writes output to b3
     auto pipeline2 = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/multistep_2.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{output1, output2}
+        contextPtr, "shaders/multistep_2.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b2, b3}
     );
 
-    std::cerr << "Initialized ComputeEngine" << std::endl;
+    // Pipeline 3 takes b2 and b3, and writes to b1
+    // Why reuse b1? For simplicity, but also to test that fences are working correctly
+    // b1 should be free for use after pipeline2 has run
+    auto pipeline3 = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/multistep_3.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b2, b3, b1}
+    );
+
+    // Initialize some input data to upload to b1
     std::vector<float> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
         inputData[i] = static_cast<float>(i);
     }
+    mynydd::uploadData<float>(contextPtr, inputData, b1);
 
-    mynydd::uploadData<float>(contextPtr, inputData, input1);
+    // Execute the pipelines in a batch
+    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2, pipeline3}, n);
 
-    std::cerr << "Uploaded data" << std::endl;
-    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2}, n);
-    std::cerr << "Executed" << std::endl;
-    std::vector<float> out = mynydd::fetchData<float>(contextPtr, output2, n);
-    std::cerr << "Fetched" << std::endl;
-    for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
-        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
+    // Now fetch the outputs and check they are expected
+    std::vector<float> out = mynydd::fetchData<float>(contextPtr, b3, n);
+    for (size_t i = 1; i < std::min<size_t>(out.size(), n); ++i) {
         REQUIRE(out[i] == Catch::Approx(1.0 + 2.0 * static_cast<float>(i)));
     }
-    std::cerr << "Checked output" << std::endl;
+
+    std::vector<float> out2 = mynydd::fetchData<float>(contextPtr, b2, n);
+    for (size_t i = 1; i < std::min<size_t>(out.size(), n); ++i) {
+        REQUIRE(out2[i] == Catch::Approx(2.0 * static_cast<float>(i)));
+    }
+
+
+    std::vector<float> out3 = mynydd::fetchData<float>(contextPtr, b1, n);
+    for (size_t i = 1; i < std::min<size_t>(out3.size(), n); ++i) {
+        REQUIRE(out3[i] == Catch::Approx(
+            0.6 * (out[i]) + 0.3 * out2[i])
+        );
+    }
+
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
