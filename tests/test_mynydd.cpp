@@ -121,7 +121,6 @@ TEST_CASE("A three-step sequence of pipelines produce expected outputs, using 3 
     // Pipeline 1 takes b1, writes output to b2
     auto pipeline1 = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/multistep_1.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b1, b2}
-
     );
 
     // Pipeline 2 takes b2, writes output to b3
