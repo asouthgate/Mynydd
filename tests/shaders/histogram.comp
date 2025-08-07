@@ -1,0 +1,46 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer InputData {
+    uint values[];
+};
+
+layout(set = 0, binding = 1) buffer HistogramData {
+    uint histogram[]; // Flattened: groupCount × numBins
+};
+
+layout(set = 0, binding = 2) uniform Params {
+    uint bitOffset;
+    uint numBins;
+    uint totalSize;
+    uint itemsPerGroup;
+} params;
+
+shared uint localHistogram[256];
+
+void main() {
+    uint lid = gl_LocalInvocationID.x;
+    uint gid = gl_WorkGroupID.x;
+    uint globalIndex = gid * params.itemsPerGroup + lid;
+
+    if (lid < params.numBins)
+        localHistogram[lid] = 0;
+
+    memoryBarrierShared();
+    barrier();
+
+    if (globalIndex < params.totalSize) {
+        uint v = values[globalIndex];
+        uint bin = (v >> params.bitOffset) & (params.numBins - 1);
+        atomicAdd(localHistogram[bin], 1);
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (lid < params.numBins) {
+        uint index = gid * params.numBins + lid;
+        histogram[index] = localHistogram[lid];
+    }
+}
