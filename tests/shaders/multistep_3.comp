@@ -1,0 +1,23 @@
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "kernels.comp.kern"
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Data1 {
+    float values1[];
+};
+
+layout(set = 0, binding = 1) buffer Data2 {
+    float values2[];
+};
+
+layout(set = 0, binding = 2) buffer outputData {
+    float outvalues[];
+};
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    outvalues[index] = 0.3 * values1[index] + 0.6 * values2[index];
+}
