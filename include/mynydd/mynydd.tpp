@@ -152,6 +152,7 @@ namespace mynydd {
 
     template<typename T>
     void ComputeEngine<T>::execute(size_t numElements) {
+        std::cerr << "Warning: ComputeEngine::execute is deprecated. Use executeBatch instead." << std::endl;
         std::cerr<< "Recording command buffer..." << std::endl;
         try {
             if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
@@ -195,7 +196,11 @@ namespace mynydd {
     }
 
     template<typename T>
-    void executeBatch(std::shared_ptr<VulkanContext> contextPtr, const std::vector<std::shared_ptr<ComputeEngine<T>>>& computeEngines, size_t numElements) {
+    void executeBatch(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<ComputeEngine<T>>>& computeEngines,
+        size_t groupCount
+    ) {
         if (computeEngines.empty()) {
             throw std::runtime_error("No compute engines provided for batch execution.");
         }
@@ -234,7 +239,6 @@ namespace mynydd {
             vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
 
             // Dispatch compute shader
-            uint32_t groupCount = (numElements + 63) / 64; // match shader local_size_x
             std::cerr << "Dispatching compute shader for engine " << i << " with group count: " << groupCount << std::endl;
             vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
 

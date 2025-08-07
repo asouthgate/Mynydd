@@ -163,7 +163,10 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(TestData), false);
     auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(TestParams), true);
 
-    mynydd::ComputeEngine<TestData> compeng(contextPtr, "shaders/shader_uniform.comp.spv", {input, output, uniform});
+    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/shader_uniform.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform}
+    );
 
     std::vector<TestData> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -174,7 +177,9 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
 
     mynydd::uploadUniformData<TestParams>(contextPtr, params, uniform);
     mynydd::uploadData<TestData>(contextPtr, inputData, input);
-    compeng.execute(n);
+    uint32_t groupCount = (n + 63) / 64;
+    mynydd::executeBatch<float>(contextPtr, {pipeline}, groupCount);
+
     std::vector<TestData> outv = mynydd::fetchData<TestData>(contextPtr, output, n);
 
     for (size_t i = 1; i < std::min<size_t>(outv.size(), 10); ++i) {
@@ -217,8 +222,9 @@ TEST_CASE("A three-step sequence of pipelines produce expected outputs, using 3 
     }
     mynydd::uploadData<float>(contextPtr, inputData, b1);
 
+    uint32_t groupCount = (n + 63) / 64;
     // Execute the pipelines in a batch
-    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2, pipeline3}, n);
+    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2, pipeline3}, groupCount);
 
     // Now fetch the outputs and check they are expected
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, b3, n);
@@ -267,7 +273,8 @@ TEST_CASE("Compute pipeline processes data for float 1000 times", "[vulkan]") {
     for (size_t i = 0; i < 1000; ++i) {
         pipelines.push_back(pipeline);
     }
-    mynydd::executeBatch<float>(contextPtr, {pipelines}, n);
+    uint32_t groupCount = (n + 63) / 64;
+    mynydd::executeBatch<float>(contextPtr, {pipelines}, groupCount);
     std::cerr << "Executed" << std::endl;
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
     std::cerr << "Fetched" << std::endl;
