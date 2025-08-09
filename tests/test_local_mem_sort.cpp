@@ -135,3 +135,60 @@ TEST_CASE("Radix histogram matches arbitrary bin distribution", "[sort]") {
         REQUIRE(combinedHistogram[bin] == expectedHistogram[bin]);
     }
 }
+
+TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort]") {
+    const uint32_t numBins = 16;
+    const uint32_t groupCount = 2;  // two partial histograms
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+
+    // Predefined partial histograms (groupCount × numBins)
+    std::vector<uint32_t> partialHistograms = {
+        // group 0
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+        // group 1
+        16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1
+    };
+
+    // Expected summed histogram (element-wise sum)
+    std::vector<uint32_t> expectedHistogram(numBins);
+    for (uint32_t i = 0; i < numBins; ++i) {
+        expectedHistogram[i] = partialHistograms[i] + partialHistograms[numBins + i];
+    }
+
+    // Create buffers
+    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, partialHistograms.size() * sizeof(uint32_t), false);
+    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, numBins * sizeof(uint32_t), true);
+
+    // Uniform struct matching shader uniform block
+    struct SumParams {
+        uint32_t groupCount;
+        uint32_t numBins;
+    } sumParams{groupCount, numBins};
+
+    auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, sizeof(SumParams), true);
+
+    // Upload partial histograms and uniform params
+    mynydd::uploadData<uint32_t>(contextPtr, partialHistograms, inputBuffer);
+    mynydd::uploadUniformData<SumParams>(contextPtr, sumParams, uniformBuffer);
+
+    // Load the summation shader (compiled SPIR-V must match the shader code given)
+    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/histogram_sum.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer}
+    );
+
+    // Dispatch exactly 1 workgroup with 256 threads
+    mynydd::executeBatch<float>(contextPtr, {pipeline}, 1);
+
+    // Fetch the summed histogram result
+    std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, numBins);
+
+    // Validate output matches expected sums
+    for (uint32_t i = 0; i < numBins; ++i) {
+        REQUIRE(out[i] == expectedHistogram[i]);
+    }
+}
