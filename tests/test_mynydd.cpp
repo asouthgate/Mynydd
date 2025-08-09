@@ -66,6 +66,40 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     SUCCEED("Compute shader produced expected results for doubles * 2.");
 }
 
+TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]") {
+
+    size_t n = 512;
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
+    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
+    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
+
+    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_barrier.comp.spv", {input, output});
+
+    std::vector<double> inputData(n);
+    for (size_t i = 0; i < inputData.size(); ++i) {
+        inputData[i] = static_cast<double>(i);
+    }
+
+    mynydd::uploadData<double>(contextPtr, inputData, input);
+    pipeline.execute(n);
+    std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
+    for (size_t i = 0; i < n - 1; ++i) {
+        // this is expected to be correct except at workgroup boundaries
+        // because the shader uses a barrier which only synchronises within a workgroup
+        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
+        if (i % 64 == 63) {
+            // at workgroup boundaries, the value is not computed correctly
+            REQUIRE(out[i] == static_cast<double>(i) * 2.0);
+        } else {
+            // otherwise, it should be the sum of the two previous values
+            REQUIRE(out[i] == static_cast<double>(i) * 2.0 + 
+                     static_cast<double>(i + 1) * 2.0);
+        }
+    }
+    SUCCEED("Compute shader produced expected results for doubles * 2.");
+}
+
 struct TestData {
     glm::vec2 position;
 };
