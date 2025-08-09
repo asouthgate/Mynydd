@@ -72,70 +72,6 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
 }
 
 
-TEST_CASE("Radix histogram matches arbitrary bin distribution", "[sort]") {
-    const size_t n = 1024;
-    const uint32_t numBins = 16;
-    const uint32_t itemsPerGroup = 256;
-    const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
-
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
-
-    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(uint32_t), false);
-    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), true);
-    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(RadixParams), true);
-
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/histogram.comp.spv", 
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform}
-    );
-
-    // 1. Define arbitrary histogram counts (non-uniform, sum to n)
-    std::vector<uint32_t> expectedHistogram = {50, 200, 5, 0, 123, 87, 150, 42, 12, 30, 77, 89, 25, 10, 2, 122};
-    REQUIRE(std::accumulate(expectedHistogram.begin(), expectedHistogram.end(), 0u) == n);
-
-    // 2. Build input data from the histogram
-    std::vector<uint32_t> inputData;
-    inputData.reserve(n);
-    for (uint32_t bin = 0; bin < numBins; ++bin) {
-        for (uint32_t count = 0; count < expectedHistogram[bin]; ++count) {
-            inputData.push_back(bin);
-        }
-    }
-
-    // 3. Shuffle the data to remove any ordering bias
-    std::mt19937 rng(42); // fixed seed for repeatability
-    std::shuffle(inputData.begin(), inputData.end(), rng);
-
-    // 4. Upload uniform and data
-    RadixParams params = {
-        .bitOffset = 0,
-        .numBins = numBins,
-        .totalSize = static_cast<uint32_t>(n),
-        .itemsPerGroup = itemsPerGroup
-    };
-
-    mynydd::uploadUniformData<RadixParams>(contextPtr, params, uniform);
-    mynydd::uploadData<uint32_t>(contextPtr, inputData, input);
-
-    // 5. Execute shader
-    mynydd::executeBatch<float>(contextPtr, {pipeline}, groupCount);
-
-    std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, output, groupCount * numBins);
-
-    // 6. Combine all workgroup histograms
-    std::vector<uint32_t> combinedHistogram(numBins, 0);
-    for (uint32_t group = 0; group < groupCount; ++group) {
-        for (uint32_t bin = 0; bin < numBins; ++bin) {
-            combinedHistogram[bin] += out[group * numBins + bin];
-        }
-    }
-
-    // 7. Verify output matches expected histogram
-    for (uint32_t bin = 0; bin < numBins; ++bin) {
-        REQUIRE(combinedHistogram[bin] == expectedHistogram[bin]);
-    }
-}
-
 TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort]") {
     const uint32_t numBins = 16;
     const uint32_t groupCount = 2;  // two partial histograms
@@ -190,5 +126,84 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     // Validate output matches expected sums
     for (uint32_t i = 0; i < numBins; ++i) {
         REQUIRE(out[i] == expectedHistogram[i]);
+    }
+}
+
+TEST_CASE("Radix histogram + sum shaders chained produce correct combined arbitrary histogram", "[sort]") {
+    const size_t n = 1024;
+    const uint32_t numBins = 16;
+    const uint32_t itemsPerGroup = 256;
+    const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+
+    // Buffers:
+    // input: input data (n uint32_t)
+    // partialHistograms: output of histogram shader (groupCount * numBins uint32_t)
+    // finalHistogram: output of sum shader (numBins uint32_t)
+    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(uint32_t), false);
+    auto partialHistograms = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), true);
+    auto finalHistogram = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, numBins * sizeof(uint32_t), true);
+
+    // Uniforms for each stage
+    auto histUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(RadixParams), true);
+    struct SumParams {
+        uint32_t groupCount;
+        uint32_t numBins;
+    };
+    auto sumUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(SumParams), true);
+
+    // Pipelines
+    auto histPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/histogram.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, partialHistograms, histUniform}
+    );
+
+    auto sumPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/histogram_sum.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{partialHistograms, finalHistogram, sumUniform}
+    );
+
+    // 1. Define arbitrary histogram counts (non-uniform, sum to n)
+    std::vector<uint32_t> expectedHistogram = {50, 200, 5, 0, 123, 87, 150, 42, 12, 30, 77, 89, 25, 10, 2, 122};
+    REQUIRE(std::accumulate(expectedHistogram.begin(), expectedHistogram.end(), 0u) == n);
+
+    // 2. Build input data from the histogram
+    std::vector<uint32_t> inputData;
+    inputData.reserve(n);
+    for (uint32_t bin = 0; bin < numBins; ++bin) {
+        for (uint32_t count = 0; count < expectedHistogram[bin]; ++count) {
+            inputData.push_back(bin);
+        }
+    }
+
+    // 3. Shuffle the data to remove any ordering bias
+    std::mt19937 rng(42);
+    std::shuffle(inputData.begin(), inputData.end(), rng);
+
+    // 4. Upload uniform data and input
+    RadixParams histParams{
+        .bitOffset = 0,
+        .numBins = numBins,
+        .totalSize = static_cast<uint32_t>(n),
+        .itemsPerGroup = itemsPerGroup
+    };
+    mynydd::uploadUniformData<RadixParams>(contextPtr, histParams, histUniform);
+    mynydd::uploadData<uint32_t>(contextPtr, inputData, input);
+
+    SumParams sumParams{groupCount, numBins};
+    mynydd::uploadUniformData<SumParams>(contextPtr, sumParams, sumUniform);
+
+    // 5. Execute both pipelines in sequence (chained)
+    // histPipeline writes partialHistograms
+    // sumPipeline reads partialHistograms and writes finalHistogram
+    mynydd::executeBatch<float>(contextPtr, {histPipeline, sumPipeline}, groupCount);
+
+    // 6. Fetch final summed histogram from GPU
+    std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, finalHistogram, numBins);
+
+    // 7. Check GPU summed histogram matches expected
+    for (uint32_t bin = 0; bin < numBins; ++bin) {
+        REQUIRE(out[bin] == expectedHistogram[bin]);
     }
 }
