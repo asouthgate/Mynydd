@@ -1,0 +1,46 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) readonly buffer InputBuffer {
+    uint inputData[];
+};
+
+layout(set = 0, binding = 1) writeonly buffer OutputBuffer {
+    uint outputData[];
+};
+
+layout(set = 0, binding = 2) uniform Params {
+    uint m; // number of rows
+    uint n; // number of cols
+} params;
+
+// Shared memory tile with padding to avoid bank conflicts (optional)
+shared uint tile[16][16 + 1];
+
+void main() {
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+
+    // Load tile element from input matrix if in bounds
+    if (x < params.n && y < params.m) {
+        uint idx = y * params.n + x;
+        tile[gl_LocalInvocationID.y][gl_LocalInvocationID.x] = inputData[idx];
+    } else {
+        tile[gl_LocalInvocationID.y][gl_LocalInvocationID.x] = 0; // or any default
+    }
+
+    // Wait for all loads
+    memoryBarrierShared();
+    barrier();
+
+    // Transpose coordinates within tile
+    uint transposed_x = gl_WorkGroupID.y * 16 + gl_LocalInvocationID.x;
+    uint transposed_y = gl_WorkGroupID.x * 16 + gl_LocalInvocationID.y;
+
+    // Write transposed tile element to output matrix if in bounds
+    if (transposed_x < params.m && transposed_y < params.n) {
+        uint out_idx = transposed_y * params.m + transposed_x;
+        outputData[out_idx] = tile[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+    }
+}
