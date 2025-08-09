@@ -92,7 +92,10 @@ namespace mynydd {
             ComputeEngine(
                 std::shared_ptr<VulkanContext> contextPtr,
                 const char* shaderPath,
-                std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+                std::vector<std::shared_ptr<AllocatedBuffer>> buffers,
+                uint32_t groupCountX,
+                uint32_t groupCountY=1,
+                uint32_t groupCountZ=1
             ); 
             ~ComputeEngine();
             void execute(size_t numElements); //numElements required for computing nthreads
@@ -102,6 +105,10 @@ namespace mynydd {
             std::shared_ptr<VulkanDynamicResources> getDynamicResourcesPtr() const {
                 return dynamicResourcesPtr;
             }
+            // TODO: make private
+            uint32_t groupCountX;
+            uint32_t groupCountY;
+            uint32_t groupCountZ;
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
