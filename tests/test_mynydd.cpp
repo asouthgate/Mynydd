@@ -107,15 +107,10 @@ TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]
     size_t n = 512;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
-    auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
+    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
+    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
 
-    auto pipeline = std::make_shared<mynydd::PipelineStep>(
-        contextPtr,
-        "shaders/shader_barrier.comp.spv", 
-        std::vector<std::shared_ptr<mynydd::Buffer>>{input, output},
-        256
-    );
+    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_barrier.comp.spv", {input, output});
 
     std::vector<double> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -123,12 +118,12 @@ TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]
     }
 
     mynydd::uploadData<double>(contextPtr, inputData, input);
-    mynydd::executeBatch(contextPtr, {pipeline});
+    pipeline.execute(n);
     std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
     for (size_t i = 0; i < n - 1; ++i) {
         // this is expected to be correct except at workgroup boundaries
         // because the shader uses a barrier which only synchronises within a workgroup
-        // std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
+        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
         if (i % 64 == 63) {
             // at workgroup boundaries, the value is not computed correctly
             REQUIRE(out[i] == static_cast<double>(i) * 2.0);
