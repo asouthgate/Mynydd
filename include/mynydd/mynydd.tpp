@@ -199,7 +199,9 @@ namespace mynydd {
     void executeBatch(
         std::shared_ptr<VulkanContext> contextPtr,
         const std::vector<std::shared_ptr<ComputeEngine<T>>>& computeEngines,
-        size_t groupCount
+        size_t groupCountX,
+        size_t groupCountY = 1,
+        size_t groupCountZ = 1
     ) {
         if (computeEngines.empty()) {
             throw std::runtime_error("No compute engines provided for batch execution.");
@@ -237,7 +239,7 @@ namespace mynydd {
             vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
 
             // Dispatch compute shader
-            vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
+            vkCmdDispatch(cmdBuffer, groupCountX, groupCountY, groupCountZ);
 
             // Insert memory barrier between shaders (except after last one)
             if (i + 1 < computeEngines.size()) {
