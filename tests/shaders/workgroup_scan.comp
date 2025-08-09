@@ -1,0 +1,40 @@
+// prefix_rows.comp.glsl
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer TransposedHist {
+    uint transposed[]; // layout: numBins rows, each with groupCount elements -> transposed[bin * groupCount + group]
+};
+
+layout(set = 0, binding = 1) writeonly buffer PrefixOut {
+    uint prefix[]; // same shape as transposed
+};
+
+layout(set = 0, binding = 2) uniform Params {
+    uint groupCount; // number of groups (columns in transposed row)
+    uint numBins;    // number of rows
+} params;
+
+void main() {
+    // each workgroup handles one row (one bin)
+    uint bin = gl_WorkGroupID.x; // 0..numBins-1
+
+    // guard: if more workgroups are dispatched than numBins, ignore extra
+    if (bin >= params.numBins) {
+        return;
+    }
+
+    // only one thread (tid == 0) performs the sequential exclusive scan
+    if (gl_LocalInvocationID.x == 0u) {
+        uint sum = 0u;
+        uint base = bin * params.groupCount;
+        for (uint g = 0u; g < params.groupCount; ++g) {
+            uint v = transposed[base + g];
+            prefix[base + g] = sum; // exclusive prefix
+            sum += v;
+        }
+    }
+    // ensure the write is visible before kernel completes (optional)
+    barrier();
+}

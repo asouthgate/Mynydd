@@ -33,7 +33,8 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
 
     auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/histogram.comp.spv", 
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform}
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform},
+        groupCount
     );
 
     std::vector<uint32_t> inputData(n);
@@ -51,7 +52,7 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
     mynydd::uploadUniformData<RadixParams>(contextPtr, params, uniform);
     mynydd::uploadData<uint32_t>(contextPtr, inputData, input);
 
-    mynydd::executeBatch<float>(contextPtr, {pipeline}, groupCount);
+    mynydd::executeBatch<float>(contextPtr, {pipeline});
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, output, groupCount * numBins);
 
@@ -114,11 +115,12 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     // Load the summation shader (compiled SPIR-V must match the shader code given)
     auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/histogram_sum.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer}
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer},
+        1
     );
 
     // Dispatch exactly 1 workgroup with 256 threads
-    mynydd::executeBatch<float>(contextPtr, {pipeline}, 1);
+    mynydd::executeBatch<float>(contextPtr, {pipeline});
 
     // Fetch the summed histogram result
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, numBins);
@@ -156,12 +158,14 @@ TEST_CASE("Radix histogram + sum shaders chained produce correct combined arbitr
     // Pipelines
     auto histPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/histogram.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, partialHistograms, histUniform}
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, partialHistograms, histUniform},
+        groupCount
     );
 
     auto sumPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/histogram_sum.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{partialHistograms, finalHistogram, sumUniform}
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{partialHistograms, finalHistogram, sumUniform},
+        groupCount
     );
 
     // 1. Define arbitrary histogram counts (non-uniform, sum to n)
@@ -197,7 +201,7 @@ TEST_CASE("Radix histogram + sum shaders chained produce correct combined arbitr
     // 5. Execute both pipelines in sequence (chained)
     // histPipeline writes partialHistograms
     // sumPipeline reads partialHistograms and writes finalHistogram
-    mynydd::executeBatch<float>(contextPtr, {histPipeline, sumPipeline}, groupCount);
+    mynydd::executeBatch<float>(contextPtr, {histPipeline, sumPipeline});
 
     // 6. Fetch final summed histogram from GPU
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, finalHistogram, numBins);
@@ -207,3 +211,4 @@ TEST_CASE("Radix histogram + sum shaders chained produce correct combined arbitr
         REQUIRE(out[bin] == expectedHistogram[bin]);
     }
 }
+

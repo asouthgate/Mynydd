@@ -8,7 +8,7 @@
 
 #include <mynydd/mynydd.hpp>
 
-TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[vulkan]") {
+TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[transpose]") {
     const uint32_t m = 35;  // rows of input
     const uint32_t n = 27;  // cols of input
 
@@ -41,18 +41,20 @@ TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[vulkan]") 
     mynydd::uploadData<uint32_t>(contextPtr, inputData, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, params, uniformBuffer);
 
-    // Load transpose compute shader pipeline
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/transpose.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer}
-    );
-
     // Dispatch compute with workgroups sized to 16x16
     uint32_t groupCountX = (n + 15) / 16;
     uint32_t groupCountY = (m + 15) / 16;
 
+    // Load transpose compute shader pipeline
+    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/transpose.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer},
+        groupCountX, groupCountY, 1
+    );
+
+
     // Run the shader
-    mynydd::executeBatch<float>(contextPtr, {pipeline}, groupCountX, groupCountY, 1);
+    mynydd::executeBatch<float>(contextPtr, {pipeline});
 
     // Fetch output
     std::vector<uint32_t> outData = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, n * m);

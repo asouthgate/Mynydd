@@ -17,7 +17,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
 
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
     auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/shader.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input}
+        contextPtr, "shaders/shader.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input}, 256
 
     );
     std::cerr << "Initialized ComputeEngine" << std::endl;
@@ -30,7 +30,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     mynydd::uploadData<float>(contextPtr, inputData, input);
     std::cerr << "Uploaded data" << std::endl;
     // pipeline.execute(n);
-    mynydd::executeBatch<float>(contextPtr, {pipeline}, n);
+    mynydd::executeBatch<float>(contextPtr, {pipeline});
     std::cerr << "Executed" << std::endl;
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
     std::cerr << "Fetched" << std::endl;
@@ -50,7 +50,12 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
 
-    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_double.comp.spv", {input, output});
+    auto pipeline = std::make_shared<mynydd::ComputeEngine<double>>(
+        contextPtr,
+        "shaders/shader_double.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output},
+        256
+    );
 
     std::vector<double> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -58,7 +63,7 @@ TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
     }
 
     mynydd::uploadData<double>(contextPtr, inputData, input);
-    pipeline.execute(n);
+    mynydd::executeBatch<double>(contextPtr, {pipeline});
     std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
     for (size_t i = 0; i < std::min<size_t>(out.size(), 10); ++i) {
         REQUIRE(out[i] == static_cast<double>(i) * 2.0);
@@ -74,7 +79,12 @@ TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(double), false);
 
-    mynydd::ComputeEngine<double> pipeline(contextPtr, "shaders/shader_barrier.comp.spv", {input, output});
+    auto pipeline = std::make_shared<mynydd::ComputeEngine<double>>(
+        contextPtr,
+        "shaders/shader_barrier.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output},
+        256
+    );
 
     std::vector<double> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -82,7 +92,7 @@ TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]
     }
 
     mynydd::uploadData<double>(contextPtr, inputData, input);
-    pipeline.execute(n);
+    mynydd::executeBatch<double>(contextPtr, {pipeline});
     std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
     for (size_t i = 0; i < n - 1; ++i) {
         // this is expected to be correct except at workgroup boundaries
@@ -116,6 +126,7 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
     };
 
     size_t n = 1024;
+    uint32_t groupCount = (n + 63) / 64;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(TestData), false);
@@ -124,7 +135,8 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
 
     auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/shader_uniform.comp.spv", 
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform}
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform},
+        groupCount
     );
 
     std::vector<TestData> inputData(n);
@@ -136,8 +148,7 @@ TEST_CASE("Shader uniforms are correctly uploaded with test data", "[vulkan]") {
 
     mynydd::uploadUniformData<TestParams>(contextPtr, params, uniform);
     mynydd::uploadData<TestData>(contextPtr, inputData, input);
-    uint32_t groupCount = (n + 63) / 64;
-    mynydd::executeBatch<float>(contextPtr, {pipeline}, groupCount);
+    mynydd::executeBatch<float>(contextPtr, {pipeline});
 
     std::vector<TestData> outv = mynydd::fetchData<TestData>(contextPtr, output, n);
 
@@ -159,19 +170,19 @@ TEST_CASE("A three-step sequence of pipelines produce expected outputs, using 3 
 
     // Pipeline 1 takes b1, writes output to b2
     auto pipeline1 = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/multistep_1.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b1, b2}
+        contextPtr, "shaders/multistep_1.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b1, b2}, 256
     );
 
     // Pipeline 2 takes b2, writes output to b3
     auto pipeline2 = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/multistep_2.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b2, b3}
+        contextPtr, "shaders/multistep_2.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b2, b3}, 256
     );
 
     // Pipeline 3 takes b2 and b3, and writes to b1
     // Why reuse b1? For simplicity, but also to test that fences are working correctly
     // b1 should be free for use after pipeline2 has run
     auto pipeline3 = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/multistep_3.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b2, b3, b1}
+        contextPtr, "shaders/multistep_3.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{b2, b3, b1}, 256
     );
 
     // Initialize some input data to upload to b1
@@ -183,7 +194,7 @@ TEST_CASE("A three-step sequence of pipelines produce expected outputs, using 3 
 
     uint32_t groupCount = (n + 63) / 64;
     // Execute the pipelines in a batch
-    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2, pipeline3}, groupCount);
+    mynydd::executeBatch<float>(contextPtr, {pipeline1, pipeline2, pipeline3});
 
     // Now fetch the outputs and check they are expected
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, b3, n);
@@ -212,11 +223,12 @@ TEST_CASE("Compute pipeline processes data for float 1000 times", "[vulkan]") {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
 
     size_t n = 1024;
+    uint32_t groupCount = (n + 63) / 64;
 
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(float), false);
     auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
-        contextPtr, "shaders/shader_loop.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input}
-
+        contextPtr, "shaders/shader_loop.comp.spv", std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input},
+        groupCount
     );
     std::cerr << "Initialized ComputeEngine" << std::endl;
     std::vector<float> inputData(n);
@@ -232,8 +244,7 @@ TEST_CASE("Compute pipeline processes data for float 1000 times", "[vulkan]") {
     for (size_t i = 0; i < 1000; ++i) {
         pipelines.push_back(pipeline);
     }
-    uint32_t groupCount = (n + 63) / 64;
-    mynydd::executeBatch<float>(contextPtr, {pipelines}, groupCount);
+    mynydd::executeBatch<float>(contextPtr, {pipelines});
     std::cerr << "Executed" << std::endl;
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
     std::cerr << "Fetched" << std::endl;
