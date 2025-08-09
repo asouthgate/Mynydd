@@ -60,6 +60,8 @@ add_executable(tests
     ${TEST_SRC_DIR}/test_mynydd.cpp
     ${TEST_SRC_DIR}/test_shader_kernels.cpp
     ${TEST_SRC_DIR}/test_local_mem_sort.cpp
+    ${TEST_SRC_DIR}/test_transpose.cpp
+    ${TEST_SRC_DIR}/test_workgroup_scan.cpp
     ${SHADER_SPV_FILES}
 )
 
@@ -71,6 +73,7 @@ add_test(NAME compute_tests COMMAND tests "[vulkan]")
 add_test(NAME morton COMMAND tests "[morton]")
 add_test(NAME shader_kernel_tests COMMAND tests "[shader_kernels]")
 add_test(NAME local_mem_sort COMMAND tests "[sort]")
+add_test(NAME transpose COMMAND tests "[transpose]")
 
 
 # === Compile example folders ===

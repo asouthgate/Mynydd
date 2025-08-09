@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
     auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
     auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(Params), true);
-    mynydd::ComputeEngine<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform});
+    mynydd::ComputeEngine<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform}, n);
 
     std::vector<Particle> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
