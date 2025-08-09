@@ -289,71 +289,79 @@ namespace mynydd {
         return descriptorSet;
     }
 
-    void updateDescriptorSet(
-        VkDevice device,
-        VkDescriptorSet descriptorSet,
-        VkBuffer inputBuffer,
-        VkDeviceSize inputBufferSize,
-        VkBuffer uniformBuffer,
-        VkDeviceSize uniformSize,
-        VkBuffer outputBuffer,
-        VkDeviceSize outputBufferSize
-    ) {
-        VkDescriptorBufferInfo inputBufferInfo{};
-        inputBufferInfo.buffer = inputBuffer;
-        inputBufferInfo.offset = 0;
-        inputBufferInfo.range = inputBufferSize;
+    /**
+    * Binds a buffer to the given descriptor set at binding 0.
+    * The descriptor set contains information about the resources that the compute
+    * shader will use. In this case, the buffer will be used as a storage buffer,
+    * which means it can be read from and written to by the compute shader. For our
+    * GPU compute abstraction, this will correspond to dtypes that the compute
+    * shader will process.
+    */
+    // void updateDescriptorSet(
+    //     VkDevice device,
+    //     VkDescriptorSet descriptorSet,
+    //     VkBuffer inputBuffer,
+    //     VkDeviceSize inputBufferSize,
+    //     VkBuffer uniformBuffer,
+    //     VkDeviceSize uniformSize,
+    //     VkBuffer outputBuffer,
+    //     VkDeviceSize outputBufferSize
+    // ) {
+    //     VkDescriptorBufferInfo inputBufferInfo{};
+    //     inputBufferInfo.buffer = inputBuffer;
+    //     inputBufferInfo.offset = 0;
+    //     inputBufferInfo.range = inputBufferSize;
 
-        VkDescriptorBufferInfo outputBufferInfo{};
-        outputBufferInfo.buffer = outputBuffer;
-        outputBufferInfo.offset = 0;
-        outputBufferInfo.range = outputBufferSize;
+    //     VkDescriptorBufferInfo outputBufferInfo{};
+    //     outputBufferInfo.buffer = outputBuffer;
+    //     outputBufferInfo.offset = 0;
+    //     outputBufferInfo.range = outputBufferSize;
 
-        // Uniform buffer info
-        VkDescriptorBufferInfo uniformBufferInfo{};
-        uniformBufferInfo.buffer = uniformBuffer;
-        uniformBufferInfo.offset = 0;
-        uniformBufferInfo.range = uniformSize;
+    //     // Uniform buffer info
+    //     VkDescriptorBufferInfo uniformBufferInfo{};
+    //     uniformBufferInfo.buffer = uniformBuffer;
+    //     uniformBufferInfo.offset = 0;
+    //     uniformBufferInfo.range = uniformSize;
 
-        VkWriteDescriptorSet inputWrite{};
-        inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        inputWrite.dstSet = descriptorSet;
-        inputWrite.dstBinding = 0; // binding 0: storage buffer
-        inputWrite.dstArrayElement = 0;
-        inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        inputWrite.descriptorCount = 1;
-        inputWrite.pBufferInfo = &inputBufferInfo;
+    //     VkWriteDescriptorSet inputWrite{};
+    //     inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    //     inputWrite.dstSet = descriptorSet;
+    //     inputWrite.dstBinding = 0; // binding 0: storage buffer
+    //     inputWrite.dstArrayElement = 0;
+    //     inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    //     inputWrite.descriptorCount = 1;
+    //     inputWrite.pBufferInfo = &inputBufferInfo;
 
-        VkWriteDescriptorSet outputWrite{};
-        outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        outputWrite.dstSet = descriptorSet;
-        outputWrite.dstBinding = 1; // binding 0: storage buffer
-        outputWrite.dstArrayElement = 0;
-        outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        outputWrite.descriptorCount = 1;
-        outputWrite.pBufferInfo = &outputBufferInfo;
+    //     VkWriteDescriptorSet outputWrite{};
+    //     outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    //     outputWrite.dstSet = descriptorSet;
+    //     outputWrite.dstBinding = 1; // binding 0: storage buffer
+    //     outputWrite.dstArrayElement = 0;
+    //     outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    //     outputWrite.descriptorCount = 1;
+    //     outputWrite.pBufferInfo = &outputBufferInfo;
 
-        VkWriteDescriptorSet uniformWrite{};
-        uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        uniformWrite.dstSet = descriptorSet;
-        uniformWrite.dstBinding = 2; // binding 1: uniform buffer
-        uniformWrite.dstArrayElement = 0;
-        uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uniformWrite.descriptorCount = 1;
-        uniformWrite.pBufferInfo = &uniformBufferInfo;
+    //     VkWriteDescriptorSet uniformWrite{};
+    //     uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    //     uniformWrite.dstSet = descriptorSet;
+    //     uniformWrite.dstBinding = 2; // binding 1: uniform buffer
+    //     uniformWrite.dstArrayElement = 0;
+    //     uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    //     uniformWrite.descriptorCount = 1;
+    //     uniformWrite.pBufferInfo = &uniformBufferInfo;
 
-        std::array<VkWriteDescriptorSet, 3> writes = {
-            inputWrite, outputWrite, uniformWrite
-        };
+    //     std::array<VkWriteDescriptorSet, 3> writes = {
+    //         inputWrite, outputWrite, uniformWrite
+    //     };
 
-        vkUpdateDescriptorSets(
-            device,
-            static_cast<uint32_t>(writes.size()),
-            writes.data(),
-            0,
-            nullptr
-        );
-    }
+    //     vkUpdateDescriptorSets(
+    //         device,
+    //         static_cast<uint32_t>(writes.size()),
+    //         writes.data(),
+    //         0,
+    //         nullptr
+    //     );
+    // }
 
     /**
     * Binds a buffer to the given descriptor set at binding 0.
@@ -607,7 +615,7 @@ namespace mynydd {
 
     VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+        const std::vector<std::shared_ptr<AllocatedBuffer>> buffers
     ) : contextPtr(contextPtr) {
 
         descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
@@ -620,6 +628,22 @@ namespace mynydd {
             buffers
         );
     }
+
+    void VulkanDynamicResources::setBuffers(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+    ) {
+        if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid Vulkan context in setBuffers.");
+        }
+        if (buffers.empty()) {
+            throw std::runtime_error("No buffers provided to setBuffers.");
+        }
+
+        this->descriptorSet = allocateDescriptorSet(contextPtr->device, this->descriptorSetLayout, this->descriptorPool);
+        updateDescriptorSet(contextPtr->device, this->descriptorSet, buffers);
+    }
+
 
 
 

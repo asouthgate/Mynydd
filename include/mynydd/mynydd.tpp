@@ -14,31 +14,41 @@
 
 namespace mynydd {
     
-    // VulkanContext createVulkanContext();
-    // // Required forward declarations for Vulkan functions used in the template
-    
-    // VkDescriptorSet allocateDescriptorSet(
+    VulkanContext createVulkanContext();
+    // Required forward declarations for Vulkan functions used in the template
+    VkBuffer createBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage);
+    VkDeviceMemory allocateAndBindMemory(
+        VkPhysicalDevice physicalDevice,
+        VkDevice device,
+        VkBuffer buffer,
+        VkMemoryPropertyFlags properties
+    );
+    VkDescriptorSet allocateDescriptorSet(
+        VkDevice device,
+        VkDescriptorSetLayout descriptorSetLayout,
+        VkDescriptorPool &descriptorPool
+    );
+    // void updateDescriptorSet(
     //     VkDevice device,
-    //     VkDescriptorSetLayout descriptorSetLayout,
-    //     VkDescriptorPool &descriptorPool
-    // );
-    // VulkanPipelineResources create_pipeline_resources(
-    //     std::shared_ptr<VulkanContext> contextPtr,
-    //     const char* shaderPath,
-    //     VkDescriptorSetLayout &descriptorLayout,
-    //     std::vector<uint32_t> pushConstantSizes = {}
-    // );
-    // VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
-    // VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
-    // void recordCommandBuffer(
-    //     VkCommandBuffer commandBuffer,
-    //     VkPipeline pipeline,
-    //     VkPipelineLayout pipelineLayout,
     //     VkDescriptorSet descriptorSet,
-    //     uint32_t numElements
+    //     const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
     // );
-    // void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer);
-    // VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
+    VulkanPipelineResources create_pipeline_resources(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const char* shaderPath,
+        VkDescriptorSetLayout &descriptorLayout
+    );
+    VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
+    VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
+    void recordCommandBuffer(
+        VkCommandBuffer commandBuffer,
+        VkPipeline pipeline,
+        VkPipelineLayout pipelineLayout,
+        VkDescriptorSet descriptorSet,
+        uint32_t numElements
+    );
+    void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer);
+    VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
 
     template<typename T>
     ComputeEngine<T>::ComputeEngine(
@@ -290,5 +300,17 @@ namespace mynydd {
         vkDestroyFence(contextPtr->device, fence, nullptr);
         std::cerr << "Batch execution finished successfully." << std::endl;
     }
+
+    template<typename T>
+    void ComputeEngine<T>::setBuffers(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+    ) {
+        if (!this->dynamicResourcesPtr) {
+            throw std::runtime_error("Dynamic resources pointer is null.");
+        }
+        this->dynamicResourcesPtr->setBuffers(contextPtr, buffers);
+    }
+
 
 }

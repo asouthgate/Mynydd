@@ -84,6 +84,10 @@ namespace mynydd {
         VulkanDynamicResources& operator=(const VulkanDynamicResources&) = delete; // No copy
         VulkanDynamicResources(VulkanDynamicResources&&) = default;                // Allow move
         VulkanDynamicResources& operator=(VulkanDynamicResources&&) = default;     // Allow move
+        void setBuffers(
+            std::shared_ptr<VulkanContext> contextPtr,
+            const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+        );
     };
 
     template<typename T>
@@ -109,6 +113,11 @@ namespace mynydd {
             uint32_t groupCountX;
             uint32_t groupCountY;
             uint32_t groupCountZ;
+            void setBuffers(
+                std::shared_ptr<VulkanContext> contextPtr,
+                const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+            );
+
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
