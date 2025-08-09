@@ -27,12 +27,11 @@ namespace mynydd {
         VkDescriptorSetLayout descriptorSetLayout,
         VkDescriptorPool &descriptorPool
     );
-    void updateDescriptorSet(
-        VkDevice device,
-        VkDescriptorSet descriptorSet,
-        VkBuffer buffer,
-        VkDeviceSize size
-    );
+    // void updateDescriptorSet(
+    //     VkDevice device,
+    //     VkDescriptorSet descriptorSet,
+    //     const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
+    // );
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
         const char* shaderPath,
@@ -301,5 +300,17 @@ namespace mynydd {
         vkDestroyFence(contextPtr->device, fence, nullptr);
         std::cerr << "Batch execution finished successfully." << std::endl;
     }
+
+    template<typename T>
+    void ComputeEngine<T>::setBuffers(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+    ) {
+        if (!this->dynamicResourcesPtr) {
+            throw std::runtime_error("Dynamic resources pointer is null.");
+        }
+        this->dynamicResourcesPtr->setBuffers(contextPtr, buffers);
+    }
+
 
 }
