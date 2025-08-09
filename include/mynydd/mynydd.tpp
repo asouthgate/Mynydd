@@ -219,7 +219,6 @@ namespace mynydd {
         }
 
         for (size_t i = 0; i < computeEngines.size(); ++i) {
-            std::cerr << "Processing compute engine " << i << " of " << computeEngines.size() << std::endl;
             auto& engine = computeEngines[i];
             if (!engine) {
                 throw std::runtime_error("Null ComputeEngine pointer at index " + std::to_string(i));
@@ -233,13 +232,11 @@ namespace mynydd {
                 throw std::runtime_error("Invalid pipeline or descriptor set for engine " + std::to_string(i));
             }
 
-            std::cerr << "Binding pipeline and descriptor set for engine " << i << std::endl;
             // Bind pipeline and descriptor sets
             vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
             vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
 
             // Dispatch compute shader
-            std::cerr << "Dispatching compute shader for engine " << i << " with group count: " << groupCount << std::endl;
             vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
 
             // Insert memory barrier between shaders (except after last one)
@@ -248,7 +245,6 @@ namespace mynydd {
                 memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
                 memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
                 memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-                std::cerr << "Inserting memory barrier after engine " << i << std::endl;
                 vkCmdPipelineBarrier(
                     cmdBuffer,
                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
