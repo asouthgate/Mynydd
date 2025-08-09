@@ -1,0 +1,59 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer InputBuffer {
+    uint values[];
+};
+
+layout(set = 0, binding = 1) readonly buffer WorkgroupPrefixSums {
+    uint workgroupPrefixSums[]; // layout: numBins * groupCount
+};
+
+layout(set = 0, binding = 2) readonly buffer GlobalPrefixSum {
+    uint globalPrefixSum[]; // numBins elements
+};
+
+layout(set = 0, binding = 3) buffer OutputBuffer {
+    uint sortedValues[];
+};
+
+layout(set = 0, binding = 4) uniform Params {
+    uint bitOffset;
+    uint numBins;
+    uint totalSize;
+    uint workgroupSize;
+    uint groupCount;
+} params;
+
+// Per-bin atomic counters shared within the workgroup
+shared uint localBinCounters[256]; // max bins
+
+void main() {
+    uint localID = gl_LocalInvocationID.x;
+    uint globalID = gl_GlobalInvocationID.x;
+    uint workgroupID = gl_WorkGroupID.x;
+
+    // Step 0: init atomic counters to zero (parallelized)
+    for (uint i = localID; i < params.numBins; i += params.workgroupSize) {
+        localBinCounters[i] = 0u;
+    }
+    barrier();
+
+    if (globalID >= params.totalSize) return;
+
+    uint v = values[globalID];
+    uint bin = (v >> params.bitOffset) & (params.numBins - 1);
+
+    // Step 1: atomically increment local bin counter, get local index within workgroup for this bin
+    uint localIndex = atomicAdd(localBinCounters[bin], 1u);
+
+    // Step 2: compute global position for output:
+    // globalPrefixSum[bin] = total count of all smaller bins
+    // workgroupPrefixSums[bin * params.groupCount + workgroupID] = count of previous workgroups for this bin
+    uint basePos = globalPrefixSum[bin] + workgroupPrefixSums[bin * params.groupCount + workgroupID];
+
+    uint pos = basePos + localIndex;
+
+    sortedValues[pos] = v;
+}

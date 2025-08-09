@@ -74,7 +74,6 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     uint32_t groupCountX = (tparams.width + tile - 1) / tile;  // ceil(numBins/16)
     uint32_t groupCountY = (tparams.height + tile - 1) / tile; // ceil(groupCount/16)
 
-
     // Create pipelines:
     //  - transpose: in = histBuffer (groupCount x numBins), out = transposedBuffer (numBins x groupCount), params tUniform
     //  - prefix: in = transposedBuffer, out = prefixBuffer, params pUniform
@@ -89,7 +88,6 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{transposedBuffer, prefixBuffer, pUniform},
         numBins
     );
-
 
     // NOTE: if your executeBatch currently only supports a single groupCount argument,
     // you will need to extend it to allow a 2D dispatch or flatten the transpose to 1D.
