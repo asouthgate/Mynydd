@@ -28,8 +28,8 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
         contextPtr, numBins * groupCount * sizeof(uint32_t), true);
 
     // Uniform buffers for transpose and prefix shaders
-    struct TransposeParams { uint32_t width; uint32_t height; }; // width=numBins, height=groupCount
-    TransposeParams tparams{ numBins, groupCount };
+    struct TransposeParams { uint32_t height; uint32_t width; }; // width=numBins, height=groupCount
+    TransposeParams tparams{ groupCount, numBins };
     auto tUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(TransposeParams), true);
 
     struct PrefixParams { uint32_t groupCount; uint32_t numBins; };
