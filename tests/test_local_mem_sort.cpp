@@ -220,6 +220,7 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     std::cerr << "\nRunning full radix sort test..." << std::endl;
     const size_t n = 1 << 16; // 65536 elements for test
     const uint32_t bitsPerPass = 8;
+    const uint32_t nPasses = 32 / bitsPerPass; // 4 passes for 32 bits
     const uint32_t numBins = 1 << bitsPerPass; // 256
     const uint32_t itemsPerGroup = 256;
     const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
@@ -246,6 +247,12 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     auto histPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
         contextPtr, "shaders/histogram.comp.spv",
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, perWorkgroupHistograms, radixUniform},
+        groupCount
+    );
+
+    auto histPipelinePong = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+        contextPtr, "shaders/histogram.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{outputBuffer, perWorkgroupHistograms, radixUniform},
         groupCount
     );
 
@@ -307,111 +314,128 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
 
     // For each radix pass (4 passes, 8 bits each)
     // Execute tests for one pass
-    uint32_t bitOffset = 0 * bitsPerPass;
+    for (size_t pass = 0; pass < nPasses; ++pass) {
+        uint32_t bitOffset = pass * bitsPerPass;
+        std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
 
-    RadixParams radixParams = {
-        .bitOffset = bitOffset,
-        .numBins = numBins,
-        .totalSize = static_cast<uint32_t>(n),
-        .itemsPerGroup = itemsPerGroup
-    };
+        RadixParams radixParams = {
+            .bitOffset = bitOffset,
+            .numBins = numBins,
+            .totalSize = static_cast<uint32_t>(n),
+            .itemsPerGroup = itemsPerGroup
+        };
 
-    SumParams sumParams = {
-        .groupCount = groupCount,
-        .numBins = numBins
-    };
+        SumParams sumParams = {
+            .groupCount = groupCount,
+            .numBins = numBins
+        };
 
-    PrefixParams workgroupPrefixParams = {
-        .groupCount = numBins, // Yes, this is inverted, because it's using the output of transpose shader step
-        .numBins = groupCount
-    };
+        PrefixParams workgroupPrefixParams = {
+            .groupCount = numBins, // Yes, this is inverted, because it's using the output of transpose shader step
+            .numBins = groupCount
+        };
 
-    PrefixParams transposeParams = workgroupPrefixParams;
+        PrefixParams transposeParams = workgroupPrefixParams;
 
-    PrefixParams globalPrefixParams = {
-        .groupCount = 1,
-        .numBins = numBins
-    };
+        PrefixParams globalPrefixParams = {
+            .groupCount = 1,
+            .numBins = numBins
+        };
 
-    SortParams sortParams = {
-        .bitOffset = bitOffset,
-        .numBins = numBins,
-        .totalSize = static_cast<uint32_t>(n),
-        .workgroupSize=itemsPerGroup,
-        .groupCount=groupCount
-    };
+        SortParams sortParams = {
+            .bitOffset = bitOffset,
+            .numBins = numBins,
+            .totalSize = static_cast<uint32_t>(n),
+            .workgroupSize=itemsPerGroup,
+            .groupCount=groupCount
+        };
 
-    mynydd::uploadUniformData<RadixParams>(contextPtr, radixParams, radixUniform);
-    mynydd::uploadUniformData<SumParams>(contextPtr, sumParams, sumUniform);
-    mynydd::uploadUniformData<PrefixParams>(contextPtr, globalPrefixParams, globalPrefixUniform);
-    mynydd::uploadUniformData<PrefixParams>(contextPtr, workgroupPrefixParams, workgroupPrefixUniform);
-    mynydd::uploadUniformData<PrefixParams>(contextPtr, transposeParams, transposeUniform);
-    mynydd::uploadUniformData<SortParams>(contextPtr, sortParams, sortUniform);
+        mynydd::uploadUniformData<RadixParams>(contextPtr, radixParams, radixUniform);
+        mynydd::uploadUniformData<SumParams>(contextPtr, sumParams, sumUniform);
+        mynydd::uploadUniformData<PrefixParams>(contextPtr, globalPrefixParams, globalPrefixUniform);
+        mynydd::uploadUniformData<PrefixParams>(contextPtr, workgroupPrefixParams, workgroupPrefixUniform);
+        mynydd::uploadUniformData<PrefixParams>(contextPtr, transposeParams, transposeUniform);
+        mynydd::uploadUniformData<SortParams>(contextPtr, sortParams, sortUniform);
 
-    std::cerr << "\n###+------------------+### Starting radix with bit offset " << bitOffset << std::endl;
-    // // 1) Histogram partial counts
-    mynydd::executeBatch<uint32_t>(
-        contextPtr, 
-    {
-            histPipeline,
-            sumPipeline,
-            globalPrefixPipeline, 
-            transposePipeline,
-            workgroupPrefixPipeline,
-            sortPipeline
+        // // 1) Histogram partial counts
+        mynydd::executeBatch<uint32_t>(
+            contextPtr, 
+        {
+                pass % 2 == 0 ? histPipeline : histPipelinePong,
+                sumPipeline,
+                globalPrefixPipeline, 
+                transposePipeline,
+                workgroupPrefixPipeline,
+                pass % 2 == 0 ? sortPipeline : sortPipelinePong
+            }
+        );
+
+        if (pass == 0) {
+            inputData = inputData;
+        } else {
+            inputData = mynydd::fetchData<uint32_t>(contextPtr, pass % 2 == 0 ? inputBuffer : outputBuffer, n);
         }
-    );
-
-    // Validate intermediate results
-    auto expected_histogram = compute_full_histogram(inputData, numBins, bitOffset);
-    auto expected_wg_histogram = compute_wg_histogram(inputData, numBins, itemsPerGroup, bitOffset);
-    std::vector<uint32_t> out_global_hist = mynydd::fetchData<uint32_t>(contextPtr, globalHistogram, numBins);
-    auto out_wg_hist = mynydd::fetchData<uint32_t>(contextPtr, perWorkgroupHistograms, groupCount * numBins);
-    REQUIRE(out_global_hist.size() == numBins);
-    for (uint32_t bin = 0; bin < numBins; ++bin) {
-        REQUIRE(out_global_hist[bin] == expected_histogram[bin]);
-    }
-    for (uint32_t bin = 0; bin < expected_wg_histogram.size(); ++bin) {
-        REQUIRE(out_wg_hist[bin] == expected_wg_histogram[bin]);
-    }
-    auto out_wg_hist_transposed = mynydd::fetchData<uint32_t>(contextPtr, transposedHistograms, groupCount * numBins);
-    for (uint32_t wg = 0; wg < groupCount; ++wg) {
+        // Validate intermediate results
+        auto expected_histogram = compute_full_histogram(inputData, numBins, bitOffset);
+        auto expected_wg_histogram = compute_wg_histogram(inputData, numBins, itemsPerGroup, bitOffset);
+        std::vector<uint32_t> out_global_hist = mynydd::fetchData<uint32_t>(contextPtr, globalHistogram, numBins);
+        auto out_wg_hist = mynydd::fetchData<uint32_t>(contextPtr, perWorkgroupHistograms, groupCount * numBins);
+        REQUIRE(out_global_hist.size() == numBins);
         for (uint32_t bin = 0; bin < numBins; ++bin) {
-            REQUIRE(out_wg_hist_transposed[wg * numBins + bin] == out_wg_hist[bin * groupCount + wg]);
+            REQUIRE(out_global_hist[bin] == expected_histogram[bin]);
         }
-    }
-    auto out_global_prefix_sum = mynydd::fetchData<uint32_t>(contextPtr, globalPrefixSum, numBins);
-    auto expected_global_prefix_sum = prefix_sum(out_global_hist);
-
-    for (uint32_t bin = 1; bin < numBins; ++bin) {
-        REQUIRE(out_global_prefix_sum[bin] >= out_global_prefix_sum[bin - 1]);
-    }
-    // REQUIRE(out_global_prefix_sum[numBins - 1] == n); // not required for an exclusive scan
-    for (uint32_t bin = 0; bin < numBins; ++bin) {
-        REQUIRE(out_global_prefix_sum[bin] == expected_global_prefix_sum[bin]);
-    }
-    auto out_workgroup_prefix_sums = mynydd::fetchData<uint32_t>(contextPtr, workgroupPrefixSums, groupCount * numBins);
-    
-    // NOTE: THIS IS TRANSPOSED: ROWS ARE OF LENGTH groupCount
-    for (uint32_t bin = 0; bin < numBins; ++bin) {
-        auto expected_wg_hist = prefix_sum(std::vector<uint32_t>(
-            out_wg_hist_transposed.begin() + bin * groupCount, 
-            out_wg_hist_transposed.begin() + (bin + 1) * groupCount
-        ));
+        for (uint32_t bin = 0; bin < expected_wg_histogram.size(); ++bin) {
+            REQUIRE(out_wg_hist[bin] == expected_wg_histogram[bin]);
+        }
+        auto out_wg_hist_transposed = mynydd::fetchData<uint32_t>(contextPtr, transposedHistograms, groupCount * numBins);
         for (uint32_t wg = 0; wg < groupCount; ++wg) {
-            REQUIRE(out_workgroup_prefix_sums[bin * groupCount + wg] == expected_wg_hist[wg]);
+            for (uint32_t bin = 0; bin < numBins; ++bin) {
+                REQUIRE(out_wg_hist_transposed[wg * numBins + bin] == out_wg_hist[bin * groupCount + wg]);
+            }
         }
+        auto out_global_prefix_sum = mynydd::fetchData<uint32_t>(contextPtr, globalPrefixSum, numBins);
+        auto expected_global_prefix_sum = prefix_sum(out_global_hist);
+
+        for (uint32_t bin = 1; bin < numBins; ++bin) {
+            REQUIRE(out_global_prefix_sum[bin] >= out_global_prefix_sum[bin - 1]);
+        }
+        // REQUIRE(out_global_prefix_sum[numBins - 1] == n); // not required for an exclusive scan
+        for (uint32_t bin = 0; bin < numBins; ++bin) {
+            REQUIRE(out_global_prefix_sum[bin] == expected_global_prefix_sum[bin]);
+        }
+        auto out_workgroup_prefix_sums = mynydd::fetchData<uint32_t>(contextPtr, workgroupPrefixSums, groupCount * numBins);
+        
+        // NOTE: THIS IS TRANSPOSED: ROWS ARE OF LENGTH groupCount
+        for (uint32_t bin = 0; bin < numBins; ++bin) {
+            auto expected_wg_hist = prefix_sum(std::vector<uint32_t>(
+                out_wg_hist_transposed.begin() + bin * groupCount, 
+                out_wg_hist_transposed.begin() + (bin + 1) * groupCount
+            ));
+            for (uint32_t wg = 0; wg < groupCount; ++wg) {
+                REQUIRE(out_workgroup_prefix_sums[bin * groupCount + wg] == expected_wg_hist[wg]);
+            }
+        }
+
+        auto out_sorted = mynydd::fetchData<uint32_t>(
+            contextPtr, pass % 2 ?  inputBuffer : outputBuffer, n
+        );
+        auto input_retrieved = mynydd::fetchData<uint32_t>(
+            contextPtr, pass % 2 ? outputBuffer : inputBuffer, n
+        );
+        // Validate sorted output
+        for (size_t i = 1; i < 100; ++i) {
+            // print out input_retrieved, out_sorted, current_radix, input_radix
+            std::cerr << "Input: " << input_retrieved[i] << ", Sorted: " << out_sorted[i] << std::endl;
+            std::cerr << "Last radix: " << ((out_sorted[i - 1] >> bitOffset) & (numBins - 1)) 
+                      << ", Current radix: " << ((out_sorted[i] >> bitOffset) & (numBins - 1)) 
+                      << ", Input radix: " << ((input_retrieved[i] >> bitOffset) & (numBins - 1)) << std::endl;
+        }
+        for (size_t i = 1; i < out_sorted.size(); ++i) {
+            uint32_t last_radix = (out_sorted[i - 1] >> bitOffset) & (numBins - 1);
+            uint32_t current_radix = (out_sorted[i] >> bitOffset) & (numBins - 1);
+            uint32_t input_radix = (input_retrieved[i] >> bitOffset) & (numBins - 1);
+            REQUIRE(last_radix <= current_radix);
+        }
+
     }
-
-    auto out_sorted = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, n);
-    auto input_retrieved = mynydd::fetchData<uint32_t>(contextPtr, inputBuffer, n);
-    // Validate sorted output
-    for (size_t i = 1; i < out_sorted.size(); ++i) {
-
-        uint32_t last_radix = (out_sorted[i - 1] >> bitOffset) & (numBins - 1);
-        uint32_t current_radix = (out_sorted[i] >> bitOffset) & (numBins - 1);
-        uint32_t input_radix = (input_retrieved[i] >> bitOffset) & (numBins - 1);
-        REQUIRE(last_radix <= current_radix);
-    }
-
 }
