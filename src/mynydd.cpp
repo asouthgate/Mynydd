@@ -1,7 +1,6 @@
 #include <array>
 #include <assert.h>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -212,30 +211,25 @@ namespace mynydd {
     * the compute shader. This is analogous to telling a scheduler like SLURM what
     * resources (like CPUs, memory) a job will need.
     */
-    VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device) {
-        VkDescriptorSetLayoutBinding inputBufferBinding{};
-        inputBufferBinding.binding = 0;
-        inputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        inputBufferBinding.descriptorCount = 1;
-        inputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayout createDescriptorSetLayout(
+        VkDevice device,
+        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+) {
+        std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-        VkDescriptorSetLayoutBinding outputBufferBinding{};
-        outputBufferBinding.binding = 1;
-        outputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        outputBufferBinding.descriptorCount = 1;
-        outputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayoutBinding uniformBufferBinding{};
-        uniformBufferBinding.binding = 2;
-        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uniformBufferBinding.descriptorCount = 1;
-        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {inputBufferBinding, outputBufferBinding, uniformBufferBinding};
+        size_t bindingIndex = 0;
+        for (const auto &buffer : buffers) {
+            VkDescriptorSetLayoutBinding binding{};
+            binding.binding = bindingIndex++;
+            binding.descriptorType = buffer->getType();
+            binding.descriptorCount = 1;
+            binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            bindings.push_back(binding);
+        }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 3;
+        layoutInfo.bindingCount = bindings.size();
         layoutInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout layout;
@@ -251,19 +245,14 @@ namespace mynydd {
         VkDevice device,
         VkDescriptorSetLayout layout,
         VkDescriptorPool &pool,
-        const std::vector<std::shared_ptr<Buffer>>& buffers
+        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
     ) {
-        std::array<VkDescriptorPoolSize, 3> poolSizes{};
+        std::vector<VkDescriptorPoolSize> poolSizes(buffers.size());
 
-        poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[0].descriptorCount = 1;
-
-        poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[1].descriptorCount = 1;
-
-        poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[2].descriptorCount = 1;
-
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            poolSizes[i].type = buffers[i]->getType();
+            poolSizes[i].descriptorCount = 1;
+        }
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -288,80 +277,6 @@ namespace mynydd {
 
         return descriptorSet;
     }
-
-    /**
-    * Binds a buffer to the given descriptor set at binding 0.
-    * The descriptor set contains information about the resources that the compute
-    * shader will use. In this case, the buffer will be used as a storage buffer,
-    * which means it can be read from and written to by the compute shader. For our
-    * GPU compute abstraction, this will correspond to dtypes that the compute
-    * shader will process.
-    */
-    // void updateDescriptorSet(
-    //     VkDevice device,
-    //     VkDescriptorSet descriptorSet,
-    //     VkBuffer inputBuffer,
-    //     VkDeviceSize inputBufferSize,
-    //     VkBuffer uniformBuffer,
-    //     VkDeviceSize uniformSize,
-    //     VkBuffer outputBuffer,
-    //     VkDeviceSize outputBufferSize
-    // ) {
-    //     VkDescriptorBufferInfo inputBufferInfo{};
-    //     inputBufferInfo.buffer = inputBuffer;
-    //     inputBufferInfo.offset = 0;
-    //     inputBufferInfo.range = inputBufferSize;
-
-    //     VkDescriptorBufferInfo outputBufferInfo{};
-    //     outputBufferInfo.buffer = outputBuffer;
-    //     outputBufferInfo.offset = 0;
-    //     outputBufferInfo.range = outputBufferSize;
-
-    //     // Uniform buffer info
-    //     VkDescriptorBufferInfo uniformBufferInfo{};
-    //     uniformBufferInfo.buffer = uniformBuffer;
-    //     uniformBufferInfo.offset = 0;
-    //     uniformBufferInfo.range = uniformSize;
-
-    //     VkWriteDescriptorSet inputWrite{};
-    //     inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    //     inputWrite.dstSet = descriptorSet;
-    //     inputWrite.dstBinding = 0; // binding 0: storage buffer
-    //     inputWrite.dstArrayElement = 0;
-    //     inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    //     inputWrite.descriptorCount = 1;
-    //     inputWrite.pBufferInfo = &inputBufferInfo;
-
-    //     VkWriteDescriptorSet outputWrite{};
-    //     outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    //     outputWrite.dstSet = descriptorSet;
-    //     outputWrite.dstBinding = 1; // binding 0: storage buffer
-    //     outputWrite.dstArrayElement = 0;
-    //     outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    //     outputWrite.descriptorCount = 1;
-    //     outputWrite.pBufferInfo = &outputBufferInfo;
-
-    //     VkWriteDescriptorSet uniformWrite{};
-    //     uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    //     uniformWrite.dstSet = descriptorSet;
-    //     uniformWrite.dstBinding = 2; // binding 1: uniform buffer
-    //     uniformWrite.dstArrayElement = 0;
-    //     uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    //     uniformWrite.descriptorCount = 1;
-    //     uniformWrite.pBufferInfo = &uniformBufferInfo;
-
-    //     std::array<VkWriteDescriptorSet, 3> writes = {
-    //         inputWrite, outputWrite, uniformWrite
-    //     };
-
-    //     vkUpdateDescriptorSets(
-    //         device,
-    //         static_cast<uint32_t>(writes.size()),
-    //         writes.data(),
-    //         0,
-    //         nullptr
-    //     );
-    // }
 
     /**
     * Binds a buffer to the given descriptor set at binding 0.
@@ -618,9 +533,9 @@ namespace mynydd {
         const std::vector<std::shared_ptr<AllocatedBuffer>> buffers
     ) : contextPtr(contextPtr) {
 
-        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
+        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device, buffers);
 
-        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
+        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool, buffers);
 
         updateDescriptorSet(
             contextPtr->device,
@@ -640,7 +555,9 @@ namespace mynydd {
             throw std::runtime_error("No buffers provided to setBuffers.");
         }
 
-        this->descriptorSet = allocateDescriptorSet(contextPtr->device, this->descriptorSetLayout, this->descriptorPool);
+        this->descriptorSet = allocateDescriptorSet(
+            contextPtr->device, this->descriptorSetLayout, this->descriptorPool, buffers
+        );
         updateDescriptorSet(contextPtr->device, this->descriptorSet, buffers);
     }
 
