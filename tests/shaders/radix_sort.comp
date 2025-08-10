@@ -57,6 +57,4 @@ void main() {
 
     // Step 4: Write the value to its final sorted position.
     sortedValues[pos] = v;
-
-    sortedValues[globalID] = v;
 }

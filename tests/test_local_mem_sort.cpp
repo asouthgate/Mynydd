@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <sys/types.h>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -306,7 +307,7 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
 
     // For each radix pass (4 passes, 8 bits each)
     // Execute tests for one pass
-    uint32_t bitOffset = 1 * bitsPerPass;
+    uint32_t bitOffset = 0 * bitsPerPass;
 
     RadixParams radixParams = {
         .bitOffset = bitOffset,
@@ -345,7 +346,7 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     mynydd::uploadUniformData<PrefixParams>(contextPtr, globalPrefixParams, globalPrefixUniform);
     mynydd::uploadUniformData<PrefixParams>(contextPtr, workgroupPrefixParams, workgroupPrefixUniform);
     mynydd::uploadUniformData<PrefixParams>(contextPtr, transposeParams, transposeUniform);
-    // mynydd::uploadUniformData<SortParams>(contextPtr, sortParams, sortUniform);
+    mynydd::uploadUniformData<SortParams>(contextPtr, sortParams, sortUniform);
 
     std::cerr << "\n###+------------------+### Starting radix with bit offset " << bitOffset << std::endl;
     // // 1) Histogram partial counts
@@ -403,10 +404,13 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     }
 
     auto out_sorted = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, n);
+    auto input_retrieved = mynydd::fetchData<uint32_t>(contextPtr, inputBuffer, n);
     // Validate sorted output
     for (size_t i = 1; i < out_sorted.size(); ++i) {
+
         uint32_t last_radix = (out_sorted[i - 1] >> bitOffset) & (numBins - 1);
         uint32_t current_radix = (out_sorted[i] >> bitOffset) & (numBins - 1);
+        uint32_t input_radix = (input_retrieved[i] >> bitOffset) & (numBins - 1);
         REQUIRE(last_radix <= current_radix);
     }
 
