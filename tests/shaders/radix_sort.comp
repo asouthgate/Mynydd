@@ -34,26 +34,29 @@ void main() {
     uint globalID = gl_GlobalInvocationID.x;
     uint workgroupID = gl_WorkGroupID.x;
 
-    // Step 0: init atomic counters to zero (parallelized)
-    for (uint i = localID; i < params.numBins; i += params.workgroupSize) {
-        localBinCounters[i] = 0u;
-    }
+    localBinCounters[localID] = 0u;
     barrier();
 
-    if (globalID >= params.totalSize) return;
+    if (globalID >= params.totalSize) {
+        return;
+    }
 
     uint v = values[globalID];
     uint bin = (v >> params.bitOffset) & (params.numBins - 1);
 
-    // Step 1: atomically increment local bin counter, get local index within workgroup for this bin
+    // Step 1: Atomically increment the local bin counter to get the local index.
     uint localIndex = atomicAdd(localBinCounters[bin], 1u);
 
-    // Step 2: compute global position for output:
-    // globalPrefixSum[bin] = total count of all smaller bins
-    // workgroupPrefixSums[bin * params.groupCount + workgroupID] = count of previous workgroups for this bin
+    // Step 2: Compute the base position for the element.
+    // This position is the sum of the global count of smaller bins and the
+    // count of previous workgroups for this specific bin.
     uint basePos = globalPrefixSum[bin] + workgroupPrefixSums[bin * params.groupCount + workgroupID];
 
+    // Step 3: Add the local index to the base position to get the final, unique position.
     uint pos = basePos + localIndex;
 
+    // Step 4: Write the value to its final sorted position.
     sortedValues[pos] = v;
+
+    sortedValues[globalID] = v;
 }
