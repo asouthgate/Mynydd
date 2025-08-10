@@ -7,6 +7,56 @@
 
 #include <mynydd/mynydd.hpp>
 
+TEST_CASE("Test that workgroup scan works on the single work group case", "[vulkan]") {
+    const uint32_t groupCount = 1; // number of workgroups in original histogram (rows)
+    const uint32_t numBins = 8;    // number of bins (cols)
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+
+    auto histBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, groupCount * numBins * sizeof(uint32_t), false);
+    auto prefixBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, numBins * groupCount * sizeof(uint32_t), true);
+
+    struct PrefixParams { uint32_t groupCount; uint32_t numBins; };
+    PrefixParams pparams{ groupCount, numBins };
+    auto pUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
+
+    std::vector<uint32_t> perGroupHist(groupCount * numBins);
+    for (uint32_t g = 0; g < groupCount; ++g) {
+        for (uint32_t b = 0; b < numBins; ++b) {
+            perGroupHist[g * numBins + b] = (g + 1) * (b + 1); // arbitrary non-uniform pattern
+        }
+    }
+
+    std::vector<uint32_t> cpuPrefix(numBins * groupCount);
+    for (uint32_t g = 0; g < groupCount; ++g) {
+        uint32_t sum = 0;
+        for (uint32_t b = 0; b < numBins; ++b) {
+            cpuPrefix[b * groupCount + g] = sum;
+            sum += perGroupHist[g * numBins + b];
+        }
+    }
+
+    // Upload hist to GPU (we will transpose it with the transpose shader)
+    mynydd::uploadData<uint32_t>(contextPtr, perGroupHist, histBuffer);
+    mynydd::uploadUniformData<PrefixParams>(contextPtr, pparams, pUniform);
+
+    auto prefixPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+        contextPtr, "shaders/workgroup_scan.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{histBuffer, prefixBuffer, pUniform},
+        groupCount
+    );
+
+    mynydd::executeBatch<float>(contextPtr, {prefixPipeline});
+
+    std::vector<uint32_t> gpuPrefix = mynydd::fetchData<uint32_t>(contextPtr, prefixBuffer, numBins * groupCount);
+
+    for (size_t i = 0; i < cpuPrefix.size(); ++i) {
+        REQUIRE(gpuPrefix[i] == cpuPrefix[i]);
+    }
+}
+
 TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums", "[vulkan]") {
     // NOTE: IMPORTANT: THIS IS PRE-TRANSPOSE
     // In this case, since we transpose with groupCount of 4, we do a prefix sum over 4 values
@@ -104,14 +154,6 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     for (size_t i = 0; i < cpuTransposed.size(); ++i) {
         REQUIRE(gpuTransposed[i] == cpuTransposed[i]);
     }
-
-    // Verify prefix matches CPU prefix
-    for (size_t i = 0; i < cpuPrefix.size(); ++i) {
-        std::cerr << "Histogram: " << cpuTransposed[i]
-            << "GPU prefix[" << i << "] = " << gpuPrefix[i] 
-                  << ", CPU prefix[" << i << "] = " << cpuPrefix[i] << std::endl;
-    }
-
     // Verify prefix matches CPU prefix
     for (size_t i = 0; i < cpuPrefix.size(); ++i) {
         REQUIRE(gpuPrefix[i] == cpuPrefix[i]);
