@@ -8,18 +8,17 @@
 #include <mynydd/mynydd.hpp>
 
 TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums", "[vulkan]") {
-    // Example small sizes for test clarity
+    // NOTE: IMPORTANT: THIS IS PRE-TRANSPOSE
+    // In this case, since we transpose with groupCount of 4, we do a prefix sum over 4 values
+    // Not over 8 values; we are doing it over a transposed matrix
     const uint32_t groupCount = 4; // number of workgroups in original histogram (rows)
     const uint32_t numBins = 8;    // number of bins (cols)
-    // original per-workgroup histogram layout: groupCount x numBins (row-major)
-    // transposed layout: numBins x groupCount
+    const uint32_t groupCount_postinv = numBins; // number of workgroups in original histogram (rows)
+    const uint32_t numBins_postinv = groupCount;    // number of bins (cols)
+
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
-    // Buffers:
-    // histBuffer: original per-workgroup histograms, size = groupCount * numBins
-    // transposedBuffer: output of transpose, size = numBins * groupCount
-    // prefixBuffer: output of prefix shader, size = numBins * groupCount
     auto histBuffer = std::make_shared<mynydd::AllocatedBuffer>(
         contextPtr, groupCount * numBins * sizeof(uint32_t), false);
     auto transposedBuffer = std::make_shared<mynydd::AllocatedBuffer>(
@@ -33,7 +32,8 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     auto tUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(TransposeParams), true);
 
     struct PrefixParams { uint32_t groupCount; uint32_t numBins; };
-    PrefixParams pparams{ groupCount, numBins };
+    
+    PrefixParams pparams{ groupCount_postinv, numBins_postinv };
     auto pUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
 
     // Prepare a deterministic, arbitrary per-workgroup histogram (group-major)
@@ -86,7 +86,7 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     auto prefixPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{transposedBuffer, prefixBuffer, pUniform},
-        numBins
+        groupCount_postinv
     );
 
     // NOTE: if your executeBatch currently only supports a single groupCount argument,
@@ -103,6 +103,13 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     // Verify transposed matches CPU transposed
     for (size_t i = 0; i < cpuTransposed.size(); ++i) {
         REQUIRE(gpuTransposed[i] == cpuTransposed[i]);
+    }
+
+    // Verify prefix matches CPU prefix
+    for (size_t i = 0; i < cpuPrefix.size(); ++i) {
+        std::cerr << "Histogram: " << cpuTransposed[i]
+            << "GPU prefix[" << i << "] = " << gpuPrefix[i] 
+                  << ", CPU prefix[" << i << "] = " << cpuPrefix[i] << std::endl;
     }
 
     // Verify prefix matches CPU prefix
