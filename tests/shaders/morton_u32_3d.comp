@@ -1,6 +1,8 @@
 #version 450
 layout(local_size_x = 64) in;
 
+#extension GL_GOOGLE_include_directive : enable
+
 #include "morton_kernels.comp.kern"
 
 struct Particle {
@@ -17,17 +19,27 @@ layout(set = 0, binding = 1) buffer outputData {
 } outData;
 
 layout(set = 0, binding = 2) uniform Params {
-    uint nBits;      // number of grid cells per axis
+    uint nBits;
+    uint nParticles;
     vec3 domainMin;
     vec3 domainMax;
 } params;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
-    vec3 pos = inData.particles[idx].position;
-    uvec3 q = quantize(pos, params.nPerDim, params.domainMin, params.domainMax);
-    uint key = morton3D(q, params.nPerDim);
+    if (gl_GlobalInvocationID.x >= params.nParticles) {
+        outData.particles[idx].key = 9999; // for debugging; not an error, intentional
+        return;
+    }
+    vec3 norm_pos = (inData.particles[idx].position - params.domainMin) / (params.domainMax - params.domainMin);
 
-    outData.particles[idx].position = pos;
+    uint key = morton3D_loop(
+        binPosition(norm_pos.x, params.nBits),
+        binPosition(norm_pos.y, params.nBits),
+        binPosition(norm_pos.z, params.nBits),
+        params.nBits
+    );
+
+    outData.particles[idx].position = inData.particles[idx].position;
     outData.particles[idx].key = key;
 }
