@@ -1,3 +1,4 @@
+// stable_scatter.comp.glsl
 #version 450
 
 layout(local_size_x = 256) in;
@@ -26,35 +27,63 @@ layout(set = 0, binding = 4) uniform Params {
     uint groupCount;
 } params;
 
-// Per-bin atomic counters shared within the workgroup
-shared uint localBinCounters[256]; // max bins
+// per-bin shared counters (one per bin) — initialized to zero
+// max numBins must be <= local_size_x or we'll strided-initialize
+shared uint localBinCounters[256];
+
+// also store each thread's bin in shared so the serialized phase doesn't re-read global memory
+shared uint threadBin[256];
 
 void main() {
     uint localID = gl_LocalInvocationID.x;
     uint globalID = gl_GlobalInvocationID.x;
     uint workgroupID = gl_WorkGroupID.x;
 
-    localBinCounters[localID] = 0u;
+    // compute thread's bin and store in shared. Protect out-of-range threads.
+    uint myBin = 0u;
+    if (globalID < params.totalSize) {
+        uint v = values[globalID];
+        myBin = (v >> params.bitOffset) & (params.numBins - 1u);
+    }
+    threadBin[localID] = myBin;
+
+    // zero local counters (strided init)
+    for (uint i = localID; i < params.numBins; i += gl_WorkGroupSize.x) {
+        localBinCounters[i] = 0u;
+    }
+    // ensure threadBin and counters visible
     barrier();
 
-    if (globalID >= params.totalSize) {
-        return;
+    // SERIALIZED deterministic assignment of local index:
+    // iterate s = 0..workgroupSize-1; when s == localID the thread takes a slot
+    // because earlier s's already incremented counters for earlier localIDs,
+    // the counter value we read is exactly the number of previous localIDs with same bin.
+    uint localIndex = 0u;
+    for (uint s = 0u; s < gl_WorkGroupSize.x; ++s) {
+        barrier();
+        if (s == localID) {
+            if (globalID < params.totalSize) {
+                uint b = threadBin[localID];
+                // read current count (number of previous localIDs with same bin)
+                uint cur = localBinCounters[b];
+                localIndex = cur;
+                // claim a slot (no atomic needed because only this thread writes in this iteration)
+                localBinCounters[b] = cur + 1u;
+            }
+        }
+        // make the increment visible before next iteration
+        barrier();
     }
 
-    uint v = values[globalID];
-    uint bin = (v >> params.bitOffset) & (params.numBins - 1);
+    // Only threads with valid input perform final scatter
+    if (globalID < params.totalSize) {
+        uint b = threadBin[localID];
 
-    // Step 1: Atomically increment the local bin counter to get the local index.
-    uint localIndex = atomicAdd(localBinCounters[bin], 1u);
+        // compute final absolute position using global prefix + per-workgroup prefix + localIndex
+        uint basePos = globalPrefixSum[b] + workgroupPrefixSums[b * params.groupCount + workgroupID];
+        uint pos = basePos + localIndex;
 
-    // Step 2: Compute the base position for the element.
-    // This position is the sum of the global count of smaller bins and the
-    // count of previous workgroups for this specific bin.
-    uint basePos = globalPrefixSum[bin] + workgroupPrefixSums[bin * params.groupCount + workgroupID];
-
-    // Step 3: Add the local index to the base position to get the final, unique position.
-    uint pos = basePos + localIndex;
-
-    // Step 4: Write the value to its final sorted position.
-    sortedValues[pos] = v;
+        // write output
+        sortedValues[pos] = values[globalID];
+    }
 }

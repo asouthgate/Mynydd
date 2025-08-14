@@ -1,0 +1,49 @@
+// Normalize a float position (0..1) to an int bin
+int binPosition(float normPos, int nbits) {
+    return int(clamp(normPos, 0.0, 1.0) * float((1 << nbits) - 1) + 0.5);
+}
+
+// Split bits by inserting zeros between them (2D Morton helper)
+int part1By1(int x) {
+    x &= 0x0000ffff;                  // 16 bits
+    x = (x | (x << 8)) & 0x00FF00FF;
+    x = (x | (x << 4)) & 0x0F0F0F0F;
+    x = (x | (x << 2)) & 0x33333333;
+    x = (x | (x << 1)) & 0x55555555;
+    return x;
+}
+
+// Split bits for 3D Morton helper
+int part1By2(int x) {
+    x &= 0x000003ff;                  // 10 bits
+    x = (x | (x << 16)) & 0x030000FF;
+    x = (x | (x << 8))  & 0x0300F00F;
+    x = (x | (x << 4))  & 0x030C30C3;
+    x = (x | (x << 2))  & 0x09249249;
+    return x;
+}
+
+// Interleave two int coordinates into a 32-bit Morton code
+int morton2D(int x, int y) {
+    return (part1By1(y) << 1) | part1By1(x);
+}
+
+// Interleave three int coordinates into a 32-bit Morton code
+int morton3D(int x, int y, int z) {
+    return (part1By2(z) << 2) | (part1By2(y) << 1) | part1By2(x);
+}
+
+// Complete binning + interleaving for 2D
+int encodeMorton2D(float normX, float normY, int nbits) {
+    int bx = binPosition(normX, nbits);
+    int by = binPosition(normY, nbits);
+    return morton2D(bx, by);
+}
+
+// Complete binning + interleaving for 3D
+int encodeMorton3D(float normX, float normY, float normZ, int nbits) {
+    int bx = binPosition(normX, nbits);
+    int by = binPosition(normY, nbits);
+    int bz = binPosition(normZ, nbits);
+    return morton3D(bx, by, bz);
+}
