@@ -103,7 +103,7 @@ TEST_CASE("Binning works as expected for Morton curves", "[morton]") {
 
 
 TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
-    const uint32_t nBits = 3; // up to 1024 per axis
+    const uint32_t nBits = 4; // up to 1024 per axis
     const uint32_t nPerDim = pow(2, nBits); // 32 particles per axis
     const uint32_t nParticles = pow(nPerDim, 3);
 
@@ -120,7 +120,7 @@ TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
         uint32_t nParticles;
         alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
         alignas(16) glm::vec3 domainMax;
-    } params{nBits, nParticles, glm::vec3(0.0f), glm::vec3(7.0)};
+    } params{nBits, nParticles, glm::vec3(0.0f), glm::vec3(float(nPerDim - 1))};
 
     auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
         contextPtr, sizeof(Params), true);
