@@ -1,0 +1,33 @@
+#version 450
+layout(local_size_x = 64) in;
+
+#include "morton_kernels.comp.kern"
+
+struct Particle {
+    vec3 position;
+    uint key;
+};
+
+layout(set = 0, binding = 0) buffer inputData {
+    Particle particles[];
+} inData;
+
+layout(set = 0, binding = 1) buffer outputData {
+    Particle particles[];
+} outData;
+
+layout(set = 0, binding = 2) uniform Params {
+    uint nBits;      // number of grid cells per axis
+    vec3 domainMin;
+    vec3 domainMax;
+} params;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    vec3 pos = inData.particles[idx].position;
+    uvec3 q = quantize(pos, params.nPerDim, params.domainMin, params.domainMax);
+    uint key = morton3D(q, params.nPerDim);
+
+    outData.particles[idx].position = pos;
+    outData.particles[idx].key = key;
+}
