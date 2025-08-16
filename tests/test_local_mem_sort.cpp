@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <mynydd/mynydd.hpp>
+#include "test_morton_helpers.hpp"
 
 struct RadixParams {
     uint32_t bitOffset;
@@ -686,9 +687,12 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes, no intermediate te
     std::mt19937 rng(12345);
     std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
     for (auto& v : inputData) v = dist(rng);
-
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
-
     auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
+}
 
+TEST_CASE("Test Morton + sort + final index", "[morton]") {
+    const uint32_t nBits = 4;
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    runMortonTest(contextPtr, nBits);
 }
