@@ -505,18 +505,18 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
 
 }
 
+std::vector<uint32_t> runFullRadixSortTest(
+    std::shared_ptr<mynydd::VulkanContext> contextPtr,
+    std::vector<uint32_t>& inputData
+) {
 
+    const size_t n = inputData.size();
 
-TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes, no intermediate tests", "[sort]") {
-    std::cerr << "\nRunning full radix sort test..." << std::endl;
-    const size_t n = 1 << 16; // 65536 elements for test
     const uint32_t bitsPerPass = 8;
     const uint32_t nPasses = 32 / bitsPerPass; // 4 passes for 32 bits
     const uint32_t numBins = 1 << bitsPerPass; // 256
     const uint32_t itemsPerGroup = 256;
     const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
-
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
     auto ioBufferA = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
     auto ioBufferB = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
@@ -593,14 +593,6 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes, no intermediate te
         },
         groupCount
     );
-
-    // std::cerr << "Setup pipelines" << std::endl;
-
-    // Generate random input
-    std::vector<uint32_t> inputData(n);
-    std::mt19937 rng(12345);
-    std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
-    for (auto& v : inputData) v = dist(rng);
     mynydd::uploadData<uint32_t>(contextPtr, inputData, ioBufferA);
 
     auto inputBuffer = ioBufferA;
@@ -683,5 +675,20 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes, no intermediate te
     for (size_t i = 1; i < n; ++i) {
         REQUIRE(output_retrieved[i] >= output_retrieved[i - 1]);
     }
+    return output_retrieved;
+}
+
+
+TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes, no intermediate tests", "[sort]") {
+    std::cerr << "\nRunning full radix sort test..." << std::endl;
+    const size_t n = 1 << 16; // 65536 elements for test
+    std::vector<uint32_t> inputData(n);
+    std::mt19937 rng(12345);
+    std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
+    for (auto& v : inputData) v = dist(rng);
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+
+    auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
 
 }
