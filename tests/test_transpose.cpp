@@ -41,15 +41,11 @@ TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[transpose]
     mynydd::uploadData<uint32_t>(contextPtr, inputData, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, params, uniformBuffer);
 
-    // Dispatch compute with workgroups sized to 16x16
-    uint32_t groupCountX = (n + 15) / 16;
-    uint32_t groupCountY = (m + 15) / 16;
-
     // Load transpose compute shader pipeline
     auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/transpose.comp.spv",
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer},
-        groupCountX, groupCountY, 1
+        (m * n + 256) / 256
     );
 
 
