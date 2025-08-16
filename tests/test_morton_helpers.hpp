@@ -11,8 +11,8 @@
 
 
 struct Particle {
-    alignas(16) glm::vec3 position;
-    // uint32_t key;
+    glm::vec3 position;
+    uint32_t key;
 };
 
 struct KeyRange {
@@ -20,9 +20,8 @@ struct KeyRange {
     uint32_t keyMax;
 };
 
-std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits);
+
 std::vector<KeyRange> computeKeyRanges(const std::vector<Particle>& particles, float dmax);
-std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits, std::vector<Particle>& particles);
-int morton3D(int x, int y, int z);
+std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits);
 
 #endif // TEST_MORTON_HELPERS_HPP
