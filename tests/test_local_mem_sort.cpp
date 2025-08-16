@@ -216,11 +216,11 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     }
 }
 
-void print_radixes(std::vector<uint32_t>& input_retrieved, uint32_t bitsPerPass, uint32_t nPasses, uint32_t numBins) {
+void print_radixes(std::vector<uint32_t>& input_retrieved, uint32_t bitsPerPass, uint32_t nPasses, uint32_t numBins, uint32_t pass) {
     // Validate sorted output
-    for (size_t i = 0; i < 100; ++i) {
+    for (size_t i = 0; i < 512; ++i) {
         // print out input_retrieved, out_sorted, current_radix, input_radix
-        std::cerr << "I/O: "; 
+        std::cerr << "pass " << pass << " I/O: "; 
         for (size_t tmpBitOffset = 0; tmpBitOffset < bitsPerPass * nPasses; tmpBitOffset += bitsPerPass) {
             std::cerr << " " << ((input_retrieved[i] >> tmpBitOffset) & (numBins - 1));
         }
@@ -233,6 +233,13 @@ std::vector<uint32_t> runFullRadixSortTest(
     std::shared_ptr<mynydd::VulkanContext> contextPtr,
     std::vector<uint32_t>& inputData
 ) {
+
+    // for (size_t i = 0; i < 10; ++i) {
+    //     std::cerr << "Input data: " << i << ": " << inputData[i] << std::endl;
+    // }
+    // for (size_t i = inputData.size()-10; i < inputData.size(); ++i) {
+    //     std::cerr << "Input data: " << i << ": " << inputData[i] << std::endl;
+    // }
 
     const size_t n = inputData.size();
 
@@ -276,11 +283,15 @@ std::vector<uint32_t> runFullRadixSortTest(
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{perWorkgroupHistograms, globalHistogram, sumUniform},
         1
     );
+    std::cerr << "n: " << n << std::endl;
+    std::cerr << "itemsPerGroup: " << itemsPerGroup << std::endl;
+    std::cerr << "groupCount: " << groupCount << std::endl;
+    std::cerr << "numBins: " << numBins << std::endl;
 
     auto transposePipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
         contextPtr, "shaders/transpose.comp.spv",
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{perWorkgroupHistograms, transposedHistograms, transposeUniform},
-        (numBins + 15) / 16, (groupCount + 15) / 16, 1
+        (numBins * groupCount + numBins - 1) / numBins
     );
 
     auto workgroupPrefixPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
@@ -289,6 +300,7 @@ std::vector<uint32_t> runFullRadixSortTest(
         numBins
     );
 
+    
     auto globalPrefixPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{globalHistogram, globalPrefixSum, globalPrefixUniform},
@@ -331,13 +343,13 @@ std::vector<uint32_t> runFullRadixSortTest(
         outputBuffer = pass % 2 == 0 ? ioBufferB : ioBufferA;
 
         uint32_t bitOffset = pass * bitsPerPass;
-        // std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
+        std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
 
         auto input_retrieved = mynydd::fetchData<uint32_t>(
             contextPtr, inputBuffer, n
         );
         
-        // print_radixes(input_retrieved, bitsPerPass, nPasses, numBins);
+        print_radixes(input_retrieved, bitsPerPass, nPasses, numBins, pass);
 
         RadixParams radixParams = {
             .bitOffset = bitOffset,
@@ -356,7 +368,10 @@ std::vector<uint32_t> runFullRadixSortTest(
             .numBins = groupCount
         };
 
-        PrefixParams transposeParams = workgroupPrefixParams;
+        PrefixParams transposeParams = {
+            .groupCount = groupCount,
+            .numBins = numBins
+        };
 
         PrefixParams globalPrefixParams = {
             .groupCount = 1,
@@ -400,9 +415,9 @@ std::vector<uint32_t> runFullRadixSortTest(
         REQUIRE(out_global_hist.size() == numBins);
 
         size_t hist_sum = 0;
-        // for (uint32_t i = 0; i < 10; ++i) {
-        //     std::cerr << "Global histogram: " << i << ": " << out_global_hist[i] << std::endl;
-        // }
+        for (uint32_t i = 0; i < 10; ++i) {
+            std::cerr << "Global histogram: " << i << ": " << out_global_hist[i] << std::endl;
+        }
         for (uint32_t bin = 0; bin < numBins; ++bin) {
             hist_sum += out_global_hist[bin];
             REQUIRE(out_global_hist[bin] == expected_histogram[bin]);
@@ -411,13 +426,26 @@ std::vector<uint32_t> runFullRadixSortTest(
 
         // ---------------------- TEST WORKGROUP HISTOGRAM ----------------------
         auto expected_wg_histogram = compute_wg_histogram(inputData, numBins, itemsPerGroup, bitOffset);
+        for (uint32_t wg = 0; wg < groupCount; ++wg) {
+            std:: cerr << "wg: " << wg << " histogram: ";
+            for (uint32_t bin = 0; bin < numBins; ++bin) {
+                std::cerr << out_wg_hist[wg * numBins + bin] << " ";
+            }
+            std::cerr << std::endl;
+        }
         for (uint32_t bin = 0; bin < expected_wg_histogram.size(); ++bin) {
             REQUIRE(out_wg_hist[bin] == expected_wg_histogram[bin]);
         }
         auto out_wg_hist_transposed = mynydd::fetchData<uint32_t>(contextPtr, transposedHistograms, groupCount * numBins);
         for (uint32_t wg = 0; wg < groupCount; ++wg) {
             for (uint32_t bin = 0; bin < numBins; ++bin) {
-                REQUIRE(out_wg_hist_transposed[wg * numBins + bin] == out_wg_hist[bin * groupCount + wg]);
+                REQUIRE(out_wg_hist[wg * numBins + bin] == out_wg_hist_transposed[bin * groupCount + wg]);
+            }
+        }
+        for (uint32_t bin = 0; bin < numBins; ++bin) {
+            size_t wg_hist_sum = 0;
+            for (uint32_t wg = 0; wg < groupCount; ++wg) {
+                std::cerr << "Transposed wg hist bin " << bin << ": wg " << wg << ":" << out_wg_hist_transposed[bin * groupCount + wg] << std::endl;
             }
         }
 
@@ -425,9 +453,9 @@ std::vector<uint32_t> runFullRadixSortTest(
         auto out_global_prefix_sum = mynydd::fetchData<uint32_t>(contextPtr, globalPrefixSum, numBins);
         auto expected_global_prefix_sum = prefix_sum(out_global_hist);
 
-        // for (uint32_t i = 0; i < 10; ++i) {
-        //     std::cerr << "Out global prefix sum: " << i << ": " << out_global_prefix_sum[i] << std::endl;
-        // }
+        for (uint32_t i = 0; i < numBins; ++i) {
+            std::cerr << "Out global prefix sum: " << i << ": " << out_global_prefix_sum[i] << std::endl;
+        }
         for (uint32_t bin = 1; bin < numBins; ++bin) {
             REQUIRE(out_global_prefix_sum[bin] >= out_global_prefix_sum[bin - 1]);
         }
@@ -439,6 +467,10 @@ std::vector<uint32_t> runFullRadixSortTest(
         // ---------------------- TEST WORKGROUP PREFIX SUMS ----------------------
         auto out_workgroup_prefix_sums = mynydd::fetchData<uint32_t>(contextPtr, workgroupPrefixSums, groupCount * numBins);
         
+        for (uint32_t wg = 0; wg < groupCount; ++wg) {
+            for (uint32_t bin = 0; bin < numBins; ++bin) {
+            }
+        }
         // NOTE: THIS IS TRANSPOSED: ROWS ARE OF LENGTH groupCount
         for (uint32_t bin = 0; bin < numBins; ++bin) {
             auto expected_wg_prefix_sum = prefix_sum(std::vector<uint32_t>(
@@ -446,6 +478,11 @@ std::vector<uint32_t> runFullRadixSortTest(
                 out_wg_hist_transposed.begin() + (bin + 1) * groupCount
             ));
             for (uint32_t wg = 0; wg < groupCount; ++wg) {
+                std:: cerr << "Workgroup " << wg << " bin " << bin 
+                          << ": " << out_workgroup_prefix_sums[bin * groupCount + wg] 
+                          << ": (expected)" << expected_wg_prefix_sum[wg]
+                          << std::endl;
+
                 REQUIRE(out_workgroup_prefix_sums[bin * groupCount + wg] == expected_wg_prefix_sum[wg]);
             }
         }
@@ -458,22 +495,23 @@ std::vector<uint32_t> runFullRadixSortTest(
         input_retrieved = mynydd::fetchData<uint32_t>(
             contextPtr, inputBuffer, n
         );
-        // Validate sorted output
+
+        // Make sure it's not all zeroes
         size_t sum = 0;
         for (size_t i = 1; i < 50; ++i) {
-            // print out input_retrieved, out_sorted, current_radix, input_radix
             sum += out_sorted[i];
         }
         REQUIRE(sum > 0);
+        
+        // Check that the output is sorted in this radix
         for (size_t i = 1; i < out_sorted.size(); ++i) {
             uint32_t last_radix = (out_sorted[i - 1] >> bitOffset) & (numBins - 1);
             uint32_t current_radix = (out_sorted[i] >> bitOffset) & (numBins - 1);
-            uint32_t input_radix = (input_retrieved[i] >> bitOffset) & (numBins - 1);
             REQUIRE(last_radix <= current_radix);
         }
 
-        // print_radixes(out_sorted, bitsPerPass, nPasses, numBins);
-
+        print_radixes(out_sorted, bitsPerPass, nPasses, numBins, pass);
+        // Finally, assess stability
         if (pass > 0) {
             // It must also be true that for any given radix position, the previous one must be sorted within that
             for (size_t i = 1; i < n; ++i) {
@@ -481,9 +519,9 @@ std::vector<uint32_t> runFullRadixSortTest(
                 uint32_t prev_radix = (out_sorted[i-1] >> bitOffset) & (numBins - 1);
                 uint32_t prev_radix_prev_pass = (out_sorted[i - 1] >> (bitOffset - 8)) & (numBins - 1);
                 uint32_t last_radix_prev_pass = (out_sorted[i] >> (bitOffset - 8)) & (numBins - 1);
-                // std::cerr << "Pass " << pass << "Last radix: " << last_radix 
-                //           << ", Last radix prev pass: " << last_radix_prev_pass 
-                //           << std::endl;
+                std::cerr << "Pass " << pass << "Last radix: " << last_radix 
+                          << ", Last radix prev pass: " << last_radix_prev_pass 
+                          << std::endl;
                 if (last_radix == prev_radix) {
                     REQUIRE(prev_radix_prev_pass <= last_radix_prev_pass);
                 }
@@ -499,6 +537,62 @@ std::vector<uint32_t> runFullRadixSortTest(
         REQUIRE(output_retrieved[i] >= output_retrieved[i - 1]);
     }
     return output_retrieved;
+}
+
+struct CellInfo {
+    uint start;
+    uint count;
+};
+
+std::vector<CellInfo> runSortedKeys2IndexTest(
+    std::shared_ptr<mynydd::VulkanContext> contextPtr,
+    std::vector<uint32_t>& sorted_keys,
+    uint32_t nCells
+) {
+
+    uint32_t nKeys = sorted_keys.size();
+
+    struct IndexParams {
+        uint32_t nKeys;
+        uint32_t nCells;
+    } params{nKeys, nCells};
+
+
+    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, nKeys * sizeof(uint32_t), false);
+    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, nKeys * sizeof(CellInfo), true);
+    auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, sizeof(IndexParams), true);
+
+    mynydd::uploadData<uint32_t>(contextPtr, sorted_keys, inputBuffer);
+    mynydd::uploadUniformData<IndexParams>(contextPtr, params, uniformBuffer);
+
+    auto groupCount = (nKeys + 63) / 64;
+
+    auto pipeline = std::make_shared<mynydd::ComputeEngine<Particle>>(
+        contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
+        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{
+            inputBuffer, outputBuffer, uniformBuffer
+        },
+        groupCount
+    );
+
+    mynydd::executeBatch<Particle>(contextPtr, {pipeline});
+
+    std::vector<CellInfo> outIndex = mynydd::fetchData<CellInfo>(contextPtr, outputBuffer, nCells);
+
+    for (uint32_t ak = 0; ak < nCells; ++ak) {
+        auto& cell = outIndex[ak];
+        REQUIRE(cell.start < nKeys);
+        if (cell.count > 0) {
+            for (uint i = cell.start; i < cell.start + cell.count; ++i) {
+                REQUIRE(sorted_keys[i] == ak);
+            }
+        }
+    }
+
+    return outIndex;
 }
 
 
@@ -517,4 +611,6 @@ TEST_CASE("Test Morton + sort + final index", "[morton]") {
     const uint32_t nBits = 4;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto morton_keys = runMortonTest(contextPtr, nBits);
+    auto sorted_keys = runFullRadixSortTest(contextPtr, morton_keys);
+    // auto final_index = runSortedKeys2IndexTest(contextPtr, sorted_keys, nBits);
 }

@@ -130,7 +130,7 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     auto transposePipeline = std::make_shared<mynydd::ComputeEngine<float>>(
         contextPtr, "shaders/transpose.comp.spv",
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{histBuffer, transposedBuffer, tUniform},
-        groupCountX, groupCountY, 1
+        (tparams.width * tparams.height + 256) / 256
     );
 
     auto prefixPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
