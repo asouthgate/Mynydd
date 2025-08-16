@@ -101,20 +101,9 @@ TEST_CASE("Binning works as expected for Morton curves", "[morton]") {
 
 }
 
-
-TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
-    const uint32_t nBits = 4; // up to 1024 per axis
-    const uint32_t nPerDim = pow(2, nBits); // 32 particles per axis
+std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits) {
+    const uint32_t nPerDim = pow(2, nBits);
     const uint32_t nParticles = pow(nPerDim, 3);
-
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
-
-
-    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
-        contextPtr, nParticles * sizeof(Particle), false);
-    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
-        contextPtr, nParticles * sizeof(Particle), true);
-
     struct Params {
         uint32_t nBits;
         uint32_t nParticles;
@@ -122,6 +111,10 @@ TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
         alignas(16) glm::vec3 domainMax;
     } params{nBits, nParticles, glm::vec3(0.0f), glm::vec3(float(nPerDim - 1))};
 
+    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, nParticles * sizeof(Particle), false);
+    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+        contextPtr, nParticles * sizeof(Particle), true);
     auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
         contextPtr, sizeof(Params), true);
 
@@ -155,7 +148,6 @@ TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
 
     std::vector<Particle> outParticles = mynydd::fetchData<Particle>(contextPtr, outputBuffer, nParticles);
 
-
     // Sort particles in-place by key
     std::sort(outParticles.begin(), outParticles.end(),
             [](const Particle &a, const Particle &b) {
@@ -165,18 +157,21 @@ TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
 
     std::vector<KeyRange> keyRanges = computeKeyRanges(outParticles, 1.0f);
 
-    // Extract keys
-    std::vector<uint32_t> keys(nParticles);
-    for (uint32_t i = 0; i < nParticles; ++i) {
-        std::cerr << outParticles[i].key << " " << outParticles[i].position.x << " "
-                  << outParticles[i].position.y << " " << outParticles[i].position.z  
-                 << " Range: " << keyRanges[i].keyMin << " - " << keyRanges[i].keyMax 
-                 << " dRange " << keyRanges[i].keyMax - keyRanges[i].keyMin << std::endl;
-        keys[i] = outParticles[i].key;
-    }
-
     // Check uniqueness directly on sorted particles
     for (size_t i = 1; i < outParticles.size()-1; ++i) {
         REQUIRE(outParticles[i].key != outParticles[i-1].key);
     }
+
+    std::vector<uint32_t> keys(nParticles);
+    for (size_t i = 0; i < outParticles.size(); ++i) {
+        keys[i] = outParticles[i].key;
+    }
+    return keys;
+}
+
+
+TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
+    const uint32_t nBits = 4;
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    runMortonTest(contextPtr, nBits);
 }
