@@ -4,11 +4,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
-#include <algorithm>
 #include <iostream>
+#include <chrono>
 #include <glm/glm.hpp>
 #include <memory>
-#include <numeric>
 #include <random>
 #include <vector>
 
@@ -283,10 +282,10 @@ std::vector<uint32_t> runFullRadixSortTest(
         std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{perWorkgroupHistograms, globalHistogram, sumUniform},
         1
     );
-    std::cerr << "n: " << n << std::endl;
-    std::cerr << "itemsPerGroup: " << itemsPerGroup << std::endl;
-    std::cerr << "groupCount: " << groupCount << std::endl;
-    std::cerr << "numBins: " << numBins << std::endl;
+    // std::cerr << "n: " << n << std::endl;
+    // std::cerr << "itemsPerGroup: " << itemsPerGroup << std::endl;
+    // std::cerr << "groupCount: " << groupCount << std::endl;
+    // std::cerr << "numBins: " << numBins << std::endl;
 
     auto transposePipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
         contextPtr, "shaders/transpose.comp.spv",
@@ -343,13 +342,13 @@ std::vector<uint32_t> runFullRadixSortTest(
         outputBuffer = pass % 2 == 0 ? ioBufferB : ioBufferA;
 
         uint32_t bitOffset = pass * bitsPerPass;
-        std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
+        // std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
 
         auto input_retrieved = mynydd::fetchData<uint32_t>(
             contextPtr, inputBuffer, n
         );
         
-        print_radixes(input_retrieved, bitsPerPass, nPasses, numBins, pass);
+        // print_radixes(input_retrieved, bitsPerPass, nPasses, numBins, pass);
 
         RadixParams radixParams = {
             .bitOffset = bitOffset,
@@ -415,9 +414,9 @@ std::vector<uint32_t> runFullRadixSortTest(
         REQUIRE(out_global_hist.size() == numBins);
 
         size_t hist_sum = 0;
-        for (uint32_t i = 0; i < 10; ++i) {
-            std::cerr << "Global histogram: " << i << ": " << out_global_hist[i] << std::endl;
-        }
+        // for (uint32_t i = 0; i < 10; ++i) {
+        //     std::cerr << "Global histogram: " << i << ": " << out_global_hist[i] << std::endl;
+        // }
         for (uint32_t bin = 0; bin < numBins; ++bin) {
             hist_sum += out_global_hist[bin];
             REQUIRE(out_global_hist[bin] == expected_histogram[bin]);
@@ -426,13 +425,13 @@ std::vector<uint32_t> runFullRadixSortTest(
 
         // ---------------------- TEST WORKGROUP HISTOGRAM ----------------------
         auto expected_wg_histogram = compute_wg_histogram(inputData, numBins, itemsPerGroup, bitOffset);
-        for (uint32_t wg = 0; wg < groupCount; ++wg) {
-            std:: cerr << "wg: " << wg << " histogram: ";
-            for (uint32_t bin = 0; bin < numBins; ++bin) {
-                std::cerr << out_wg_hist[wg * numBins + bin] << " ";
-            }
-            std::cerr << std::endl;
-        }
+        // for (uint32_t wg = 0; wg < groupCount; ++wg) {
+        //     std:: cerr << "wg: " << wg << " histogram: ";
+        //     for (uint32_t bin = 0; bin < numBins; ++bin) {
+        //         std::cerr << out_wg_hist[wg * numBins + bin] << " ";
+        //     }
+        //     std::cerr << std::endl;
+        // }
         for (uint32_t bin = 0; bin < expected_wg_histogram.size(); ++bin) {
             REQUIRE(out_wg_hist[bin] == expected_wg_histogram[bin]);
         }
@@ -442,20 +441,20 @@ std::vector<uint32_t> runFullRadixSortTest(
                 REQUIRE(out_wg_hist[wg * numBins + bin] == out_wg_hist_transposed[bin * groupCount + wg]);
             }
         }
-        for (uint32_t bin = 0; bin < numBins; ++bin) {
-            size_t wg_hist_sum = 0;
-            for (uint32_t wg = 0; wg < groupCount; ++wg) {
-                std::cerr << "Transposed wg hist bin " << bin << ": wg " << wg << ":" << out_wg_hist_transposed[bin * groupCount + wg] << std::endl;
-            }
-        }
+        // for (uint32_t bin = 0; bin < numBins; ++bin) {
+        //     size_t wg_hist_sum = 0;
+        //     for (uint32_t wg = 0; wg < groupCount; ++wg) {
+        //         std::cerr << "Transposed wg hist bin " << bin << ": wg " << wg << ":" << out_wg_hist_transposed[bin * groupCount + wg] << std::endl;
+        //     }
+        // }
 
         // ---------------------- TEST GLOBAL PREFIX SUMS ----------------------
         auto out_global_prefix_sum = mynydd::fetchData<uint32_t>(contextPtr, globalPrefixSum, numBins);
         auto expected_global_prefix_sum = prefix_sum(out_global_hist);
 
-        for (uint32_t i = 0; i < numBins; ++i) {
-            std::cerr << "Out global prefix sum: " << i << ": " << out_global_prefix_sum[i] << std::endl;
-        }
+        // for (uint32_t i = 0; i < numBins; ++i) {
+        //     std::cerr << "Out global prefix sum: " << i << ": " << out_global_prefix_sum[i] << std::endl;
+        // }
         for (uint32_t bin = 1; bin < numBins; ++bin) {
             REQUIRE(out_global_prefix_sum[bin] >= out_global_prefix_sum[bin - 1]);
         }
@@ -478,10 +477,10 @@ std::vector<uint32_t> runFullRadixSortTest(
                 out_wg_hist_transposed.begin() + (bin + 1) * groupCount
             ));
             for (uint32_t wg = 0; wg < groupCount; ++wg) {
-                std:: cerr << "Workgroup " << wg << " bin " << bin 
-                          << ": " << out_workgroup_prefix_sums[bin * groupCount + wg] 
-                          << ": (expected)" << expected_wg_prefix_sum[wg]
-                          << std::endl;
+                // std:: cerr << "Workgroup " << wg << " bin " << bin 
+                //           << ": " << out_workgroup_prefix_sums[bin * groupCount + wg] 
+                //           << ": (expected)" << expected_wg_prefix_sum[wg]
+                //           << std::endl;
 
                 REQUIRE(out_workgroup_prefix_sums[bin * groupCount + wg] == expected_wg_prefix_sum[wg]);
             }
@@ -510,7 +509,7 @@ std::vector<uint32_t> runFullRadixSortTest(
             REQUIRE(last_radix <= current_radix);
         }
 
-        print_radixes(out_sorted, bitsPerPass, nPasses, numBins, pass);
+        // print_radixes(out_sorted, bitsPerPass, nPasses, numBins, pass);
         // Finally, assess stability
         if (pass > 0) {
             // It must also be true that for any given radix position, the previous one must be sorted within that
@@ -519,9 +518,9 @@ std::vector<uint32_t> runFullRadixSortTest(
                 uint32_t prev_radix = (out_sorted[i-1] >> bitOffset) & (numBins - 1);
                 uint32_t prev_radix_prev_pass = (out_sorted[i - 1] >> (bitOffset - 8)) & (numBins - 1);
                 uint32_t last_radix_prev_pass = (out_sorted[i] >> (bitOffset - 8)) & (numBins - 1);
-                std::cerr << "Pass " << pass << "Last radix: " << last_radix 
-                          << ", Last radix prev pass: " << last_radix_prev_pass 
-                          << std::endl;
+                // std::cerr << "Pass " << pass << "Last radix: " << last_radix 
+                //           << ", Last radix prev pass: " << last_radix_prev_pass 
+                //           << std::endl;
                 if (last_radix == prev_radix) {
                     REQUIRE(prev_radix_prev_pass <= last_radix_prev_pass);
                 }
@@ -597,7 +596,6 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
 
 
 TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
-    std::cerr << "\nRunning full radix sort test..." << std::endl;
     const size_t n = 1 << 16; // 65536 elements for test
     std::vector<uint32_t> inputData(n);
     std::mt19937 rng(12345);
@@ -607,10 +605,36 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
 }
 
-TEST_CASE("Test Morton + sort + final index", "[morton]") {
-    const uint32_t nBits = 4;
+void run_full_pipeline_morton(uint32_t nBits) {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    auto t0 = std::chrono::high_resolution_clock::now();
     auto morton_keys = runMortonTest(contextPtr, nBits);
+    auto t1 = std::chrono::high_resolution_clock::now();
     auto sorted_keys = runFullRadixSortTest(contextPtr, morton_keys);
-    // auto final_index = runSortedKeys2IndexTest(contextPtr, sorted_keys, nBits);
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto final_index = runSortedKeys2IndexTest(contextPtr, sorted_keys, nBits);
+    auto t3 = std::chrono::high_resolution_clock::now();
+    auto duration_morton = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    auto duration_sort = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    auto duration_index = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+    std::cerr << "TEST: Running full pipeline Morton test with " << nBits << " bits..." << std::endl;
+    std::cerr << "TEST: Morton keys generation took: " << duration_morton << " µs" << std::endl;
+    std::cerr << "TEST: Sorting took: " << duration_sort << " µs" << std::endl;
+    std::cerr << "TEST: Indexing took: " << duration_index << " µs" << std::endl;
+}
+
+TEST_CASE("Test Morton (2 bits) + sort + final index", "[morton]") {
+    run_full_pipeline_morton(2);
+}
+
+TEST_CASE("Test Morton (3 bits) + sort + final index", "[morton]") {
+    run_full_pipeline_morton(3);
+}
+
+TEST_CASE("Test Morton (4 bits) + sort + final index", "[morton]") {
+    run_full_pipeline_morton(4);
+}
+
+TEST_CASE("Test Morton (5 bits) + sort + final index", "[morton]") {
+    run_full_pipeline_morton(5);
 }

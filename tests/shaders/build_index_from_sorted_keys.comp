@@ -1,0 +1,40 @@
+#version 450
+layout(local_size_x = 256) in;
+
+struct CellInfo {
+    uint start;
+    uint count;
+};
+
+// Sorted Morton keys for each particle
+layout(set = 0, binding = 0) readonly buffer SortedKeys {
+    uint keys[];
+};
+
+// Output: per-cell start index and count
+layout(set = 0, binding = 1) buffer Cells {
+    CellInfo cells[];
+};
+
+layout(set = 0, binding = 2) uniform Params {
+    uint numKeys;
+    uint numCells; // total number of bins / grid cells
+} pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.numKeys) return;
+
+    uint key = keys[i];
+
+    // Left boundary: first particle in cell
+    if (i == 0 || key != keys[i - 1]) {
+        cells[key].start = i;
+    }
+
+    // Right boundary: last particle in cell
+    if (i == pc.numKeys - 1 || key != keys[i + 1]) {
+        uint start = (i == 0 || key != keys[i - 1]) ? i : cells[key].start;
+        cells[key].count = i - start + 1;
+    }
+}
