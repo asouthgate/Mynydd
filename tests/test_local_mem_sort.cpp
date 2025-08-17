@@ -607,8 +607,9 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
 
 void run_full_pipeline_morton(uint32_t nBits) {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    auto particles = getMortonTestGridRegularParticleData(nBits);
     auto t0 = std::chrono::high_resolution_clock::now();
-    auto morton_keys = runMortonTest(contextPtr, nBits);
+    auto morton_keys = runMortonTest(contextPtr, nBits, particles);
     auto t1 = std::chrono::high_resolution_clock::now();
     auto sorted_keys = runFullRadixSortTest(contextPtr, morton_keys);
     auto t2 = std::chrono::high_resolution_clock::now();
