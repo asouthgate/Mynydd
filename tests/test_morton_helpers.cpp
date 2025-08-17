@@ -2,6 +2,7 @@
 #include <catch2/catch_approx.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <glm/glm.hpp>
 #include <memory>
 #include <vector>
@@ -11,7 +12,7 @@
 
 
 // Naive function to compute key ranges for particles within dmax
-std::vector<KeyRange> computeKeyRanges(const std::vector<Particle>& particles, float dmax) {
+std::vector<KeyRange> computeKeyRangesNaive(const std::vector<Particle>& particles, float dmax) {
     size_t n = particles.size();
     std::vector<KeyRange> ranges(n);
 
@@ -37,6 +38,8 @@ std::vector<KeyRange> computeKeyRanges(const std::vector<Particle>& particles, f
 }
 
 std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits) {
+    std::cerr << "TEST: Running Morton test with " << nBits << " bits..." << std::endl;
+    auto t0 = std::chrono::high_resolution_clock::now();
     const uint32_t nPerDim = pow(2, nBits);
     const uint32_t nParticles = pow(nPerDim, 3);
     struct Params {
@@ -65,6 +68,7 @@ std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> conte
             }
         }
     }
+    auto t1 = std::chrono::high_resolution_clock::now();
 
     mynydd::uploadData<Particle>(contextPtr, particles, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, params, uniformBuffer);
@@ -78,28 +82,38 @@ std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> conte
         },
         groupCount
     );
-
+    auto t2 = std::chrono::high_resolution_clock::now();
     mynydd::executeBatch<Particle>(contextPtr, {pipeline});
 
     std::vector<Particle> outParticles = mynydd::fetchData<Particle>(contextPtr, outputBuffer, nParticles);
 
-    // Sort particles in-place by key
+    std::vector<uint32_t> outKeys(nParticles);
+    for (size_t i = 0; i < outParticles.size(); ++i) {
+        outKeys[i] = outParticles[i].key;
+    }
+
+    // Sort particlesqin-place by key
     std::sort(outParticles.begin(), outParticles.end(),
             [](const Particle &a, const Particle &b) {
                 return a.key < b.key;
             });
 
-
-    std::vector<KeyRange> keyRanges = computeKeyRanges(outParticles, 1.0f);
+    auto t3 = std::chrono::high_resolution_clock::now();
 
     // Check uniqueness directly on sorted particles
     for (size_t i = 1; i < outParticles.size()-1; ++i) {
         REQUIRE(outParticles[i].key != outParticles[i-1].key);
     }
 
-    std::vector<uint32_t> keys(nParticles);
-    for (size_t i = 0; i < outParticles.size(); ++i) {
-        keys[i] = outParticles[i].key;
-    }
-    return keys;
+    auto durationInput = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    auto durationCompute = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    auto durationFetch = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+    std::cerr << "Morton test completed in: "
+              << "Input: " << durationInput << "µs, "
+              << "Compute: " << durationCompute << "µs, "
+              << "Fetch: " << durationFetch << "µs, "
+              << std::endl;
+
+    return outKeys;
 }
