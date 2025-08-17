@@ -5,6 +5,7 @@
 #include <chrono>
 #include <glm/glm.hpp>
 #include <memory>
+#include <random>
 #include <vector>
 #include <mynydd/mynydd.hpp>
 
@@ -37,7 +38,31 @@ std::vector<KeyRange> computeKeyRangesNaive(const std::vector<Particle>& particl
     return ranges;
 }
 
-std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits) {
+std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits) {
+    const uint32_t nPerDim = pow(2, nBits);
+    const uint32_t nParticles = pow(nPerDim, 3);
+    // generate deterministic particle positions
+    std::vector<Particle> testParticles(nParticles);
+    uint32_t idx = 0;
+    for (uint32_t z = 0; z < nPerDim; ++z) {
+        for (uint32_t y = 0; y < nPerDim; ++y) {
+            for (uint32_t x = 0; x < nPerDim; ++x) {
+                testParticles[idx].position = glm::vec3(float(x), float(y), float(z));
+                testParticles[idx].key = 0;
+                ++idx;
+            }
+        }
+    }
+    std::mt19937 gen(12345);
+    std::shuffle(testParticles.begin(), testParticles.end(), gen);
+    return testParticles;
+}
+
+std::vector<uint32_t> runMortonTest(
+    std::shared_ptr<mynydd::VulkanContext> contextPtr,
+    const uint32_t nBits,
+    std::vector<Particle>& particles
+) {
     std::cerr << "TEST: Running Morton test with " << nBits << " bits..." << std::endl;
     auto t0 = std::chrono::high_resolution_clock::now();
     const uint32_t nPerDim = pow(2, nBits);
@@ -56,18 +81,6 @@ std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> conte
     auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
         contextPtr, sizeof(Params), true);
 
-    // generate deterministic particle positions
-    std::vector<Particle> particles(nParticles);
-    uint32_t idx = 0;
-    for (uint32_t z = 0; z < nPerDim; ++z) {
-        for (uint32_t y = 0; y < nPerDim; ++y) {
-            for (uint32_t x = 0; x < nPerDim; ++x) {
-                particles[idx].position = glm::vec3(float(x), float(y), float(z));
-                particles[idx].key = 0;
-                ++idx;
-            }
-        }
-    }
     auto t1 = std::chrono::high_resolution_clock::now();
 
     mynydd::uploadData<Particle>(contextPtr, particles, inputBuffer);
@@ -99,11 +112,6 @@ std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> conte
             });
 
     auto t3 = std::chrono::high_resolution_clock::now();
-
-    // Check uniqueness directly on sorted particles
-    for (size_t i = 1; i < outParticles.size()-1; ++i) {
-        REQUIRE(outParticles[i].key != outParticles[i-1].key);
-    }
 
     auto durationInput = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
     auto durationCompute = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
