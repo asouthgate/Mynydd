@@ -69,5 +69,7 @@ TEST_CASE("Binning works as expected for Morton curves", "[morton]") {
 TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
     const uint32_t nBits = 4;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
-    runMortonTest(contextPtr, nBits);
+    std::vector<Particle> particles = getMortonTestGridRegularParticleData(nBits);
+    runMortonTest(contextPtr, nBits, particles);
+    // TODO:
 }
