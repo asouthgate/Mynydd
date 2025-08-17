@@ -19,8 +19,8 @@ struct KeyRange {
     uint32_t keyMax;
 };
 
-
+std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits);
 std::vector<KeyRange> computeKeyRanges(const std::vector<Particle>& particles, float dmax);
-std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits);
+std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits, std::vector<Particle>& particles);
 
 #endif // TEST_MORTON_HELPERS_HPP
