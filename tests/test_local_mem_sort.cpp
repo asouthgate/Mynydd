@@ -111,13 +111,13 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
-    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(uint32_t), false);
-    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), true);
-    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(RadixParams), true);
+    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(uint32_t), false);
+    auto output = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), true);
+    auto uniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(RadixParams), true);
 
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep<float>>(
         contextPtr, "shaders/histogram.comp.spv", 
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{input, output, uniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{input, output, uniform},
         groupCount
     );
 
@@ -178,9 +178,9 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     }
 
     // Create buffers
-    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, partialHistograms.size() * sizeof(uint32_t), false);
-    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto outputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, numBins * sizeof(uint32_t), true);
 
     // Uniform struct matching shader uniform block
@@ -189,7 +189,7 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
         uint32_t numBins;
     } sumParams{groupCount, numBins};
 
-    auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(SumParams), true);
 
     // Upload partial histograms and uniform params
@@ -197,9 +197,9 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     mynydd::uploadUniformData<SumParams>(contextPtr, sumParams, uniformBuffer);
 
     // Load the summation shader (compiled SPIR-V must match the shader code given)
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep<float>>(
         contextPtr, "shaders/histogram_sum.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{inputBuffer, outputBuffer, uniformBuffer},
         1
     );
 
@@ -248,38 +248,38 @@ std::vector<uint32_t> runFullRadixSortTest(
     const uint32_t itemsPerGroup = 256;
     const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
 
-    auto ioBufferA = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
-    auto ioBufferB = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
+    auto ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
+    auto ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
 
-    auto perWorkgroupHistograms = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
-    auto globalHistogram = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, numBins * sizeof(uint32_t), false);
-    auto globalPrefixSum = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, numBins * sizeof(uint32_t), false);
-    auto transposedHistograms = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, numBins * groupCount * sizeof(uint32_t), false);
-    auto workgroupPrefixSums = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, numBins * groupCount * sizeof(uint32_t), false);
+    auto perWorkgroupHistograms = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
+    auto globalHistogram = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
+    auto globalPrefixSum = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
+    auto transposedHistograms = std::make_shared<mynydd::Buffer>(contextPtr, numBins * groupCount * sizeof(uint32_t), false);
+    auto workgroupPrefixSums = std::make_shared<mynydd::Buffer>(contextPtr, numBins * groupCount * sizeof(uint32_t), false);
 
-    auto radixUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(RadixParams), true);
-    auto sumUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(SumParams), true);
-    auto workgroupPrefixUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
-    auto globalPrefixUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
-    auto transposeUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
-    auto sortUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(SortParams), true);
+    auto radixUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(RadixParams), true);
+    auto sumUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(SumParams), true);
+    auto workgroupPrefixUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(PrefixParams), true);
+    auto globalPrefixUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(PrefixParams), true);
+    auto transposeUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(PrefixParams), true);
+    auto sortUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(SortParams), true);
 
     // Load compute pipelines
-    auto histPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto histPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/histogram.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{ioBufferA, perWorkgroupHistograms, radixUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferA, perWorkgroupHistograms, radixUniform},
         groupCount
     );
 
-    auto histPipelinePong = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto histPipelinePong = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/histogram.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{ioBufferB, perWorkgroupHistograms, radixUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferB, perWorkgroupHistograms, radixUniform},
         groupCount
     );
 
-    auto sumPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto sumPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/histogram_sum.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{perWorkgroupHistograms, globalHistogram, sumUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{perWorkgroupHistograms, globalHistogram, sumUniform},
         1
     );
     // std::cerr << "n: " << n << std::endl;
@@ -287,28 +287,28 @@ std::vector<uint32_t> runFullRadixSortTest(
     // std::cerr << "groupCount: " << groupCount << std::endl;
     // std::cerr << "numBins: " << numBins << std::endl;
 
-    auto transposePipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto transposePipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/transpose.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{perWorkgroupHistograms, transposedHistograms, transposeUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{perWorkgroupHistograms, transposedHistograms, transposeUniform},
         (numBins * groupCount + numBins - 1) / numBins
     );
 
-    auto workgroupPrefixPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto workgroupPrefixPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{transposedHistograms, workgroupPrefixSums, workgroupPrefixUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{transposedHistograms, workgroupPrefixSums, workgroupPrefixUniform},
         numBins
     );
 
     
-    auto globalPrefixPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto globalPrefixPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{globalHistogram, globalPrefixSum, globalPrefixUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{globalHistogram, globalPrefixSum, globalPrefixUniform},
         1
     );
 
-    auto sortPipeline = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto sortPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/radix_sort.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
             ioBufferA,
             workgroupPrefixSums,
             globalPrefixSum,
@@ -317,9 +317,9 @@ std::vector<uint32_t> runFullRadixSortTest(
         },
         groupCount
     );
-    auto sortPipelinePong = std::make_shared<mynydd::ComputeEngine<uint32_t>>(
+    auto sortPipelinePong = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr, "shaders/radix_sort.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
             ioBufferB,
             workgroupPrefixSums,
             globalPrefixSum,
@@ -557,11 +557,11 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
     } params{nKeys, nCells};
 
 
-    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nKeys * sizeof(uint32_t), false);
-    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto outputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nKeys * sizeof(CellInfo), true);
-    auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(IndexParams), true);
 
     mynydd::uploadData<uint32_t>(contextPtr, sorted_keys, inputBuffer);
@@ -569,9 +569,9 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
 
     auto groupCount = (nKeys + 63) / 64;
 
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<Particle>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep<Particle>>(
         contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
             inputBuffer, outputBuffer, uniformBuffer
         },
         groupCount

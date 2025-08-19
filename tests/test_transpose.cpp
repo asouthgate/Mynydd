@@ -15,9 +15,9 @@ TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[transpose]
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
     // Create input and output buffers (uint32_t)
-    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, m * n * sizeof(uint32_t), false);
-    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto outputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, n * m * sizeof(uint32_t), true);
 
     // Create uniform buffer for Params
@@ -26,7 +26,7 @@ TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[transpose]
         uint32_t n;
     } params{m, n};
 
-    auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(Params), true);
 
     // Generate test data: input matrix with known pattern
@@ -42,9 +42,9 @@ TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[transpose]
     mynydd::uploadUniformData<Params>(contextPtr, params, uniformBuffer);
 
     // Load transpose compute shader pipeline
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep<float>>(
         contextPtr, "shaders/transpose.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{inputBuffer, outputBuffer, uniformBuffer},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{inputBuffer, outputBuffer, uniformBuffer},
         (m * n + 256) / 256
     );
 

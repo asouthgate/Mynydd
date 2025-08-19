@@ -26,10 +26,10 @@ int main(int argc, char** argv) {
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
 
-    auto input = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
-    auto output = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, n * sizeof(Particle), false);
-    auto uniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(Params), true);
-    mynydd::ComputeEngine<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform}, n);
+    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(Particle), false);
+    auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(Particle), false);
+    auto uniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(Params), true);
+    mynydd::PipelineStep<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform}, n);
 
     std::vector<Particle> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
