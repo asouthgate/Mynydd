@@ -2,7 +2,7 @@
 
 namespace mynydd {
     // TODO: should store pointer to context, not device; in fact device should be private
-    AllocatedBuffer::AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform)
+    Buffer::Buffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform)
         : device(vkc->device), size(size) 
     {
 
