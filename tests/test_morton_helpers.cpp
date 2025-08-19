@@ -74,11 +74,11 @@ std::vector<uint32_t> runMortonTest(
         alignas(16) glm::vec3 domainMax;
     } params{nBits, nParticles, glm::vec3(0.0f), glm::vec3(float(nPerDim - 1))};
 
-    auto inputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nParticles * sizeof(Particle), false);
-    auto outputBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto outputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nParticles * sizeof(Particle), true);
-    auto uniformBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(Params), true);
 
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -88,9 +88,9 @@ std::vector<uint32_t> runMortonTest(
 
     auto groupCount = (nParticles + 63) / 64;
 
-    auto pipeline = std::make_shared<mynydd::ComputeEngine<Particle>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep<Particle>>(
         contextPtr, "shaders/morton_u32_3d.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
             inputBuffer, outputBuffer, uniformBuffer
         },
         groupCount

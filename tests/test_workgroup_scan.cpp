@@ -13,14 +13,14 @@ TEST_CASE("Test that workgroup scan works on the single work group case", "[vulk
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
-    auto histBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto histBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, groupCount * numBins * sizeof(uint32_t), false);
-    auto prefixBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto prefixBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, numBins * groupCount * sizeof(uint32_t), true);
 
     struct PrefixParams { uint32_t groupCount; uint32_t numBins; };
     PrefixParams pparams{ groupCount, numBins };
-    auto pUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
+    auto pUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(PrefixParams), true);
 
     std::vector<uint32_t> perGroupHist(groupCount * numBins);
     for (uint32_t g = 0; g < groupCount; ++g) {
@@ -42,9 +42,9 @@ TEST_CASE("Test that workgroup scan works on the single work group case", "[vulk
     mynydd::uploadData<uint32_t>(contextPtr, perGroupHist, histBuffer);
     mynydd::uploadUniformData<PrefixParams>(contextPtr, pparams, pUniform);
 
-    auto prefixPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+    auto prefixPipeline = std::make_shared<mynydd::PipelineStep<float>>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{histBuffer, prefixBuffer, pUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{histBuffer, prefixBuffer, pUniform},
         groupCount
     );
 
@@ -69,22 +69,22 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
-    auto histBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto histBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, groupCount * numBins * sizeof(uint32_t), false);
-    auto transposedBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto transposedBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, numBins * groupCount * sizeof(uint32_t), true);
-    auto prefixBuffer = std::make_shared<mynydd::AllocatedBuffer>(
+    auto prefixBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, numBins * groupCount * sizeof(uint32_t), true);
 
     // Uniform buffers for transpose and prefix shaders
     struct TransposeParams { uint32_t height; uint32_t width; }; // width=numBins, height=groupCount
     TransposeParams tparams{ groupCount, numBins };
-    auto tUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(TransposeParams), true);
+    auto tUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(TransposeParams), true);
 
     struct PrefixParams { uint32_t groupCount; uint32_t numBins; };
     
     PrefixParams pparams{ groupCount_postinv, numBins_postinv };
-    auto pUniform = std::make_shared<mynydd::AllocatedBuffer>(contextPtr, sizeof(PrefixParams), true);
+    auto pUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(PrefixParams), true);
 
     // Prepare a deterministic, arbitrary per-workgroup histogram (group-major)
     // Example layout (group0 row, group1 row, ...):
@@ -127,15 +127,15 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     // Create pipelines:
     //  - transpose: in = histBuffer (groupCount x numBins), out = transposedBuffer (numBins x groupCount), params tUniform
     //  - prefix: in = transposedBuffer, out = prefixBuffer, params pUniform
-    auto transposePipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+    auto transposePipeline = std::make_shared<mynydd::PipelineStep<float>>(
         contextPtr, "shaders/transpose.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{histBuffer, transposedBuffer, tUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{histBuffer, transposedBuffer, tUniform},
         (tparams.width * tparams.height + 256) / 256
     );
 
-    auto prefixPipeline = std::make_shared<mynydd::ComputeEngine<float>>(
+    auto prefixPipeline = std::make_shared<mynydd::PipelineStep<float>>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
-        std::vector<std::shared_ptr<mynydd::AllocatedBuffer>>{transposedBuffer, prefixBuffer, pUniform},
+        std::vector<std::shared_ptr<mynydd::Buffer>>{transposedBuffer, prefixBuffer, pUniform},
         groupCount_postinv
     );
 

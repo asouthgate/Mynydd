@@ -213,7 +213,7 @@ namespace mynydd {
     */
     VkDescriptorSetLayout createDescriptorSetLayout(
         VkDevice device,
-        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+        const std::vector<std::shared_ptr<Buffer>>& buffers
 ) {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
@@ -245,7 +245,7 @@ namespace mynydd {
         VkDevice device,
         VkDescriptorSetLayout layout,
         VkDescriptorPool &pool,
-        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+        const std::vector<std::shared_ptr<Buffer>>& buffers
     ) {
         std::vector<VkDescriptorPoolSize> poolSizes(buffers.size());
 
@@ -289,7 +289,7 @@ namespace mynydd {
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
-        const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
+        const std::vector<std::shared_ptr<Buffer>> &buffers
     ) {
         if (buffers.empty()) {
             throw std::runtime_error("No buffers provided for descriptor set update");
@@ -530,7 +530,7 @@ namespace mynydd {
 
     VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+        const std::vector<std::shared_ptr<Buffer>> buffers
     ) : contextPtr(contextPtr) {
 
         descriptorSetLayout = createDescriptorSetLayout(contextPtr->device, buffers);
@@ -546,7 +546,7 @@ namespace mynydd {
 
     void VulkanDynamicResources::setBuffers(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+        const std::vector<std::shared_ptr<Buffer>>& buffers
     ) {
         if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
             throw std::runtime_error("Invalid Vulkan context in setBuffers.");
