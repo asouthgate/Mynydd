@@ -124,7 +124,25 @@ namespace mynydd {
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
             VulkanPipelineResources pipelineResources;
     };
+
+    class Pipeline {
+        public:
+            Pipeline(std::shared_ptr<VulkanContext> contextPtr) : contextPtr(contextPtr) {}
+            virtual ~Pipeline() = default;
+
+            virtual void init() = 0;      // create buffers + steps
+            virtual void execute() = 0;   // run the pipeline
+            
+            virtual std::vector<std::shared_ptr<Buffer>> getInputBuffers() const = 0;
+            virtual std::vector<std::shared_ptr<Buffer>> getOutputBuffers() const = 0;
+
+        protected:
+            std::shared_ptr<VulkanContext> contextPtr;
 };
+
+};
+
+
 
 // Template implementation must be in the header file or a separate file included at the end of the header file.
 // Included here beause it looks messy otherwise
