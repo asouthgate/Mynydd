@@ -31,7 +31,7 @@ namespace mynydd {
     // void updateDescriptorSet(
     //     VkDevice device,
     //     VkDescriptorSet descriptorSet,
-    //     const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
+    //     const std::vector<std::shared_ptr<Buffer>> &buffers
     // );
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
@@ -51,10 +51,10 @@ namespace mynydd {
     VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
 
     template<typename T>
-    ComputeEngine<T>::ComputeEngine(
+    PipelineStep<T>::PipelineStep(
         std::shared_ptr<VulkanContext> contextPtr, 
         const char* shaderPath,
-        std::vector<std::shared_ptr<AllocatedBuffer>> buffers,
+        std::vector<std::shared_ptr<Buffer>> buffers,
         uint32_t groupCountX,
         uint32_t groupCountY,
         uint32_t groupCountZ
@@ -68,10 +68,10 @@ namespace mynydd {
     }
 
     template<typename T>
-    ComputeEngine<T>::~ComputeEngine() {
-        std::cerr << "Destroying ComputeEngine resources..." << std::endl;
+    PipelineStep<T>::~PipelineStep() {
+        std::cerr << "Destroying PipelineStep resources..." << std::endl;
         try {
-            std::cerr << "Destroying ComputeEngine..." << std::endl;
+            std::cerr << "Destroying PipelineStep..." << std::endl;
             if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
                 this->pipelineResources.pipeline != VK_NULL_HANDLE) {
             } else {
@@ -82,10 +82,10 @@ namespace mynydd {
             vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
             vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
         } catch (const std::exception &e) {
-            std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
+            std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
             throw;
         }
-        std::cerr << "ComputeEngine resources destroyed." << std::endl;
+        std::cerr << "PipelineStep resources destroyed." << std::endl;
     }
 
     struct TrivialUniform {
@@ -126,7 +126,7 @@ namespace mynydd {
 
 
     template<typename T>
-    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<AllocatedBuffer> buffer) {
+    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<Buffer> buffer) {
         try {
             if (inputData.empty()) {
                 throw std::runtime_error("Data vector is empty");
@@ -164,8 +164,8 @@ namespace mynydd {
     }
 
     template<typename T>
-    void ComputeEngine<T>::execute(size_t numElements) {
-        std::cerr << "Warning: ComputeEngine::execute is deprecated. Use executeBatch instead." << std::endl;
+    void PipelineStep<T>::execute(size_t numElements) {
+        std::cerr << "Warning: PipelineStep::execute is deprecated. Use executeBatch instead." << std::endl;
         std::cerr<< "Recording command buffer..." << std::endl;
         try {
             if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
@@ -196,7 +196,7 @@ namespace mynydd {
     }
 
     template<typename T>
-    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<AllocatedBuffer> buffer, size_t n_elements) {
+    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<Buffer> buffer, size_t n_elements) {
 
         std::vector<T> output = readBufferData<T>(
             vkc->device,
@@ -211,9 +211,9 @@ namespace mynydd {
     template<typename T>
     void executeBatch(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<ComputeEngine<T>>>& computeEngines
+        const std::vector<std::shared_ptr<PipelineStep<T>>>& PipelineSteps
     ) {
-        if (computeEngines.empty()) {
+        if (PipelineSteps.empty()) {
             throw std::runtime_error("No compute engines provided for batch execution.");
         }
 
@@ -230,10 +230,10 @@ namespace mynydd {
             throw std::runtime_error("Failed to begin command buffer for batch execution.");
         }
 
-        for (size_t i = 0; i < computeEngines.size(); ++i) {
-            auto& engine = computeEngines[i];
+        for (size_t i = 0; i < PipelineSteps.size(); ++i) {
+            auto& engine = PipelineSteps[i];
             if (!engine) {
-                throw std::runtime_error("Null ComputeEngine pointer at index " + std::to_string(i));
+                throw std::runtime_error("Null PipelineStep pointer at index " + std::to_string(i));
             }
 
             const auto& pipeline      = engine->getPipelineResourcesPtr()->pipeline;
@@ -256,7 +256,7 @@ namespace mynydd {
             );
 
             // Insert memory barrier between shaders (except after last one)
-            if (i + 1 < computeEngines.size()) {
+            if (i + 1 < PipelineSteps.size()) {
                 VkMemoryBarrier memoryBarrier{};
                 memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
                 memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -302,9 +302,9 @@ namespace mynydd {
     }
 
     template<typename T>
-    void ComputeEngine<T>::setBuffers(
+    void PipelineStep<T>::setBuffers(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+        const std::vector<std::shared_ptr<Buffer>>& buffers
     ) {
         if (!this->dynamicResourcesPtr) {
             throw std::runtime_error("Dynamic resources pointer is null.");

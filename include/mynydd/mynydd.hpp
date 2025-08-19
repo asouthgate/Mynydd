@@ -68,7 +68,7 @@ namespace mynydd {
         VkDescriptorSet descriptorSet;
         VulkanDynamicResources(
             std::shared_ptr<VulkanContext> contextPtr,
-            std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+            std::vector<std::shared_ptr<Buffer>> buffers
         );
         ~VulkanDynamicResources() {
             std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
@@ -86,22 +86,22 @@ namespace mynydd {
         VulkanDynamicResources& operator=(VulkanDynamicResources&&) = default;     // Allow move
         void setBuffers(
             std::shared_ptr<VulkanContext> contextPtr,
-            const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+            const std::vector<std::shared_ptr<Buffer>>& buffers
         );
     };
 
     template<typename T>
-    class ComputeEngine {
+    class PipelineStep {
         public:
             PipelineStep(
                 std::shared_ptr<VulkanContext> contextPtr,
                 const char* shaderPath,
-                std::vector<std::shared_ptr<AllocatedBuffer>> buffers,
+                std::vector<std::shared_ptr<Buffer>> buffers,
                 uint32_t groupCountX,
                 uint32_t groupCountY=1,
                 uint32_t groupCountZ=1
             ); 
-            ~ComputeEngine();
+            ~PipelineStep();
             void execute(size_t numElements); //numElements required for computing nthreads
             std::shared_ptr<VulkanPipelineResources> getPipelineResourcesPtr() const {
                 return std::make_shared<VulkanPipelineResources>(pipelineResources);
@@ -115,7 +115,7 @@ namespace mynydd {
             uint32_t groupCountZ;
             void setBuffers(
                 std::shared_ptr<VulkanContext> contextPtr,
-                const std::vector<std::shared_ptr<AllocatedBuffer>>& buffers
+                const std::vector<std::shared_ptr<Buffer>>& buffers
             );
 
 

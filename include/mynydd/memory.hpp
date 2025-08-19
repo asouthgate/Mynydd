@@ -43,6 +43,7 @@ namespace mynydd {
         }
 
         ~Buffer() {
+            std::cerr << "Destroying Buffer..." << std::endl;
             destroy();
         }
 
