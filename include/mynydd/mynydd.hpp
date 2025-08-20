@@ -129,16 +129,11 @@ namespace mynydd {
         public:
             Pipeline(std::shared_ptr<VulkanContext> contextPtr) : contextPtr(contextPtr) {}
             virtual ~Pipeline() = default;
-
-            virtual void init() = 0;      // create buffers + steps
-            virtual void execute() = 0;   // run the pipeline
+            virtual void execute() = 0;
             
-            virtual std::vector<std::shared_ptr<Buffer>> getInputBuffers() const = 0;
-            virtual std::vector<std::shared_ptr<Buffer>> getOutputBuffers() const = 0;
-
         protected:
             std::shared_ptr<VulkanContext> contextPtr;
-};
+    };
 
 };
 

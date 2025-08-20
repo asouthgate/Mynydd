@@ -1,7 +1,6 @@
 #pragma once
 
 #include <assert.h>
-#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <vulkan/vulkan.h>
@@ -49,17 +48,6 @@ namespace mynydd {
 
             void execute();
             void execute_pass(size_t pass);
-            void execute_init();
-            std::shared_ptr<mynydd::Buffer> getSortedBuffer() {
-                return (nPasses % 2 == 0) ? ioBufferA : ioBufferB;
-            }
-            std::shared_ptr<mynydd::Buffer> getSortedIndicesBuffer() {
-                return (nPasses % 2 == 0) ? ioSortedIndicesB : ioSortedIndicesA;
-            }
-            std::shared_ptr<mynydd::Buffer> getSortedIndicesBufferAtPass(uint32_t pass) {
-                return ((pass + 1) % 2 == 0) ? ioSortedIndicesB : ioSortedIndicesB;
-            }
-
 
             // TODO: getters
             uint32_t itemsPerGroup = 256; // Hardcoded temporarily
@@ -72,8 +60,6 @@ namespace mynydd {
             // TODO: don't necessarily need this to be shared ptr
             std::shared_ptr<mynydd::Buffer> ioBufferA;
             std::shared_ptr<mynydd::Buffer> ioBufferB;
-            std::shared_ptr<mynydd::Buffer> ioSortedIndicesA;
-            std::shared_ptr<mynydd::Buffer> ioSortedIndicesB;
             std::shared_ptr<mynydd::Buffer> perWorkgroupHistograms;
             std::shared_ptr<mynydd::Buffer> globalHistogram;
             std::shared_ptr<mynydd::Buffer> globalPrefixSum;
@@ -93,15 +79,14 @@ namespace mynydd {
             std::shared_ptr<mynydd::Buffer> transposeUniform;
             std::shared_ptr<mynydd::Buffer> sortUniform;
 
-            std::shared_ptr<mynydd::PipelineStep> initRangePipeline;
-            std::shared_ptr<mynydd::PipelineStep> histPipeline;
-            std::shared_ptr<mynydd::PipelineStep> histPipelinePong;
-            std::shared_ptr<mynydd::PipelineStep> sumPipeline;
-            std::shared_ptr<mynydd::PipelineStep> transposePipeline;
-            std::shared_ptr<mynydd::PipelineStep> workgroupPrefixPipeline;
-            std::shared_ptr<mynydd::PipelineStep> sortPipeline;
-            std::shared_ptr<mynydd::PipelineStep> sortPipelinePong;
-            std::shared_ptr<mynydd::PipelineStep> globalPrefixPipeline;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> histPipeline;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> histPipelinePong;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> sumPipeline;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> transposePipeline;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> workgroupPrefixPipeline;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> sortPipeline;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> sortPipelinePong;
+            std::shared_ptr<mynydd::PipelineStep<uint32_t>> globalPrefixPipeline;
 
 
     };
