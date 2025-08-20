@@ -13,6 +13,7 @@ set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 add_library(mynydd SHARED
     ${SOURCE_DIR}/mynydd.cpp
     ${SOURCE_DIR}/memory.cpp
+    ${SOURCE_DIR}/pipelines/radix_sort.cpp
 )
 
 target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
@@ -26,10 +27,12 @@ enable_testing()
 
 # test shaders
 
-set(SHADER_DIR ${TEST_SRC_DIR}/shaders)
+set(TEST_SHADER_DIR ${TEST_SRC_DIR}/shaders)
+set(SRC_SHADER_DIR ${SOURCE_DIR}/pipelines/shaders)
+
 set(SPIRV_DIR ${CMAKE_BINARY_DIR}/shaders)
 file(MAKE_DIRECTORY ${SPIRV_DIR})
-file(GLOB SHADER_SRC_FILES "${SHADER_DIR}/*.comp")
+file(GLOB SHADER_SRC_FILES "${SRC_SHADER_DIR}/*.comp" "${TEST_SHADER_DIR}/*.comp")
 message(STATUS "Found shaders: ${SHADER_SRC_FILES}")
 set(SHADER_SPV_FILES)
 

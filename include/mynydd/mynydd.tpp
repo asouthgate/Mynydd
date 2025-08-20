@@ -208,6 +208,52 @@ namespace mynydd {
         return output;
     }
 
+
+    template<typename T>
+    void recordCommandBuffer(
+        VkCommandBuffer cmdBuffer,
+        std::shared_ptr<PipelineStep<T>> pipeline_step,
+        bool memory_barrier = true
+    ) {
+            const auto& pipeline      = pipeline_step->getPipelineResourcesPtr()->pipeline;
+            const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
+            const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
+
+            if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
+            }
+
+            // Bind pipeline and descriptor sets
+            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
+
+            // Dispatch compute shader
+            vkCmdDispatch(cmdBuffer, 
+                pipeline_step->groupCountX,
+                pipeline_step->groupCountY,
+                pipeline_step->groupCountZ
+            );
+
+            // Insert memory barrier between shaders (except after last one)
+            if (memory_barrier) {
+                VkMemoryBarrier memoryBarrier{};
+                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                vkCmdPipelineBarrier(
+                    cmdBuffer,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    0,
+                    1, &memoryBarrier,
+                    0, nullptr,
+                    0, nullptr
+                );
+            }
+
+    }
+
+
     template<typename T>
     void executeBatch(
         std::shared_ptr<VulkanContext> contextPtr,
@@ -235,42 +281,11 @@ namespace mynydd {
             if (!engine) {
                 throw std::runtime_error("Null PipelineStep pointer at index " + std::to_string(i));
             }
-
-            const auto& pipeline      = engine->getPipelineResourcesPtr()->pipeline;
-            const auto& layout        = engine->getPipelineResourcesPtr()->pipelineLayout;
-            const auto& descriptorSet = engine->getDynamicResourcesPtr()->descriptorSet;
-
-            if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid pipeline or descriptor set for engine " + std::to_string(i));
-            }
-
-            // Bind pipeline and descriptor sets
-            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
-
-            // Dispatch compute shader
-            vkCmdDispatch(cmdBuffer, 
-                engine->groupCountX,
-                engine->groupCountY,
-                engine->groupCountZ
+            recordCommandBuffer(
+                cmdBuffer,
+                engine,
+                i + 1 < PipelineSteps.size()
             );
-
-            // Insert memory barrier between shaders (except after last one)
-            if (i + 1 < PipelineSteps.size()) {
-                VkMemoryBarrier memoryBarrier{};
-                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-                memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-                vkCmdPipelineBarrier(
-                    cmdBuffer,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    0,
-                    1, &memoryBarrier,
-                    0, nullptr,
-                    0, nullptr
-                );
-            }
         }
 
         if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
