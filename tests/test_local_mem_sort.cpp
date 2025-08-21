@@ -15,31 +15,6 @@
 #include <mynydd/pipelines/radix_sort.hpp>
 #include "test_morton_helpers.hpp"
 
-// struct RadixParams {
-//     uint32_t bitOffset;
-//     uint32_t numBins;
-//     uint32_t totalSize;
-//     uint32_t itemsPerGroup;
-// };
-
-// struct SumParams {
-//     uint32_t groupCount;
-//     uint32_t numBins;
-// };
-
-// struct PrefixParams {
-//     uint32_t groupCount;
-//     uint32_t numBins;
-// };
-
-// struct SortParams {
-//     uint bitOffset;
-//     uint numBins;
-//     uint totalSize;
-//     uint workgroupSize;
-//     uint groupCount;
-// };
-
 
 // Test function for validation
 template<typename T>
@@ -234,105 +209,12 @@ std::vector<uint32_t> runFullRadixSortTest(
     std::vector<uint32_t>& inputData
 ) {
 
-    // for (size_t i = 0; i < 10; ++i) {
-    //     std::cerr << "Input data: " << i << ": " << inputData[i] << std::endl;
-    // }
-    // for (size_t i = inputData.size()-10; i < inputData.size(); ++i) {
-    //     std::cerr << "Input data: " << i << ": " << inputData[i] << std::endl;
-    // }
-
     const size_t n = inputData.size();
-
-    // const uint32_t bitsPerPass = 8;
-    // const uint32_t nPasses = 32 / bitsPerPass; // 4 passes for 32 bits
-    // const uint32_t numBins = 1 << bitsPerPass; // 256
     const uint32_t itemsPerGroup = 256;
-    // const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
 
     mynydd::RadixSortPipeline radixSortPipeline(
         contextPtr, itemsPerGroup, static_cast<uint32_t>(n)
     );
-
-    // auto ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
-    // auto ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
-
-    // auto perWorkgroupHistograms = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
-    // auto globalHistogram = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
-    // auto globalPrefixSum = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
-    // auto transposedHistograms = std::make_shared<mynydd::Buffer>(contextPtr, numBins * groupCount * sizeof(uint32_t), false);
-    // auto workgroupPrefixSums = std::make_shared<mynydd::Buffer>(contextPtr, numBins * groupCount * sizeof(uint32_t), false);
-
-    // auto radixUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::RadixParams), true);
-    // auto sumUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::SumParams), true);
-    // auto workgroupPrefixUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::PrefixParams), true);
-    // auto globalPrefixUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::PrefixParams), true);
-    // auto transposeUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::PrefixParams), true);
-    // auto sortUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::SortParams), true);
-
-    // // Load compute pipelines
-    // auto histPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/histogram.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferA, perWorkgroupHistograms, radixUniform},
-    //     groupCount
-    // );
-
-    // auto histPipelinePong = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/histogram.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferB, perWorkgroupHistograms, radixUniform},
-    //     groupCount
-    // );
-
-    // auto sumPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/histogram_sum.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{perWorkgroupHistograms, globalHistogram, sumUniform},
-    //     1
-    // );
-    // std::cerr << "n: " << n << std::endl;
-    // std::cerr << "itemsPerGroup: " << itemsPerGroup << std::endl;
-    // std::cerr << "groupCount: " << groupCount << std::endl;
-    // std::cerr << "numBins: " << numBins << std::endl;
-
-    // auto transposePipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/transpose.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{perWorkgroupHistograms, transposedHistograms, transposeUniform},
-    //     (numBins * groupCount + numBins - 1) / numBins
-    // );
-
-    // auto workgroupPrefixPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/workgroup_scan.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{transposedHistograms, workgroupPrefixSums, workgroupPrefixUniform},
-    //     numBins
-    // );
-
-    
-    // auto globalPrefixPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/workgroup_scan.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{globalHistogram, globalPrefixSum, globalPrefixUniform},
-    //     1
-    // );
-
-    // auto sortPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/radix_sort.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{
-    //         ioBufferA,
-    //         workgroupPrefixSums,
-    //         globalPrefixSum,
-    //         ioBufferB,
-    //         sortUniform
-    //     },
-    //     groupCount
-    // );
-    // auto sortPipelinePong = std::make_shared<mynydd::PipelineStep<uint32_t>>(
-    //     contextPtr, "shaders/radix_sort.comp.spv",
-    //     std::vector<std::shared_ptr<mynydd::Buffer>>{
-    //         ioBufferB,
-    //         workgroupPrefixSums,
-    //         globalPrefixSum,
-    //         ioBufferA,
-    //         sortUniform
-    //     },
-    //     groupCount
-    // );
 
     mynydd::uploadData<uint32_t>(contextPtr, inputData, radixSortPipeline.ioBufferA);
 
@@ -354,63 +236,6 @@ std::vector<uint32_t> runFullRadixSortTest(
         auto input_retrieved = mynydd::fetchData<uint32_t>(
             contextPtr, inputBuffer, n
         );
-        
-        // // print_radixes(input_retrieved, bitsPerPass, nPasses, numBins, pass);
-
-        // mynydd::RadixParams radixParams = {
-        //     .bitOffset = bitOffset,
-        //     .numBins = numBins,
-        //     .totalSize = static_cast<uint32_t>(n),
-        //     .itemsPerGroup = itemsPerGroup
-        // };
-
-        // mynydd::SumParams sumParams = {
-        //     .groupCount = groupCount,
-        //     .numBins = numBins
-        // };
-
-        // mynydd::PrefixParams workgroupPrefixParams = {
-        //     .groupCount = numBins, // Yes, this is inverted, because it's using the output of transpose shader step
-        //     .numBins = groupCount
-        // };
-
-        // mynydd::PrefixParams transposeParams = {
-        //     .groupCount = groupCount,
-        //     .numBins = numBins
-        // };
-
-        // mynydd::PrefixParams globalPrefixParams = {
-        //     .groupCount = 1,
-        //     .numBins = numBins
-        // };
-
-        // mynydd::SortParams sortParams = {
-        //     .bitOffset = bitOffset,
-        //     .numBins = numBins,
-        //     .totalSize = static_cast<uint32_t>(n),
-        //     .workgroupSize=itemsPerGroup,
-        //     .groupCount=groupCount
-        // };
-
-        // mynydd::uploadUniformData<mynydd::RadixParams>(contextPtr, radixParams, radixUniform);
-        // mynydd::uploadUniformData<mynydd::SumParams>(contextPtr, sumParams, sumUniform);
-        // mynydd::uploadUniformData<mynydd::PrefixParams>(contextPtr, globalPrefixParams, globalPrefixUniform);
-        // mynydd::uploadUniformData<mynydd::PrefixParams>(contextPtr, workgroupPrefixParams, workgroupPrefixUniform);
-        // mynydd::uploadUniformData<mynydd::PrefixParams>(contextPtr, transposeParams, transposeUniform);
-        // mynydd::uploadUniformData<mynydd::SortParams>(contextPtr, sortParams, sortUniform);
-
-        // // // 1) Histogram partial counts
-        // mynydd::executeBatch<uint32_t>(
-        //     contextPtr, 
-        // {
-        //         pass % 2 == 0 ? histPipeline : histPipelinePong,
-        //         sumPipeline,
-        //         globalPrefixPipeline, 
-        //         transposePipeline,
-        //         workgroupPrefixPipeline,
-        //         pass % 2 == 0 ? sortPipeline : sortPipelinePong
-        //     }
-        // );
 
         inputData = mynydd::fetchData<uint32_t>(contextPtr, inputBuffer, n);
         
@@ -504,7 +329,7 @@ std::vector<uint32_t> runFullRadixSortTest(
 
         // Make sure it's not all zeroes
         size_t sum = 0;
-        for (size_t i = 1; i < 50; ++i) {
+        for (size_t i = 1; i < n; ++i) {
             sum += out_sorted[i];
         }
         REQUIRE(sum > 0);
