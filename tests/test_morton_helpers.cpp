@@ -98,18 +98,18 @@ std::vector<uint32_t> runMortonTest(
     auto t2 = std::chrono::high_resolution_clock::now();
     mynydd::executeBatch<Particle>(contextPtr, {pipeline});
 
-    std::vector<Particle> outParticles = mynydd::fetchData<Particle>(contextPtr, outputBuffer, nParticles);
+    std::vector<uint32_t> outKeys = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, nParticles);
 
-    std::vector<uint32_t> outKeys(nParticles);
-    for (size_t i = 0; i < outParticles.size(); ++i) {
-        outKeys[i] = outParticles[i].key;
-    }
+    // std::vector<uint32_t> outKeys(nParticles);
+    // for (size_t i = 0; i < outParticles.size(); ++i) {
+    //     outKeys[i] = outParticles[i].key;
+    // }
 
     // Sort particlesqin-place by key
-    std::sort(outParticles.begin(), outParticles.end(),
-            [](const Particle &a, const Particle &b) {
-                return a.key < b.key;
-            });
+    // std::sort(outParticles.begin(), outParticles.end(),
+    //         [](const Particle &a, const Particle &b) {
+    //             return a.key < b.key;
+    //         });
 
     auto t3 = std::chrono::high_resolution_clock::now();
 
