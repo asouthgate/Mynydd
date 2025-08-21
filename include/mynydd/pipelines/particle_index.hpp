@@ -80,6 +80,9 @@ namespace mynydd {
                     (nDataPoints + 63) / 64
                 );
 
+                std::cerr << "ParticleIndexPipeline created with " 
+                          << nDataPoints << " data points." << std::endl;
+
             }
             ~ParticleIndexPipeline() {}; // member variables are RAII
 
