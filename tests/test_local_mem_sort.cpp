@@ -385,8 +385,7 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
 
     struct IndexParams {
         uint32_t nKeys;
-        uint32_t nCells;
-    } params{nKeys, nCells};
+    } params{nKeys};
 
 
     auto inputBuffer = std::make_shared<mynydd::Buffer>(

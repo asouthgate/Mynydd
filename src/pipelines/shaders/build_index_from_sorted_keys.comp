@@ -18,7 +18,6 @@ layout(set = 0, binding = 1) buffer Cells {
 
 layout(set = 0, binding = 2) uniform Params {
     uint numKeys;
-    uint numCells; // total number of bins / grid cells
 } pc;
 
 void main() {

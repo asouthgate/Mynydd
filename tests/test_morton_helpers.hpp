@@ -11,7 +11,7 @@
 
 struct Particle {
     glm::vec3 position;
-    uint32_t key;
+    // uint32_t key;
 };
 
 struct KeyRange {
