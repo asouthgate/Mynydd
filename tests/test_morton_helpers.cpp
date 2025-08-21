@@ -11,33 +11,6 @@
 
 #include "test_morton_helpers.hpp"
 
-
-// Naive function to compute key ranges for particles within dmax
-std::vector<KeyRange> computeKeyRangesNaive(const std::vector<Particle>& particles, float dmax) {
-    size_t n = particles.size();
-    std::vector<KeyRange> ranges(n);
-
-    for (size_t i = 0; i < n; ++i) {
-        uint32_t keyMin = std::numeric_limits<uint32_t>::max();
-        uint32_t keyMax = 0;
-
-        const glm::vec3& posI = particles[i].position;
-
-        for (size_t j = 0; j < n; ++j) {
-            const glm::vec3& posJ = particles[j].position;
-            float dist = glm::distance(posI, posJ);
-            if (dist <= dmax) {
-                keyMin = std::min(keyMin, particles[j].key);
-                keyMax = std::max(keyMax, particles[j].key);
-            }
-        }
-
-        ranges[i] = { keyMin, keyMax };
-    }
-
-    return ranges;
-}
-
 std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits) {
     const uint32_t nPerDim = pow(2, nBits);
     const uint32_t nParticles = pow(nPerDim, 3);
@@ -48,7 +21,7 @@ std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits) {
         for (uint32_t y = 0; y < nPerDim; ++y) {
             for (uint32_t x = 0; x < nPerDim; ++x) {
                 testParticles[idx].position = glm::vec3(float(x), float(y), float(z));
-                testParticles[idx].key = 0;
+                // testParticles[idx].key = 0;
                 ++idx;
             }
         }
@@ -77,7 +50,7 @@ std::vector<uint32_t> runMortonTest(
     auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nParticles * sizeof(Particle), false);
     auto outputBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, nParticles * sizeof(Particle), true);
+        contextPtr, nParticles * sizeof(uint32_t), true);
     auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(Params), true);
 
@@ -99,6 +72,13 @@ std::vector<uint32_t> runMortonTest(
     mynydd::executeBatch<Particle>(contextPtr, {pipeline});
 
     std::vector<uint32_t> outKeys = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, nParticles);
+
+
+    size_t sum = 0;
+    for (size_t i = 0; i < outKeys.size(); ++i) {
+        sum += outKeys[i];
+    }
+    REQUIRE((sum > 0 && "Keys came back all zero. This is likely a bug in the Morton shader."));
 
     // std::vector<uint32_t> outKeys(nParticles);
     // for (size_t i = 0; i < outParticles.size(); ++i) {
