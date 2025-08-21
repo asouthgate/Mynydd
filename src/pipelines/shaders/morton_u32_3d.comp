@@ -15,7 +15,7 @@ layout(set = 0, binding = 0) buffer inputData {
 } inData;
 
 layout(set = 0, binding = 1) buffer outputData {
-    Particle particles[];
+    uint keys[];
 } outData;
 
 layout(set = 0, binding = 2) uniform Params {
@@ -28,7 +28,7 @@ layout(set = 0, binding = 2) uniform Params {
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     if (gl_GlobalInvocationID.x >= params.nParticles) {
-        outData.particles[idx].key = 9999; // for debugging; not an error, intentional
+        outData.keys[idx] = 9999; // for debugging; not an error, intentional
         return;
     }
     vec3 norm_pos = (inData.particles[idx].position - params.domainMin) / (params.domainMax - params.domainMin);
@@ -40,6 +40,5 @@ void main() {
         params.nBits
     );
 
-    outData.particles[idx].position = inData.particles[idx].position;
-    outData.particles[idx].key = key;
+    outData.keys[idx] = key;
 }
