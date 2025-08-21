@@ -90,6 +90,7 @@ namespace mynydd {
         );
     };
 
+    // TODO: no longer needs to be templated
     template<typename T>
     class PipelineStep {
         public:
