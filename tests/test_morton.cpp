@@ -12,7 +12,7 @@
 #include <mynydd/mynydd.hpp>
 
 #include <mynydd/shader_interop.hpp>
-#include "shaders/morton_kernels.comp.kern"
+#include "../src/pipelines/shaders/morton_kernels.comp.kern"
 #include "test_morton_helpers.hpp"
 
 
