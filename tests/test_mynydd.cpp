@@ -36,7 +36,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
     std::cerr << "Fetched" << std::endl;
     for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
-        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
+        // std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
         REQUIRE(out[i] == Catch::Approx(1.0 / static_cast<float>(i)));
     }
     std::cerr << "Checked output" << std::endl;

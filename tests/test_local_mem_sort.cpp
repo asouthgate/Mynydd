@@ -367,6 +367,17 @@ std::vector<uint32_t> runFullRadixSortTest(
     for (size_t i = 1; i < n; ++i) {
         REQUIRE(output_retrieved[i] >= output_retrieved[i - 1]);
     }
+
+    auto output_indices = mynydd::fetchData<uint32_t>(
+        contextPtr, radixSortPipeline.ioSortedIndices, n
+    );
+    // print_radixes(output_retrieved, bitsPerPass, nPasses, numBins);
+    for (size_t i = 1; i < n; ++i) {
+        uint32_t ind = output_indices[i];
+        uint32_t indprev = output_indices[i - 1];
+        REQUIRE(inputData[ind] >= inputData[indprev]);
+    }
+
     return output_retrieved;
 }
 
