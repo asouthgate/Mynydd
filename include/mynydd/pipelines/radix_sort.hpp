@@ -60,6 +60,7 @@ namespace mynydd {
             // TODO: don't necessarily need this to be shared ptr
             std::shared_ptr<mynydd::Buffer> ioBufferA;
             std::shared_ptr<mynydd::Buffer> ioBufferB;
+            std::shared_ptr<mynydd::Buffer> ioSortedIndices;  // don't need to ping-pong because it's write-only
             std::shared_ptr<mynydd::Buffer> perWorkgroupHistograms;
             std::shared_ptr<mynydd::Buffer> globalHistogram;
             std::shared_ptr<mynydd::Buffer> globalPrefixSum;
