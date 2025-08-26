@@ -30,6 +30,8 @@ namespace mynydd {
         ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
         ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
 
+        ioSortedIndices = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
+
         perWorkgroupHistograms = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
         globalHistogram = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
         globalPrefixSum = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
@@ -87,6 +89,7 @@ namespace mynydd {
                 workgroupPrefixSums,
                 globalPrefixSum,
                 ioBufferB,
+                ioSortedIndices,
                 sortUniform
             },
             groupCount
@@ -98,6 +101,7 @@ namespace mynydd {
                 workgroupPrefixSums,
                 globalPrefixSum,
                 ioBufferA,
+                ioSortedIndices,
                 sortUniform
             },
             groupCount

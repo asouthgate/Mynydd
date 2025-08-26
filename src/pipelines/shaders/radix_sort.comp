@@ -19,7 +19,11 @@ layout(set = 0, binding = 3) buffer OutputBuffer {
     uint sortedValues[];
 };
 
-layout(set = 0, binding = 4) uniform Params {
+layout(set = 0, binding = 4) buffer OutputBufferKeys {
+    uint sortedIndices[];
+};
+
+layout(set = 0, binding = 5) uniform Params {
     uint bitOffset;
     uint numBins;
     uint totalSize;
@@ -85,5 +89,6 @@ void main() {
 
         // write output
         sortedValues[pos] = values[globalID];
+        sortedIndices[pos] = globalID;
     }
 }
