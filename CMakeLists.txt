@@ -59,7 +59,7 @@ add_executable(tests
     ${TEST_SRC_DIR}/test_morton.cpp
     ${TEST_SRC_DIR}/test_mynydd.cpp
     ${TEST_SRC_DIR}/test_shader_kernels.cpp
-    ${TEST_SRC_DIR}/test_local_mem_sort.cpp
+    ${TEST_SRC_DIR}/test_radix_sort.cpp
     ${TEST_SRC_DIR}/test_particle_index.cpp
     ${TEST_SRC_DIR}/test_transpose.cpp
     ${TEST_SRC_DIR}/test_workgroup_scan.cpp
