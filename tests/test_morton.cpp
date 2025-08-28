@@ -4,9 +4,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
-#include <algorithm>
 #include <glm/glm.hpp>
 #include <memory>
+#include <random>
 #include <vector>
 
 #include <mynydd/mynydd.hpp>
@@ -72,4 +72,81 @@ TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
     std::vector<Particle> particles = getMortonTestGridRegularParticleData(nBits);
     runMortonTest(contextPtr, nBits, particles);
     // TODO:
+}
+
+
+struct MortonParams {
+    uint32_t nBits;
+    uint32_t nParticles;
+    alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
+    alignas(16) glm::vec3 domainMax;
+};
+
+
+TEST_CASE("Regression test against ...", "[morton]") {
+
+    uint32_t nParticles = 4096;
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    auto inputBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
+
+    auto outputBufferTest = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(uint32_t), false);
+
+    // Upload data
+    std::vector<Particle> inputData(nParticles);
+    std::mt19937 rng(12345); // Fixed seed for reproducibility
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    for (auto& v : inputData) {
+        v.position = glm::vec3(dist(rng), dist(rng), dist(rng));
+    }
+
+    auto mortonUniformBuffer = std::make_shared<mynydd::Buffer>(
+        contextPtr, sizeof(MortonParams), true);
+
+    auto mortonStep = std::make_shared<mynydd::PipelineStep<Particle>>(
+        contextPtr, "shaders/morton_u32_3d.comp.spv",
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
+            inputBuffer, outputBufferTest, mortonUniformBuffer
+        },
+        (nParticles + 63) / 64
+    );
+
+    struct Params {
+        uint32_t nBits;
+        uint32_t nParticles;
+        alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
+        alignas(16) glm::vec3 domainMax;
+    } mortonParams{10, nParticles, glm::vec3(0.0f), glm::vec3(1.0)};
+
+    std::cerr << "Morton parameters are" <<
+        " nBitsPerAxis: " << mortonParams.nBits <<
+        " nParticles: " << mortonParams.nParticles <<
+        " domainMin: (" << mortonParams.domainMin.x << ", " << mortonParams.domainMin.y << ", " << mortonParams.domainMin.z << ")" <<
+        " domainMax: (" << mortonParams.domainMax.x << ", " << mortonParams.domainMax.y << ", " << mortonParams.domainMax.z << ")" <<
+        std::endl;
+    
+    auto mortonInput = mynydd::fetchData<Particle>(contextPtr, inputBuffer, nParticles);
+    for (size_t i = 0; i < nParticles; ++i) {
+        std::cerr << "Input " << i << ": (" << mortonInput[i].position.x << std::endl;
+    }
+
+    mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
+    mynydd::uploadUniformData<Params>(contextPtr, mortonParams, mortonUniformBuffer);
+
+    mynydd::executeBatch<Particle>(contextPtr, {mortonStep});
+
+    auto mortonStepOutput = mynydd::fetchData<uint32_t>(contextPtr, outputBufferTest, nParticles);
+    for (size_t i = 0; i < nParticles; ++i) {
+        std::cerr << "Morton Key " << i << ": " << mortonStepOutput[i]
+                    << " Position: (" << mortonInput[i].position.x
+                    << ", " << mortonInput[i].position.y
+                    << ", " << mortonInput[i].position.z << ")"
+                    << std::endl;
+    }
+
+    REQUIRE(mortonStepOutput[0] != 0);
+    REQUIRE(mortonStepOutput[nParticles-1] != 0);
+
+
 }
