@@ -30,7 +30,6 @@ namespace mynydd {
         VulkanContext();
 
         ~VulkanContext() {
-            std::cerr << "Destroying Vulkan context..." << std::endl;
             if (commandBuffer != VK_NULL_HANDLE) {
                 vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
             }
@@ -43,7 +42,6 @@ namespace mynydd {
             if (instance != VK_NULL_HANDLE) {
                 vkDestroyInstance(instance, nullptr);
             }
-            std::cerr << "Vulkan context destroyed." << std::endl;
         }
 
         VulkanContext(const VulkanContext&) = delete;            // No copy
@@ -71,14 +69,12 @@ namespace mynydd {
             std::vector<std::shared_ptr<Buffer>> buffers
         );
         ~VulkanDynamicResources() {
-            std::cerr << "Destroying VulkanDynamicResources..." << std::endl;
             if (contextPtr && contextPtr->device != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE) {
             } else {
                 std::cerr << "VulkanDynamicResources destructor failure due to invalid dependency handles." << std::endl;
             }
             vkDestroyDescriptorPool(this->contextPtr->device, descriptorPool, nullptr);
             vkDestroyDescriptorSetLayout(this->contextPtr->device, descriptorSetLayout, nullptr);
-            std::cerr << "VulkanDynamicResources destroyed." << std::endl;
         }
         VulkanDynamicResources(const VulkanDynamicResources&) = delete;            // No copy
         VulkanDynamicResources& operator=(const VulkanDynamicResources&) = delete; // No copy

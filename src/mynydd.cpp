@@ -1,6 +1,7 @@
 #include <array>
 #include <assert.h>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -342,6 +343,7 @@ namespace mynydd {
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
         if (!pushConstantSizes.empty()) {
+
             std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
             for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
                 ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
