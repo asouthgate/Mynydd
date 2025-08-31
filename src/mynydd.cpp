@@ -1,6 +1,7 @@
 #include <array>
 #include <assert.h>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -372,7 +373,8 @@ namespace mynydd {
         VkDevice device,
         VkShaderModule shaderModule,
         VkDescriptorSetLayout descriptorSetLayout,
-        VkPipelineLayout &pipelineLayout
+        VkPipelineLayout &pipelineLayout,
+        std::vector<uint32_t> pushConstantSizes = {}
     ) {
 
         VkPipelineLayoutCreateInfo layoutInfo{};
@@ -380,6 +382,19 @@ namespace mynydd {
         layoutInfo.setLayoutCount = 1;
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
+        if (!pushConstantSizes.empty()) {
+
+            std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
+            for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
+                ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+                ranges[j].offset = j == 0 ? 0 : ranges[j - 1].offset + ranges[j - 1].size;
+                ranges[j].size = pushConstantSizes[j];
+            }
+
+            layoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantSizes.size());
+            layoutInfo.pPushConstantRanges = ranges.data();
+        }
+        
         if (
             vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) !=
             VK_SUCCESS
@@ -528,13 +543,19 @@ namespace mynydd {
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
         const char* shaderPath,
-        VkDescriptorSetLayout &descriptorLayout
+        VkDescriptorSetLayout &descriptorLayout,
+        std::vector<uint32_t> pushConstantSizes
     ) {
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
 
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
-            contextPtr->device, shader, descriptorLayout, pipelineLayout);
+            contextPtr->device, 
+            shader,
+            descriptorLayout,
+            pipelineLayout,
+            pushConstantSizes
+        );
 
         return {
             pipelineLayout,

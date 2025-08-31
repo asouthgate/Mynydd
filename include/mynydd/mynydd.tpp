@@ -35,7 +35,8 @@ namespace mynydd {
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
         const char* shaderPath,
-        VkDescriptorSetLayout &descriptorLayout
+        VkDescriptorSetLayout &descriptorLayout,
+        std::vector<uint32_t> pushConstantSizes = {}
     );
     VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
     VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
@@ -68,9 +69,7 @@ namespace mynydd {
 
     template<typename T>
     PipelineStep<T>::~PipelineStep() {
-        std::cerr << "Destroying PipelineStep resources..." << std::endl;
         try {
-            std::cerr << "Destroying PipelineStep..." << std::endl;
             if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
                 this->pipelineResources.pipeline != VK_NULL_HANDLE) {
             } else {
@@ -84,7 +83,6 @@ namespace mynydd {
             std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
             throw;
         }
-        std::cerr << "PipelineStep resources destroyed." << std::endl;
     }
 
     struct TrivialUniform {
@@ -95,7 +93,6 @@ namespace mynydd {
     void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<T>& inputData) {
         void* mapped;
         VkDeviceSize size = sizeof(T) * inputData.size();
-        std::cerr << "Uploading buffer data" << std::endl;
         if (vkMapMemory(device, memory, 0, size, 0, &mapped) != VK_SUCCESS) {
             throw std::runtime_error("Failed to map buffer memory for upload");
         }
@@ -139,7 +136,6 @@ namespace mynydd {
                 throw std::runtime_error("Data size exceeds allocated buffer size");
             }
 
-            std::cerr << "About to upload buffer data" << std::endl;
             uploadBufferData<T>(vkc->device, buffer->getMemory(), inputData);
         }
         catch (const std::exception& e) {
@@ -165,8 +161,6 @@ namespace mynydd {
 
     template<typename T>
     void PipelineStep<T>::execute(size_t numElements) {
-        std::cerr << "Warning: PipelineStep::execute is deprecated. Use executeBatch instead." << std::endl;
-        std::cerr<< "Recording command buffer..." << std::endl;
         try {
             if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
                 throw std::runtime_error("Invalid Vulkan context or device handle");
@@ -309,11 +303,8 @@ namespace mynydd {
             vkDestroyFence(contextPtr->device, fence, nullptr);
             throw std::runtime_error("Failed to submit batched command buffer.");
         }
-        std::cerr << "Waiting for fence after batch execution..." << std::endl;
         vkWaitForFences(contextPtr->device, 1, &fence, VK_TRUE, UINT64_MAX);
-        std::cerr << "Batch execution completed." << std::endl;
         vkDestroyFence(contextPtr->device, fence, nullptr);
-        std::cerr << "Batch execution finished successfully." << std::endl;
     }
 
     template<typename T>
