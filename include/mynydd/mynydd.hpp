@@ -96,7 +96,8 @@ namespace mynydd {
                 std::vector<std::shared_ptr<Buffer>> buffers,
                 uint32_t groupCountX,
                 uint32_t groupCountY=1,
-                uint32_t groupCountZ=1
+                uint32_t groupCountZ=1,
+                std::vector<uint32_t> pushConstantSizes = {}
             ); 
             ~PipelineStep();
             void execute(size_t numElements); //numElements required for computing nthreads
