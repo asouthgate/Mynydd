@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -24,15 +25,21 @@ namespace mynydd {
         groupCount((nInputElements + itemsPerGroup - 1) / itemsPerGroup)
     {
 
+        this->itemsPerGroup = itemsPerGroup;
+
         // const size_t n = inputData.size();
 
         // const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
 
-        ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
-        ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
+        if (groupCount * itemsPerGroup < nInputElements) {
+            throw std::runtime_error("groupCount * itemsPerGroup cannot be less than nInputElements.");
+        }
 
-        ioSortedIndicesA = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
-        ioSortedIndicesB = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * itemsPerGroup * sizeof(uint32_t), false);
+        ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+        ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+
+        ioSortedIndicesA = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+        ioSortedIndicesB = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
 
         perWorkgroupHistograms = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
         globalHistogram = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
@@ -177,19 +184,7 @@ namespace mynydd {
     }
 
     void RadixSortPipeline::execute_pass(size_t pass) {
-        auto inputBuffer = pass % 2 == 0 ? ioBufferA : ioBufferB;
-        auto outputBuffer = pass % 2 == 0 ? ioBufferB : ioBufferA;
-        auto ioSortedIndices = pass % 2 == 0 ? ioSortedIndicesA : ioSortedIndicesB;
-
-
         uint32_t bitOffset = pass * bitsPerPass;
-        // std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
-
-        auto input_retrieved = mynydd::fetchData<uint32_t>(
-            contextPtr, inputBuffer, nInputElements
-        );
-        
-        // print_radixes(input_retrieved, bitsPerPass, nPasses, numBins, pass);
 
         RadixParams radixParams = {
             .bitOffset = bitOffset,
