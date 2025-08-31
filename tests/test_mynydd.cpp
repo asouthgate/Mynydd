@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
@@ -40,6 +41,34 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     }
     std::cerr << "Checked output" << std::endl;
     SUCCEED("Compute shader executed for 1.0/floats.");
+}
+
+TEST_CASE("Push constants work as intended for range shader", "[vulkan]") {
+    size_t n = 512;
+
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
+    auto outBuffer = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(float), false);
+
+    auto pipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        contextPtr,
+        "shaders/init_range_index.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::Buffer>>{outBuffer},
+        256,
+        1,
+        1,
+        std::vector<uint32_t>{sizeof(uint32_t)}
+    );
+
+    pipeline->setPushConstantBytes(0, sizeof(uint32_t), &n);
+
+    mynydd::executeBatch<uint32_t>(contextPtr, {pipeline});
+
+    std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outBuffer, n);
+    for (size_t i = 0; i < n; ++i) {
+        std::cerr << "Right order? " << i << ": " << out[i] << std::endl;
+        REQUIRE(out[i] == i);
+    }
+    SUCCEED("Compute shader push constants work as expected");
 }
 
 TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {

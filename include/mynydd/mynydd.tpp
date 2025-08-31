@@ -319,5 +319,24 @@ namespace mynydd {
         this->dynamicResourcesPtr->setBuffers(contextPtr, buffers);
     }
 
+    template<typename T>
+    void PipelineStep<T>::setPushConstantBytes(uint32_t offset, uint32_t size, const void* data) {
+        vkCmdBindPipeline(contextPtr->commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE, getPipelineResourcesPtr()->pipeline
+        );
+        vkCmdBindDescriptorSets(contextPtr->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                getPipelineResourcesPtr()->pipelineLayout,
+                                0, 1, &getDynamicResourcesPtr()->descriptorSet,
+                                0, nullptr);
+
+        vkCmdPushConstants(contextPtr->commandBuffer,
+            getPipelineResourcesPtr()->pipelineLayout,
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            offset,
+            size,
+            data
+        );
+    }
+
 
 }
