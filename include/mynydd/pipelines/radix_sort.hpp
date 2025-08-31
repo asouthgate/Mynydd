@@ -54,10 +54,10 @@ namespace mynydd {
                 return (nPasses % 2 == 0) ? ioBufferA : ioBufferB;
             }
             std::shared_ptr<mynydd::Buffer> getSortedIndicesBuffer() {
-                return (nPasses % 2 == 0) ? ioSortedIndicesA : ioSortedIndicesB;
+                return (nPasses % 2 == 0) ? ioSortedIndicesB : ioSortedIndicesA;
             }
             std::shared_ptr<mynydd::Buffer> getSortedIndicesBufferAtPass(uint32_t pass) {
-                return ((pass + 1) % 2 == 0) ? ioSortedIndicesA : ioSortedIndicesB;
+                return ((pass + 1) % 2 == 0) ? ioSortedIndicesB : ioSortedIndicesA;
             }
 
 
