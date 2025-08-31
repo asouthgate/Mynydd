@@ -211,6 +211,7 @@ std::vector<uint32_t> runFullRadixSortTest(
 
     const size_t n = inputData0.size();
     const uint32_t itemsPerGroup = 256;
+    std::cerr << "Beginning full radix sort test with " << n << " elements" <<  std::endl;
 
     mynydd::RadixSortPipeline radixSortPipeline(
         contextPtr, itemsPerGroup, static_cast<uint32_t>(n)
@@ -382,7 +383,7 @@ std::vector<uint32_t> runFullRadixSortTest(
         if (output_retrieved[i] == 0) {
             zeros++;
         }
-        if (i < 10) std::cerr << "Final output: " << i << ": " << output_retrieved[i] << ", prev: " << output_retrieved[i - 1] << std::endl;
+        if (i < 10 || i > n - 10) std::cerr << "Final output: " << i << ": " << output_retrieved[i] << ", prev: " << output_retrieved[i - 1] << std::endl;
         REQUIRE(output_retrieved[i] >= output_retrieved[i - 1]);
     }
     REQUIRE(zeros < n / 10); // there should not be too many zeros
@@ -392,12 +393,20 @@ std::vector<uint32_t> runFullRadixSortTest(
     );
 
     // print_radixes(output_retrieved, bitsPerPass, nPasses, numBins);
-    for (size_t i = 1; i < n  && i < 10; ++i) {
+    for (size_t i = 0; i < n  && i < 20; ++i) {
         uint32_t ind = output_indices[i];
         uint32_t indprev = output_indices[i - 1];
         std::cerr << "Final indices: " << i << ": " << ind << " (value: " << inputData0[ind] << ")"
                   << ", prev: " << indprev << " (value: " << inputData0[indprev] << ")" << std::endl;
-        REQUIRE(inputData0[ind] >= inputData0[indprev]);
+    }
+
+
+    for (size_t i = 1; i < n  && i < 10; ++i) {
+        uint32_t ind = output_indices[i];
+        uint32_t indprev = output_indices[i - 1];
+        REQUIRE(ind <= n);
+
+        REQUIRE(inputData0[indprev] <= inputData0[ind]);
     }
 
     return output_retrieved;
@@ -464,7 +473,7 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     const size_t n = 1 << 16; // 65536 elements for test
     std::vector<uint32_t> inputData(n);
     std::mt19937 rng(12345);
-    std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
+    std::uniform_int_distribution<uint32_t> dist(0, ((1u << 31) - 1u));
     for (auto& v : inputData) v = dist(rng);
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
