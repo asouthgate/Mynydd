@@ -206,20 +206,34 @@ void print_radixes(std::vector<uint32_t>& input_retrieved, uint32_t bitsPerPass,
 
 std::vector<uint32_t> runFullRadixSortTest(
     std::shared_ptr<mynydd::VulkanContext> contextPtr,
-    std::vector<uint32_t>& inputData
+    std::vector<uint32_t>& inputData0
 ) {
 
-    const size_t n = inputData.size();
+    const size_t n = inputData0.size();
     const uint32_t itemsPerGroup = 256;
 
     mynydd::RadixSortPipeline radixSortPipeline(
         contextPtr, itemsPerGroup, static_cast<uint32_t>(n)
     );
 
-    mynydd::uploadData<uint32_t>(contextPtr, inputData, radixSortPipeline.ioBufferA);
+    radixSortPipeline.execute_init();
+
+    for (size_t i = 0; i < n && i < 30; ++i) {
+        std::cerr << "Input data[" << i << "] = " << inputData0[i] << std::endl;
+    }
+
+    mynydd::uploadData<uint32_t>(contextPtr, inputData0, radixSortPipeline.ioBufferA);
 
     auto inputBuffer = radixSortPipeline.ioBufferA;
     auto outputBuffer = radixSortPipeline.ioBufferB;
+
+    auto initialRange = mynydd::fetchData<uint32_t>(
+        contextPtr, radixSortPipeline.ioSortedIndicesB, n
+    );
+
+    for (size_t i = 0; i < n; ++i) {
+        REQUIRE(initialRange[i] == i);
+    }
 
     // For each radix pass (4 passes, 8 bits each)
     // Execute tests for one pass
@@ -231,13 +245,13 @@ std::vector<uint32_t> runFullRadixSortTest(
         outputBuffer = pass % 2 == 0 ? radixSortPipeline.ioBufferB : radixSortPipeline.ioBufferA;
 
         uint32_t bitOffset = pass * radixSortPipeline.bitsPerPass;
-        // // std::cerr << "Running radix pass " << pass << " with bit offset " << bitOffset << std::endl;
+        std::cerr << "Running test radix pass " << pass << " with bit offset " << bitOffset << std::endl;
 
         auto input_retrieved = mynydd::fetchData<uint32_t>(
             contextPtr, inputBuffer, n
         );
 
-        inputData = mynydd::fetchData<uint32_t>(contextPtr, inputBuffer, n);
+        auto inputData = mynydd::fetchData<uint32_t>(contextPtr, inputBuffer, n);
         
         // ---------------------- TEST GLOBAL HISTOGRAM ----------------------
         auto expected_histogram = compute_full_histogram(inputData, radixSortPipeline.numBins, bitOffset);
@@ -358,32 +372,40 @@ std::vector<uint32_t> runFullRadixSortTest(
                 }
             }
         }
-        
     }
     auto output_retrieved = mynydd::fetchData<uint32_t>(
         contextPtr, outputBuffer, n
     );
     // print_radixes(output_retrieved, bitsPerPass, nPasses, numBins);
+    int zeros = 0;
     for (size_t i = 1; i < n; ++i) {
+        if (output_retrieved[i] == 0) {
+            zeros++;
+        }
+        if (i < 10) std::cerr << "Final output: " << i << ": " << output_retrieved[i] << ", prev: " << output_retrieved[i - 1] << std::endl;
         REQUIRE(output_retrieved[i] >= output_retrieved[i - 1]);
     }
+    REQUIRE(zeros < n / 10); // there should not be too many zeros
 
     auto output_indices = mynydd::fetchData<uint32_t>(
-        contextPtr, radixSortPipeline.ioSortedIndices, n
+        contextPtr, radixSortPipeline.getSortedIndicesBuffer(), n
     );
+
     // print_radixes(output_retrieved, bitsPerPass, nPasses, numBins);
-    for (size_t i = 1; i < n; ++i) {
+    for (size_t i = 1; i < n  && i < 10; ++i) {
         uint32_t ind = output_indices[i];
         uint32_t indprev = output_indices[i - 1];
-        REQUIRE(inputData[ind] >= inputData[indprev]);
+        std::cerr << "Final indices: " << i << ": " << ind << " (value: " << inputData0[ind] << ")"
+                  << ", prev: " << indprev << " (value: " << inputData0[indprev] << ")" << std::endl;
+        REQUIRE(inputData0[ind] >= inputData0[indprev]);
     }
 
     return output_retrieved;
 }
 
 struct CellInfo {
-    uint start;
-    uint count;
+    uint left;
+    uint right;
 };
 
 std::vector<CellInfo> runSortedKeys2IndexTest(
@@ -425,9 +447,10 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
 
     for (uint32_t ak = 0; ak < nCells; ++ak) {
         auto& cell = outIndex[ak];
-        REQUIRE(cell.start < nKeys);
-        if (cell.count > 0) {
-            for (uint i = cell.start; i < cell.start + cell.count; ++i) {
+        REQUIRE(cell.left < nKeys);
+        auto count = cell.right - cell.left;
+        if (count > 0) {
+            for (uint i = cell.left; i < cell.right; ++i) {
                 REQUIRE(sorted_keys[i] == ak);
             }
         }
@@ -466,18 +489,18 @@ void run_full_pipeline_morton(uint32_t nBits) {
     std::cerr << "TEST: Indexing took: " << duration_index << " µs" << std::endl;
 }
 
-TEST_CASE("Test Morton (2 bits) + sort + final index", "[morton]") {
+TEST_CASE("Test Morton (2 bits) + sort + final index", "[morton_sort]") {
     run_full_pipeline_morton(2);
 }
 
-TEST_CASE("Test Morton (3 bits) + sort + final index", "[morton]") {
+TEST_CASE("Test Morton (3 bits) + sort + final index", "[morton_sort]") {
     run_full_pipeline_morton(3);
 }
 
-TEST_CASE("Test Morton (4 bits) + sort + final index", "[morton]") {
+TEST_CASE("Test Morton (4 bits) + sort + final index", "[morton_sort]") {
     run_full_pipeline_morton(4);
 }
 
-TEST_CASE("Test Morton (5 bits) + sort + final index", "[morton]") {
+TEST_CASE("Test Morton (5 bits) + sort + final index", "[morton_sort]") {
     run_full_pipeline_morton(5);
 }

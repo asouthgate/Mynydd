@@ -58,6 +58,12 @@ namespace mynydd {
 
     VulkanContext createVulkanContext();
 
+    // TODO: this is some dangerous nonsense
+    struct PushConstantData {
+        uint32_t offset;
+        uint32_t size;
+        void* ptr; // passed into vkCmdPushConstants
+    };
 
     struct VulkanDynamicResources {
         std::shared_ptr<VulkanContext> contextPtr;
@@ -107,6 +113,21 @@ namespace mynydd {
             std::shared_ptr<VulkanDynamicResources> getDynamicResourcesPtr() const {
                 return dynamicResourcesPtr;
             }
+            PushConstantData getPushConstantData() {
+                if (!hasPushConstantData()) {
+                    throw std::runtime_error("Push constants requested but they don't exist.");
+                }
+                return pushConstantData;
+            }
+            void setPushConstantData(uint32_t offset, uint32_t size, void* ptr) {
+                pushConstantData = PushConstantData {
+                    offset, size, ptr
+                };
+                m_hasPushConstantData = true;
+            }
+            bool hasPushConstantData() {
+                return m_hasPushConstantData;
+            }
             // TODO: make private
             uint32_t groupCountX;
             uint32_t groupCountY;
@@ -115,12 +136,15 @@ namespace mynydd {
                 std::shared_ptr<VulkanContext> contextPtr,
                 const std::vector<std::shared_ptr<Buffer>>& buffers
             );
+            void setPushConstantBytes(uint32_t offset, uint32_t size, const void* data);
 
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
             VulkanPipelineResources pipelineResources;
+            PushConstantData pushConstantData;
+            bool m_hasPushConstantData = false;
     };
 
     class Pipeline {

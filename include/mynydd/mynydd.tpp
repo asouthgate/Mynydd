@@ -65,7 +65,7 @@ namespace mynydd {
             buffers
         );
         assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
-        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout);
+        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes);
     }
 
     template<typename T>
@@ -222,6 +222,21 @@ namespace mynydd {
             vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
             vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
 
+
+            if (pipeline_step->hasPushConstantData()) {
+                auto pcData = pipeline_step->getPushConstantData();
+                uint32_t val = *reinterpret_cast<uint32_t*>(pcData.ptr);
+                std::cerr << "Pushing push constants!" << pcData.size << " " << val << std::endl;
+                vkCmdPushConstants(
+                    cmdBuffer,
+                    pipeline_step->getPipelineResourcesPtr()->pipelineLayout,
+                    VK_SHADER_STAGE_COMPUTE_BIT,
+                    0,
+                    pcData.size,
+                    pcData.ptr
+                );
+            }
+
             // Dispatch compute shader
             vkCmdDispatch(cmdBuffer, 
                 pipeline_step->groupCountX,
@@ -252,7 +267,8 @@ namespace mynydd {
     template<typename T>
     void executeBatch(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<PipelineStep<T>>>& PipelineSteps
+        const std::vector<std::shared_ptr<PipelineStep<T>>>& PipelineSteps,
+        bool beginCommandBuffer = true
     ) {
         if (PipelineSteps.empty()) {
             throw std::runtime_error("No compute engines provided for batch execution.");
@@ -264,21 +280,22 @@ namespace mynydd {
 
         VkCommandBuffer cmdBuffer = contextPtr->commandBuffer;
 
-        // Begin command buffer
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to begin command buffer for batch execution.");
-        }
-
+        if (beginCommandBuffer) {
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to begin command buffer for batch execution.");
+            }        
+        } // else already begun
+        
         for (size_t i = 0; i < PipelineSteps.size(); ++i) {
-            auto& engine = PipelineSteps[i];
-            if (!engine) {
+            auto& pipelineStep = PipelineSteps[i];
+            if (!pipelineStep) {
                 throw std::runtime_error("Null PipelineStep pointer at index " + std::to_string(i));
             }
             recordCommandBuffer(
                 cmdBuffer,
-                engine,
+                pipelineStep,
                 i + 1 < PipelineSteps.size()
             );
         }

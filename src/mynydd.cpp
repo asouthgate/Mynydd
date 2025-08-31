@@ -384,6 +384,7 @@ namespace mynydd {
 
         if (!pushConstantSizes.empty()) {
 
+            std::cerr << "Creating pipeline step with push constant sizes!" << std::endl;
             std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
             for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
                 ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -467,49 +468,6 @@ namespace mynydd {
         }
 
         return cmdBuffer;
-    }
-
-
-    /**
-    * Records commands to bind the pipeline and dispatch the compute shader.
-    * What commands are recorded? We bind the compute pipeline, bind the descriptor set,
-    * and dispatch the compute shader. This is analogous to preparing a job script
-    * that specifies what resources (like input data) the job will use and how it
-    * will be executed.
-    */
-    void recordCommandBuffer(VkCommandBuffer cmdBuffer, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descriptorSet, uint32_t numElements) {
-        
-        if (cmdBuffer == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid command buffer handle");
-        }
-        if (pipeline == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid pipeline handle");
-        }
-        if (layout == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid pipeline layout handle");
-        }
-        if (descriptorSet == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid descriptor set handle");
-        }
-        
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        VkResult result = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-        if (result != VK_SUCCESS) {
-            throw std::runtime_error("vkBeginCommandBuffer failed with error: " + std::to_string(result));
-        }
-
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
-
-        uint32_t groupCount = (numElements + 63) / 64; // match local_size_x=64 in shader
-        vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
-
-        result = vkEndCommandBuffer(cmdBuffer);
-        if (result != VK_SUCCESS) {
-            throw std::runtime_error("vkEndCommandBuffer failed with error: " + std::to_string(result));
-        }
     }
 
 

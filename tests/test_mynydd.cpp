@@ -43,7 +43,7 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
 
-TEST_CASE("Push constants work as intended for range shader", "[vulkan]") {
+TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
     size_t n = 512;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
@@ -51,7 +51,7 @@ TEST_CASE("Push constants work as intended for range shader", "[vulkan]") {
 
     auto pipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr,
-        "shaders/init_range_index.comp.spv", 
+        "shaders/push_constants.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{outBuffer},
         256,
         1,
@@ -59,14 +59,20 @@ TEST_CASE("Push constants work as intended for range shader", "[vulkan]") {
         std::vector<uint32_t>{sizeof(uint32_t)}
     );
 
-    pipeline->setPushConstantBytes(0, sizeof(uint32_t), &n);
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin command buffer for batch execution.");
+    }
 
-    mynydd::executeBatch<uint32_t>(contextPtr, {pipeline});
+    uint32_t x = 976;
+    pipeline->setPushConstantBytes(0, sizeof(uint32_t), &x);
+
+    mynydd::executeBatch<uint32_t>(contextPtr, {pipeline}, false);
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outBuffer, n);
     for (size_t i = 0; i < n; ++i) {
-        std::cerr << "Right order? " << i << ": " << out[i] << std::endl;
-        REQUIRE(out[i] == i);
+        REQUIRE(out[i] == x);
     }
     SUCCEED("Compute shader push constants work as expected");
 }
@@ -126,7 +132,7 @@ TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]
     for (size_t i = 0; i < n - 1; ++i) {
         // this is expected to be correct except at workgroup boundaries
         // because the shader uses a barrier which only synchronises within a workgroup
-        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
+        // std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
         if (i % 64 == 63) {
             // at workgroup boundaries, the value is not computed correctly
             REQUIRE(out[i] == static_cast<double>(i) * 2.0);
