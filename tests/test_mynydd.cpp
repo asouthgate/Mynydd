@@ -43,15 +43,15 @@ TEST_CASE("Compute pipeline processes data for float", "[vulkan]") {
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
 
-TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
+TEST_CASE("Push constants work as intended for range shader", "[vulkan]") {
     size_t n = 512;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
     auto outBuffer = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(float), false);
 
-    auto pipeline = std::make_shared<mynydd::PipelineStep>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
         contextPtr,
-        "shaders/push_constants.comp.spv", 
+        "shaders/init_range_index.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{outBuffer},
         256,
         1,
@@ -59,21 +59,14 @@ TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
         std::vector<uint32_t>{sizeof(uint32_t)}
     );
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin command buffer for batch execution.");
-    }
+    pipeline->setPushConstantBytes(0, sizeof(uint32_t), &n);
 
-    uint32_t x = 976;
-    pipeline->setPushConstantsData(x, 0);
-
-    mynydd::executeBatch(contextPtr, {pipeline}, false);
+    mynydd::executeBatch<uint32_t>(contextPtr, {pipeline});
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outBuffer, n);
     for (size_t i = 0; i < n; ++i) {
-        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl; 
-        REQUIRE(out[i] == x);
+        std::cerr << "Right order? " << i << ": " << out[i] << std::endl;
+        REQUIRE(out[i] == i);
     }
     SUCCEED("Compute shader push constants work as expected");
 }
