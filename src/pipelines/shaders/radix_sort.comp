@@ -15,15 +15,19 @@ layout(set = 0, binding = 2) readonly buffer GlobalPrefixSum {
     uint globalPrefixSum[]; // numBins elements
 };
 
-layout(set = 0, binding = 3) buffer OutputBuffer {
+layout(set = 0, binding = 3) readonly buffer InputBufferKeys {
+    uint sortedIndicesPrev[];
+};
+
+layout(set = 0, binding = 4) buffer OutputBuffer {
     uint sortedValues[];
 };
 
-layout(set = 0, binding = 4) buffer OutputBufferKeys {
+layout(set = 0, binding = 5) buffer OutputBufferKeys {
     uint sortedIndices[];
 };
 
-layout(set = 0, binding = 5) uniform Params {
+layout(set = 0, binding = 6) uniform Params {
     uint bitOffset;
     uint numBins;
     uint totalSize;
@@ -65,7 +69,7 @@ void main() {
     uint localIndex = 0u;
     for (uint s = 0u; s < gl_WorkGroupSize.x; ++s) {
         barrier();
-        if (s == localID) {
+        if (s == localID && globalID < params.totalSize) {
             if (globalID < params.totalSize) {
                 uint b = threadBin[localID];
                 // read current count (number of previous localIDs with same bin)
@@ -89,6 +93,6 @@ void main() {
 
         // write output
         sortedValues[pos] = values[globalID];
-        sortedIndices[pos] = globalID;
+        sortedIndices[pos] = sortedIndicesPrev[globalID];
     }
 }
