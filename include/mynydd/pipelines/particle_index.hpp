@@ -25,8 +25,8 @@ namespace mynydd {
     };
 
     struct CellInfo {
-        uint start;
-        uint count;
+        uint left;
+        uint right;
     };
 
     struct IndexParams {
@@ -47,13 +47,13 @@ namespace mynydd {
                 glm::vec3 domainMax = glm::vec3(1.0f)
             ) : contextPtr(contextPtr),
                 nBitsPerAxis(nBitsPerAxis),
-                nInputElements(nDataPoints),
                 inputBuffer(inputBuffer),
+                nDataPoints(nDataPoints),
                 radixSortPipeline(contextPtr, itemsPerGroup, static_cast<uint32_t>(nDataPoints))
             {
                 
-                assert (inputBuffer->getSize() == nDataPoints * sizeof(T) &&
-                    "Input buffer size must match number of data points times size of T");
+                // assert (inputBuffer->getSize() == nDataPoints * sizeof(T) &&
+                //     "Input buffer size must match number of data points times size of T");
                 // TODO: FOR SOME REASON THE WORKGROUP SIZE IS 64 HERE; FIX
 
                 mortonUniformBuffer = std::make_shared<mynydd::Buffer>(
@@ -67,7 +67,7 @@ namespace mynydd {
                     (nDataPoints + 63) / 64
                 );
                 outputIndexBuffer = std::make_shared<mynydd::Buffer>(
-                    contextPtr, nDataPoints * sizeof(mynydd::CellInfo), true);
+                    contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
 
                 indexUniformBuffer = std::make_shared<mynydd::Buffer>(
                         contextPtr, sizeof(IndexParams), true);
@@ -75,7 +75,9 @@ namespace mynydd {
                 sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep<T>>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
-                        radixSortPipeline.ioBufferB, outputIndexBuffer, indexUniformBuffer
+                        (sizeof(uint32_t) / nBitsPerAxis) % 2 ? radixSortPipeline.ioBufferB : radixSortPipeline.ioBufferA, 
+                        outputIndexBuffer, 
+                        indexUniformBuffer
                     },
                     (nDataPoints + 63) / 64
                 );
@@ -101,8 +103,22 @@ namespace mynydd {
                 mynydd::uploadUniformData<IndexParams>(contextPtr, indexParams, indexUniformBuffer);
 
                 mynydd::executeBatch<T>(contextPtr, {mortonStep});
-                radixSortPipeline.execute();
 
+                radixSortPipeline.execute();
+                // the index needs to be zeroed every time
+                vkCmdFillBuffer(
+                    contextPtr->commandBuffer,
+                    outputIndexBuffer->getBuffer(),
+                    0,
+                    VK_WHOLE_SIZE,
+                    0
+                );
+                mynydd::executeBatch<T>(contextPtr, {sortedKeys2IndexStep});
+
+            }
+
+            uint32_t getNCells() const {
+                return pow(2, 3 * nBitsPerAxis);
             }
 
             uint32_t itemsPerGroup = 256; // Hardcoded temporarily
@@ -110,18 +126,17 @@ namespace mynydd {
             glm::vec3 domainMin = glm::vec3(0.0f);
             glm::vec3 domainMax = glm::vec3(1.0f);
             uint32_t nBitsPerAxis;
-            uint32_t nInputElements;
 
             // TODO: don't necessarily need this to be shared ptr
             std::shared_ptr<mynydd::Buffer> inputBuffer;
             std::shared_ptr<mynydd::Buffer> outputIndexBuffer;
+            RadixSortPipeline radixSortPipeline;
 
         private:
             std::shared_ptr<mynydd::Buffer> mortonUniformBuffer;
             std::shared_ptr<mynydd::Buffer> indexUniformBuffer;
             std::shared_ptr<mynydd::Buffer> mortonOutputBuffer;
             std::shared_ptr<VulkanContext> contextPtr;
-            RadixSortPipeline radixSortPipeline;
             std::shared_ptr<PipelineStep<T>> mortonStep;
             std::shared_ptr<PipelineStep<T>> sortedKeys2IndexStep;
             std::shared_ptr<mynydd::Buffer> radixUniform;

@@ -83,7 +83,7 @@ struct MortonParams {
 };
 
 
-TEST_CASE("Regression test against ...", "[morton]") {
+TEST_CASE("Regression test against vec3/vec4 bit alignment problem; test that last elements are nonzero", "[morton]") {
 
     uint32_t nParticles = 4096;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
@@ -119,17 +119,7 @@ TEST_CASE("Regression test against ...", "[morton]") {
         alignas(16) glm::vec3 domainMax;
     } mortonParams{10, nParticles, glm::vec3(0.0f), glm::vec3(1.0)};
 
-    std::cerr << "Morton parameters are" <<
-        " nBitsPerAxis: " << mortonParams.nBits <<
-        " nParticles: " << mortonParams.nParticles <<
-        " domainMin: (" << mortonParams.domainMin.x << ", " << mortonParams.domainMin.y << ", " << mortonParams.domainMin.z << ")" <<
-        " domainMax: (" << mortonParams.domainMax.x << ", " << mortonParams.domainMax.y << ", " << mortonParams.domainMax.z << ")" <<
-        std::endl;
-    
     auto mortonInput = mynydd::fetchData<Particle>(contextPtr, inputBuffer, nParticles);
-    for (size_t i = 0; i < nParticles; ++i) {
-        std::cerr << "Input " << i << ": (" << mortonInput[i].position.x << std::endl;
-    }
 
     mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, mortonParams, mortonUniformBuffer);
@@ -137,14 +127,6 @@ TEST_CASE("Regression test against ...", "[morton]") {
     mynydd::executeBatch<Particle>(contextPtr, {mortonStep});
 
     auto mortonStepOutput = mynydd::fetchData<uint32_t>(contextPtr, outputBufferTest, nParticles);
-    for (size_t i = 0; i < nParticles; ++i) {
-        std::cerr << "Morton Key " << i << ": " << mortonStepOutput[i]
-                    << " Position: (" << mortonInput[i].position.x
-                    << ", " << mortonInput[i].position.y
-                    << ", " << mortonInput[i].position.z << ")"
-                    << std::endl;
-    }
-
     REQUIRE(mortonStepOutput[0] != 0);
     REQUIRE(mortonStepOutput[nParticles-1] != 0);
 
