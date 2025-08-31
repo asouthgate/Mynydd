@@ -16,37 +16,37 @@ struct Params {
 
 int main(int argc, char** argv) {
 
-    Params params = {
-        0.187777f
-    };
+    // Params params = {
+    //     0.187777f
+    // };
 
-    std::cout << "Running SPH example..." << std::endl;
+    // std::cout << "Running SPH example..." << std::endl;
 
-    size_t n = 1024;
+    // size_t n = 1024;
 
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
+    // auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
 
-    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(Particle), false);
-    auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(Particle), false);
-    auto uniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(Params), true);
-    mynydd::PipelineStep<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform}, n);
+    // auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(Particle), false);
+    // auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(Particle), false);
+    // auto uniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(Params), true);
+    // mynydd::PipelineStep<Particle> compeng(contextPtr, "examples/sph/shader.comp.spv", {input, output, uniform}, n);
 
-    std::vector<Particle> inputData(n);
-    for (size_t i = 0; i < inputData.size(); ++i) {
-        inputData[i] = Particle{
-            glm::vec2(static_cast<float>(i % 32), static_cast<float>(i / 32)),
-            glm::vec2(0.0f, 0.0f),
-            2.0f,
-            0.0f
-        };
-    }
-    mynydd::uploadUniformData<Params>(contextPtr, params, uniform);
-    mynydd::uploadData<Particle>(contextPtr, inputData, input);
-    compeng.execute(n);
-    std::vector<Particle> out = mynydd::fetchData<Particle>(contextPtr, output, n);
+    // std::vector<Particle> inputData(n);
+    // for (size_t i = 0; i < inputData.size(); ++i) {
+    //     inputData[i] = Particle{
+    //         glm::vec2(static_cast<float>(i % 32), static_cast<float>(i / 32)),
+    //         glm::vec2(0.0f, 0.0f),
+    //         2.0f,
+    //         0.0f
+    //     };
+    // }
+    // mynydd::uploadUniformData<Params>(contextPtr, params, uniform);
+    // mynydd::uploadData<Particle>(contextPtr, inputData, input);
+    // compeng.execute(n);
+    // std::vector<Particle> out = mynydd::fetchData<Particle>(contextPtr, output, n);
 
-    for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
-        std::cout << "output[" << i << "] = (" << out[i].position.x << "," << out[i].position.y << ")" << std::endl;
-    }
+    // for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
+    //     std::cout << "output[" << i << "] = (" << out[i].position.x << "," << out[i].position.y << ")" << std::endl;
+    // }
 
 }
