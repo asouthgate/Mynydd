@@ -57,7 +57,8 @@ namespace mynydd {
         std::vector<std::shared_ptr<Buffer>> buffers,
         uint32_t groupCountX,
         uint32_t groupCountY,
-        uint32_t groupCountZ
+        uint32_t groupCountZ,
+        std::vector<uint32_t> pushConstantSizes
     ) : contextPtr(contextPtr), groupCountX(groupCountX), groupCountY(groupCountY), groupCountZ(groupCountZ) {  
         this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
             contextPtr,
