@@ -138,7 +138,7 @@ namespace mynydd {
             throw std::runtime_error("Failed to begin command buffer for batch execution.");
         }
 
-        initRangePipeline->setPushConstantData(0, sizeof(uint32_t), &nInputElements);
+        initRangePipeline->setPushConstantsData(nInputElements, 0);
 
         mynydd::executeBatch<uint32_t>(
             contextPtr,

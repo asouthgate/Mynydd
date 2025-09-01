@@ -225,16 +225,17 @@ namespace mynydd {
 
 
             if (pipeline_step->hasPushConstantData()) {
-                auto pcData = pipeline_step->getPushConstantData();
-                uint32_t val = *reinterpret_cast<uint32_t*>(pcData.ptr);
-                std::cerr << "Pushing push constants!" << pcData.size << " " << val << std::endl;
+                PushConstantData pcData = pipeline_step->getPushConstantData();
+                uint32_t value = 0;
+                std::memcpy(&value, pcData.push_data.data(), sizeof(value));
+                std::cerr << "PUSH: " << value << " " <<  pcData.size << std::endl;
                 vkCmdPushConstants(
                     cmdBuffer,
                     pipeline_step->getPipelineResourcesPtr()->pipelineLayout,
                     VK_SHADER_STAGE_COMPUTE_BIT,
                     0,
                     pcData.size,
-                    pcData.ptr
+                    pcData.push_data.data()
                 );
             }
 
@@ -336,25 +337,5 @@ namespace mynydd {
         }
         this->dynamicResourcesPtr->setBuffers(contextPtr, buffers);
     }
-
-    template<typename T>
-    void PipelineStep<T>::setPushConstantBytes(uint32_t offset, uint32_t size, const void* data) {
-        vkCmdBindPipeline(contextPtr->commandBuffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE, getPipelineResourcesPtr()->pipeline
-        );
-        vkCmdBindDescriptorSets(contextPtr->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                getPipelineResourcesPtr()->pipelineLayout,
-                                0, 1, &getDynamicResourcesPtr()->descriptorSet,
-                                0, nullptr);
-
-        vkCmdPushConstants(contextPtr->commandBuffer,
-            getPipelineResourcesPtr()->pipelineLayout,
-            VK_SHADER_STAGE_COMPUTE_BIT,
-            offset,
-            size,
-            data
-        );
-    }
-
 
 }
