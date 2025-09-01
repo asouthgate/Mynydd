@@ -147,16 +147,6 @@ namespace mynydd {
             bool m_hasPushConstantData = false;
     };
 
-    class Pipeline {
-        public:
-            Pipeline(std::shared_ptr<VulkanContext> contextPtr) : contextPtr(contextPtr) {}
-            virtual ~Pipeline() = default;
-            virtual void execute() = 0;
-            
-        protected:
-            std::shared_ptr<VulkanContext> contextPtr;
-    };
-
 };
 
 

@@ -152,7 +152,6 @@ namespace mynydd {
         );
 
         for (size_t i = 0; i < nInputElements && i < 10; ++i) {
-            std::cerr << "init_retrieved[" << i << "] = " << init_retrieved[i] << std::endl;
             assert(init_retrieved[i] == i);
         }
 
@@ -174,9 +173,7 @@ namespace mynydd {
                 if (ioIndices_retrieved[i] == 0) {
                     zeros++;
                 }
-                if (i < 10) std::cerr << "ioIndices_retrieved[" << i << "] = " << ioIndices_retrieved[i] << std::endl;
                 if (zeros > itemsPerGroup) {
-                    std::cerr << "Too many zeros at pass " << pass << ": " << zeros << " at index " << i << std::endl;
                     assert(zeros <= itemsPerGroup);
                 }
             }
