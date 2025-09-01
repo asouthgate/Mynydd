@@ -219,10 +219,6 @@ std::vector<uint32_t> runFullRadixSortTest(
 
     radixSortPipeline.execute_init();
 
-    for (size_t i = 0; i < n && i < 30; ++i) {
-        std::cerr << "Input data[" << i << "] = " << inputData0[i] << std::endl;
-    }
-
     mynydd::uploadData<uint32_t>(contextPtr, inputData0, radixSortPipeline.ioBufferA);
 
     auto inputBuffer = radixSortPipeline.ioBufferA;
@@ -383,7 +379,6 @@ std::vector<uint32_t> runFullRadixSortTest(
         if (output_retrieved[i] == 0) {
             zeros++;
         }
-        if (i < 10 || i > n - 10) std::cerr << "Final output: " << i << ": " << output_retrieved[i] << ", prev: " << output_retrieved[i - 1] << std::endl;
         REQUIRE(output_retrieved[i] >= output_retrieved[i - 1]);
     }
     REQUIRE(zeros < n / 10); // there should not be too many zeros
@@ -391,15 +386,6 @@ std::vector<uint32_t> runFullRadixSortTest(
     auto output_indices = mynydd::fetchData<uint32_t>(
         contextPtr, radixSortPipeline.getSortedIndicesBuffer(), n
     );
-
-    // print_radixes(output_retrieved, bitsPerPass, nPasses, numBins);
-    for (size_t i = 0; i < n  && i < 20; ++i) {
-        uint32_t ind = output_indices[i];
-        uint32_t indprev = output_indices[i - 1];
-        std::cerr << "Final indices: " << i << ": " << ind << " (value: " << inputData0[ind] << ")"
-                  << ", prev: " << indprev << " (value: " << inputData0[indprev] << ")" << std::endl;
-    }
-
 
     for (size_t i = 1; i < n  && i < 10; ++i) {
         uint32_t ind = output_indices[i];
