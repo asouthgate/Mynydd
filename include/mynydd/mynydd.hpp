@@ -62,7 +62,7 @@ namespace mynydd {
     struct PushConstantData {
         uint32_t offset;
         uint32_t size;
-        void* ptr; // passed into vkCmdPushConstants
+        std::vector<std::byte> push_data;
     };
 
     struct VulkanDynamicResources {
@@ -117,16 +117,10 @@ namespace mynydd {
                 if (!hasPushConstantData()) {
                     throw std::runtime_error("Push constants requested but they don't exist.");
                 }
-                return pushConstantData;
-            }
-            void setPushConstantData(uint32_t offset, uint32_t size, void* ptr) {
-                pushConstantData = PushConstantData {
-                    offset, size, ptr
-                };
-                m_hasPushConstantData = true;
+                return m_pushConstantData;
             }
             bool hasPushConstantData() {
-                return m_hasPushConstantData;
+                return m_pushConstantData.size > 0;
             }
             // TODO: make private
             uint32_t groupCountX;
@@ -136,15 +130,23 @@ namespace mynydd {
                 std::shared_ptr<VulkanContext> contextPtr,
                 const std::vector<std::shared_ptr<Buffer>>& buffers
             );
-            void setPushConstantBytes(uint32_t offset, uint32_t size, const void* data);
+            template<typename PCT>
+            void setPushConstantsData(const PCT &value, uint32_t offset = 0) {
+                static_assert(std::is_trivially_copyable_v<PCT>,
+                            "Push constant data must be trivially copyable");
+                m_pushConstantData.push_data.resize(sizeof(PCT));
+                std::memcpy(m_pushConstantData.push_data.data(), &value, sizeof(PCT));
+                m_pushConstantData.offset = offset;
+                m_pushConstantData.size = sizeof(PCT);
+            }
 
 
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
             VulkanPipelineResources pipelineResources;
-            PushConstantData pushConstantData;
-            bool m_hasPushConstantData = false;
+
+            PushConstantData m_pushConstantData{0, 0, std::vector<std::byte>{}};
     };
 
 };
