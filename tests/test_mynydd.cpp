@@ -66,12 +66,13 @@ TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
     }
 
     uint32_t x = 976;
-    pipeline->setPushConstantBytes(0, sizeof(uint32_t), &x);
+    pipeline->setPushConstantsData(x, 0);
 
     mynydd::executeBatch<uint32_t>(contextPtr, {pipeline}, false);
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outBuffer, n);
     for (size_t i = 0; i < n; ++i) {
+        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl; 
         REQUIRE(out[i] == x);
     }
     SUCCEED("Compute shader push constants work as expected");
