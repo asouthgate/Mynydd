@@ -28,11 +28,6 @@ namespace mynydd {
         VkDescriptorSetLayout descriptorSetLayout,
         VkDescriptorPool &descriptorPool
     );
-    // void updateDescriptorSet(
-    //     VkDevice device,
-    //     VkDescriptorSet descriptorSet,
-    //     const std::vector<std::shared_ptr<Buffer>> &buffers
-    // );
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
         const char* shaderPath,
@@ -162,36 +157,6 @@ namespace mynydd {
     }
 
     template<typename T>
-    void PipelineStep<T>::execute(size_t numElements) {
-        try {
-            if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid Vulkan context or device handle");
-            }
-            if (!this->dynamicResourcesPtr || this->dynamicResourcesPtr->descriptorSet == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid dynamic resources or descriptor set handle");
-            }
-            if (this->pipelineResources.pipeline == VK_NULL_HANDLE || this->pipelineResources.pipelineLayout == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid pipeline or pipeline layout handle");
-            }
-            recordCommandBuffer(
-                this->contextPtr->commandBuffer,
-                this->pipelineResources.pipeline,
-                this->pipelineResources.pipelineLayout,
-                this->dynamicResourcesPtr->descriptorSet,
-                numElements
-            );
-        } catch (const std::exception &e) {
-            std::cerr << "Error during execution setup: " << e.what() << std::endl;
-            throw;
-        }
-        submitAndWait(
-            this->contextPtr->device,
-            this->contextPtr->computeQueue,
-            this->contextPtr->commandBuffer
-        );
-    }
-
-    template<typename T>
     std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<Buffer> buffer, size_t n_elements) {
 
         std::vector<T> output = readBufferData<T>(
@@ -203,7 +168,6 @@ namespace mynydd {
 
         return output;
     }
-
 
     template<typename T>
     void recordCommandBuffer(
@@ -326,15 +290,5 @@ namespace mynydd {
         vkDestroyFence(contextPtr->device, fence, nullptr);
     }
 
-    template<typename T>
-    void PipelineStep<T>::setBuffers(
-        std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<Buffer>>& buffers
-    ) {
-        if (!this->dynamicResourcesPtr) {
-            throw std::runtime_error("Dynamic resources pointer is null.");
-        }
-        this->dynamicResourcesPtr->setBuffers(contextPtr, buffers);
-    }
 
 }

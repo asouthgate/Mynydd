@@ -480,24 +480,5 @@ namespace mynydd {
         );
     }
 
-    void VulkanDynamicResources::setBuffers(
-        std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<Buffer>>& buffers
-    ) {
-        if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid Vulkan context in setBuffers.");
-        }
-        if (buffers.empty()) {
-            throw std::runtime_error("No buffers provided to setBuffers.");
-        }
-
-        this->descriptorSet = allocateDescriptorSet(
-            contextPtr->device, this->descriptorSetLayout, this->descriptorPool, buffers
-        );
-        updateDescriptorSet(contextPtr->device, this->descriptorSet, buffers);
-    }
-
-
-
 
 }
