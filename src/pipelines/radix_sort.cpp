@@ -27,10 +27,6 @@ namespace mynydd {
 
         this->itemsPerGroup = itemsPerGroup;
 
-        // const size_t n = inputData.size();
-
-        // const uint32_t groupCount = (n + itemsPerGroup - 1) / itemsPerGroup;
-
         if (groupCount * itemsPerGroup < nInputElements) {
             throw std::runtime_error("groupCount * itemsPerGroup cannot be less than nInputElements.");
         }
@@ -54,7 +50,7 @@ namespace mynydd {
         transposeUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(PrefixParams), true);
         sortUniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(SortParams), true);
 
-        initRangePipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        initRangePipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/init_range_index.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{ioSortedIndicesB}, // B will be prev for the first pass
             groupCount,
@@ -64,43 +60,43 @@ namespace mynydd {
         );
     
         // Load compute pipelines
-        histPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        histPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/histogram.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferA, perWorkgroupHistograms, radixUniform},
             groupCount
         );
 
-        histPipelinePong = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        histPipelinePong = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/histogram.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferB, perWorkgroupHistograms, radixUniform},
             groupCount
         );
 
-        sumPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        sumPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/histogram_sum.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{perWorkgroupHistograms, globalHistogram, sumUniform},
             1
         );
 
-        transposePipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        transposePipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/transpose.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{perWorkgroupHistograms, transposedHistograms, transposeUniform},
             (numBins * groupCount + numBins - 1) / numBins
         );
 
-        workgroupPrefixPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        workgroupPrefixPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/workgroup_scan.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{transposedHistograms, workgroupPrefixSums, workgroupPrefixUniform},
             numBins
         );
 
-        globalPrefixPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        globalPrefixPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/workgroup_scan.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{globalHistogram, globalPrefixSum, globalPrefixUniform},
             1
         );
 
-        sortPipeline = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        sortPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/radix_sort.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{
                 ioBufferA,
@@ -113,7 +109,7 @@ namespace mynydd {
             },
             groupCount
         );
-        sortPipelinePong = std::make_shared<mynydd::PipelineStep<uint32_t>>(
+        sortPipelinePong = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/radix_sort.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{
                 ioBufferB,
@@ -140,7 +136,7 @@ namespace mynydd {
 
         initRangePipeline->setPushConstantsData(nInputElements, 0);
 
-        mynydd::executeBatch<uint32_t>(
+        mynydd::executeBatch(
             contextPtr,
             {initRangePipeline},
             false
@@ -226,7 +222,7 @@ namespace mynydd {
         mynydd::uploadUniformData<SortParams>(contextPtr, sortParams, sortUniform);
 
         // // 1) Histogram partial counts
-        mynydd::executeBatch<uint32_t>(
+        mynydd::executeBatch(
             contextPtr, 
         {
                 pass % 2 == 0 ? histPipeline : histPipelinePong,

@@ -61,7 +61,7 @@ std::vector<uint32_t> runMortonTest(
 
     auto groupCount = (nParticles + 63) / 64;
 
-    auto pipeline = std::make_shared<mynydd::PipelineStep<Particle>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/morton_u32_3d.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             inputBuffer, outputBuffer, uniformBuffer
@@ -69,7 +69,7 @@ std::vector<uint32_t> runMortonTest(
         groupCount
     );
     auto t2 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch<Particle>(contextPtr, {pipeline});
+    mynydd::executeBatch(contextPtr, {pipeline});
 
     std::vector<uint32_t> outKeys = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, nParticles);
 

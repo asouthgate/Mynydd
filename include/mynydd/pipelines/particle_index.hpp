@@ -59,7 +59,7 @@ namespace mynydd {
                 mortonUniformBuffer = std::make_shared<mynydd::Buffer>(
                     contextPtr, sizeof(MortonParams), true);
 
-                mortonStep = std::make_shared<mynydd::PipelineStep<T>>(
+                mortonStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/morton_u32_3d.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
                         inputBuffer, radixSortPipeline.ioBufferA, mortonUniformBuffer
@@ -72,7 +72,7 @@ namespace mynydd {
                 indexUniformBuffer = std::make_shared<mynydd::Buffer>(
                         contextPtr, sizeof(IndexParams), true);
 
-                sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep<T>>(
+                sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
                         (sizeof(uint32_t) / nBitsPerAxis) % 2 ? radixSortPipeline.ioBufferB : radixSortPipeline.ioBufferA, 
@@ -102,7 +102,7 @@ namespace mynydd {
                 mynydd::uploadUniformData<MortonParams>(contextPtr, mortonParams, mortonUniformBuffer);
                 mynydd::uploadUniformData<IndexParams>(contextPtr, indexParams, indexUniformBuffer);
 
-                mynydd::executeBatch<T>(contextPtr, {mortonStep});
+                mynydd::executeBatch(contextPtr, {mortonStep});
 
                 radixSortPipeline.execute();
                 // the index needs to be zeroed every time
@@ -113,7 +113,7 @@ namespace mynydd {
                     VK_WHOLE_SIZE,
                     0
                 );
-                mynydd::executeBatch<T>(contextPtr, {sortedKeys2IndexStep});
+                mynydd::executeBatch(contextPtr, {sortedKeys2IndexStep});
 
             }
 
@@ -137,8 +137,8 @@ namespace mynydd {
             std::shared_ptr<mynydd::Buffer> indexUniformBuffer;
             std::shared_ptr<mynydd::Buffer> mortonOutputBuffer;
             std::shared_ptr<VulkanContext> contextPtr;
-            std::shared_ptr<PipelineStep<T>> mortonStep;
-            std::shared_ptr<PipelineStep<T>> sortedKeys2IndexStep;
+            std::shared_ptr<PipelineStep> mortonStep;
+            std::shared_ptr<PipelineStep> sortedKeys2IndexStep;
             std::shared_ptr<mynydd::Buffer> radixUniform;
     };
 }
