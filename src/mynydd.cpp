@@ -1,5 +1,7 @@
 #include <array>
 #include <assert.h>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -51,10 +53,6 @@ namespace mynydd {
         std::vector<VkPhysicalDevice> devices(deviceCount);
         vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-        // Check for a suitable physical device with compute capabilities
-        // Iterate through the devices and find one with a compute queue
-        // computeQueueFamilyIndex will be set to the index of the compute queue
-        // family This will pick the first device that has a compute queue
         for (const auto &device : devices) {
             uint32_t queueFamilyCount = 0;
             vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
@@ -75,18 +73,6 @@ namespace mynydd {
                 VkPhysicalDeviceProperties props;
                 vkGetPhysicalDeviceProperties(device, &props);
                 std::cout << "Selected device: " << props.deviceName << std::endl;
-                // Set compute queue family index
-                // A compute queue family index is a queue family that supports compute
-                // operations A queue family is a group of queues that share the same
-                // properties A queue is a submission point for commands to the GPU Why
-                // do GPUs have multiple queues? Because different types of operations
-                // (graphics, compute, transfer) can be executed in parallel Is there
-                // one type of queue per operation? No, a queue family can support
-                // multiple types of operations What does a queue family correspond to
-                // physically? A queue family corresponds to a physical hardware unit
-                // that can execute commands How many queue families does a GPU have? It
-                // varies by GPU, but typically there are several queue families for
-                // different operations
                 computeQueueFamilyIndex = i;
                 return device;
             }
@@ -96,10 +82,6 @@ namespace mynydd {
     throw std::runtime_error("No suitable GPU with compute queue found");
     }
 
-    // 3. Create logical device and get compute queue
-    // A logical device is different to a physical device in that
-    // it represents an abstraction of the physical device that can be used to
-    // interact with the GPU. It allows us to create resources like buffers,
     VkDevice createLogicalDevice(
         VkPhysicalDevice physicalDevice,
         uint32_t computeQueueFamilyIndex,
@@ -220,40 +202,25 @@ namespace mynydd {
         return shaderModule;
     }
 
-    /**
-    * Creates a descriptor set layout with one storage buffer binding.
-    * A descriptor set layout defines the structure of a descriptor set,
-    * which is used to bind resources (like buffers) to shaders.
-    * In turn, a descriptor set is a collection of descriptors that describe
-    * resources, for example, a storage buffer that can be accessed by a compute
-    * shader. We have to inform the GPU about the resources that will be used in
-    * the compute shader. This is analogous to telling a scheduler like SLURM what
-    * resources (like CPUs, memory) a job will need.
-    */
-    VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device) {
-        VkDescriptorSetLayoutBinding inputBufferBinding{};
-        inputBufferBinding.binding = 0;
-        inputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        inputBufferBinding.descriptorCount = 1;
-        inputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayout createDescriptorSetLayout(
+        VkDevice device,
+        const std::vector<std::shared_ptr<Buffer>>& buffers
+) {
+        std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-        VkDescriptorSetLayoutBinding outputBufferBinding{};
-        outputBufferBinding.binding = 1;
-        outputBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        outputBufferBinding.descriptorCount = 1;
-        outputBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayoutBinding uniformBufferBinding{};
-        uniformBufferBinding.binding = 2;
-        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uniformBufferBinding.descriptorCount = 1;
-        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {inputBufferBinding, outputBufferBinding, uniformBufferBinding};
+        size_t bindingIndex = 0;
+        for (const auto &buffer : buffers) {
+            VkDescriptorSetLayoutBinding binding{};
+            binding.binding = bindingIndex++;
+            binding.descriptorType = buffer->getType();
+            binding.descriptorCount = 1;
+            binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            bindings.push_back(binding);
+        }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 3;
+        layoutInfo.bindingCount = bindings.size();
         layoutInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout layout;
@@ -265,31 +232,18 @@ namespace mynydd {
         return layout;
     }
 
-    /**
-    * Creates a descriptor pool and allocates a descriptor set from it.
-    * A descriptor pool is a memory pool that holds descriptors,
-    * which are used to bind resources to shaders. These correspond to shader
-    * variables that need to be filled with data before dispatching a compute
-    * shader. For example, a descriptor set can hold a storage buffer that the
-    * compute shader will read from or write to, such as a buffer containing input
-    * data or output results, or uniform data that the shader needs to access.
-    */
     VkDescriptorSet allocateDescriptorSet(
         VkDevice device,
         VkDescriptorSetLayout layout,
-        VkDescriptorPool &pool
+        VkDescriptorPool &pool,
+        const std::vector<std::shared_ptr<Buffer>>& buffers
     ) {
-        std::array<VkDescriptorPoolSize, 3> poolSizes{};
+        std::vector<VkDescriptorPoolSize> poolSizes(buffers.size());
 
-        poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[0].descriptorCount = 1;
-
-        poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[1].descriptorCount = 1;
-
-        poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[2].descriptorCount = 1;
-
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            poolSizes[i].type = buffers[i]->getType();
+            poolSizes[i].descriptorCount = 1;
+        }
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -315,92 +269,10 @@ namespace mynydd {
         return descriptorSet;
     }
 
-    /**
-    * Binds a buffer to the given descriptor set at binding 0.
-    * The descriptor set contains information about the resources that the compute
-    * shader will use. In this case, the buffer will be used as a storage buffer,
-    * which means it can be read from and written to by the compute shader. For our
-    * GPU compute abstraction, this will correspond to dtypes that the compute
-    * shader will process.
-    */
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
-        VkBuffer inputBuffer,
-        VkDeviceSize inputBufferSize,
-        VkBuffer uniformBuffer,
-        VkDeviceSize uniformSize,
-        VkBuffer outputBuffer,
-        VkDeviceSize outputBufferSize
-    ) {
-        VkDescriptorBufferInfo inputBufferInfo{};
-        inputBufferInfo.buffer = inputBuffer;
-        inputBufferInfo.offset = 0;
-        inputBufferInfo.range = inputBufferSize;
-
-        VkDescriptorBufferInfo outputBufferInfo{};
-        outputBufferInfo.buffer = outputBuffer;
-        outputBufferInfo.offset = 0;
-        outputBufferInfo.range = outputBufferSize;
-
-        // Uniform buffer info
-        VkDescriptorBufferInfo uniformBufferInfo{};
-        uniformBufferInfo.buffer = uniformBuffer;
-        uniformBufferInfo.offset = 0;
-        uniformBufferInfo.range = uniformSize;
-
-        VkWriteDescriptorSet inputWrite{};
-        inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        inputWrite.dstSet = descriptorSet;
-        inputWrite.dstBinding = 0; // binding 0: storage buffer
-        inputWrite.dstArrayElement = 0;
-        inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        inputWrite.descriptorCount = 1;
-        inputWrite.pBufferInfo = &inputBufferInfo;
-
-        VkWriteDescriptorSet outputWrite{};
-        outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        outputWrite.dstSet = descriptorSet;
-        outputWrite.dstBinding = 1; // binding 0: storage buffer
-        outputWrite.dstArrayElement = 0;
-        outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        outputWrite.descriptorCount = 1;
-        outputWrite.pBufferInfo = &outputBufferInfo;
-
-        VkWriteDescriptorSet uniformWrite{};
-        uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        uniformWrite.dstSet = descriptorSet;
-        uniformWrite.dstBinding = 2; // binding 1: uniform buffer
-        uniformWrite.dstArrayElement = 0;
-        uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uniformWrite.descriptorCount = 1;
-        uniformWrite.pBufferInfo = &uniformBufferInfo;
-
-        std::array<VkWriteDescriptorSet, 3> writes = {
-            inputWrite, outputWrite, uniformWrite
-        };
-
-        vkUpdateDescriptorSets(
-            device,
-            static_cast<uint32_t>(writes.size()),
-            writes.data(),
-            0,
-            nullptr
-        );
-    }
-
-    /**
-    * Binds a buffer to the given descriptor set at binding 0.
-    * The descriptor set contains information about the resources that the compute
-    * shader will use. In this case, the buffer will be used as a storage buffer,
-    * which means it can be read from and written to by the compute shader. For our
-    * GPU compute abstraction, this will correspond to dtypes that the compute
-    * shader will process.
-    */
-    void updateDescriptorSet(
-        VkDevice device,
-        VkDescriptorSet descriptorSet,
-        const std::vector<std::shared_ptr<AllocatedBuffer>> &buffers
+        const std::vector<std::shared_ptr<Buffer>> &buffers
     ) {
         if (buffers.empty()) {
             throw std::runtime_error("No buffers provided for descriptor set update");
@@ -439,22 +311,12 @@ namespace mynydd {
         );
     }
     
-    /**
-    * Creates a compute pipeline with given shader and descriptor set layout.
-    * A compute pipeline is a set of instructions that the GPU will execute for
-    * compute operations. For pure compute, it's quite simple, as it only requires
-    * a shader module and a descriptor set layout. This is analogous to a data
-    * workflow, where the compute shader is the processing step, and the descriptor
-    * set layout defines the inputs and outputs of that processing step. Compare
-    * this to Nextflow, where a process is defined by a script that specifies how
-    * data flows through different steps. A key difference is that in Vulkan, we
-    * explicitly create a pipeline layout that includes the descriptor set layout.
-    */
     VkPipeline createComputePipeline(
         VkDevice device,
         VkShaderModule shaderModule,
         VkDescriptorSetLayout descriptorSetLayout,
-        VkPipelineLayout &pipelineLayout
+        VkPipelineLayout &pipelineLayout,
+        std::vector<uint32_t> pushConstantSizes = {}
     ) {
 
         VkPipelineLayoutCreateInfo layoutInfo{};
@@ -462,6 +324,18 @@ namespace mynydd {
         layoutInfo.setLayoutCount = 1;
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
+        if (!pushConstantSizes.empty()) {
+            std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
+            for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
+                ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+                ranges[j].offset = j == 0 ? 0 : ranges[j - 1].offset + ranges[j - 1].size;
+                ranges[j].size = pushConstantSizes[j];
+            }
+
+            layoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantSizes.size());
+            layoutInfo.pPushConstantRanges = ranges.data();
+        }
+        
         if (
             vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) !=
             VK_SUCCESS
@@ -494,13 +368,6 @@ namespace mynydd {
         return pipeline;
     }
 
-    /**
-    * Creates a command pool for the given queue family index.
-    * A command pool is a memory pool that holds command buffers,
-    * which are used to record commands that the GPU will execute.
-    * Physically, the command pool resides in the GPU memory and is used to
-    * allocate command buffers.
-    */
     VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex) {
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -514,13 +381,6 @@ namespace mynydd {
         return commandPool;
     }
 
-
-    /**
-    * Allocates a single command buffer from the given command pool.
-    * The pool contains command buffers that can be used to record commands.
-    * When we allocate _from_ the command pool, we are essentially reserving
-    * a command buffer that we can use to record commands for the GPU to execute.
-    */
     VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool pool) {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -536,53 +396,6 @@ namespace mynydd {
         return cmdBuffer;
     }
 
-
-    /**
-    * Records commands to bind the pipeline and dispatch the compute shader.
-    * What commands are recorded? We bind the compute pipeline, bind the descriptor set,
-    * and dispatch the compute shader. This is analogous to preparing a job script
-    * that specifies what resources (like input data) the job will use and how it
-    * will be executed.
-    */
-    void recordCommandBuffer(VkCommandBuffer cmdBuffer, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descriptorSet, uint32_t numElements) {
-        
-        if (cmdBuffer == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid command buffer handle");
-        }
-        if (pipeline == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid pipeline handle");
-        }
-        if (layout == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid pipeline layout handle");
-        }
-        if (descriptorSet == VK_NULL_HANDLE) {
-            throw std::runtime_error("Invalid descriptor set handle");
-        }
-        
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        VkResult result = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-        if (result != VK_SUCCESS) {
-            throw std::runtime_error("vkBeginCommandBuffer failed with error: " + std::to_string(result));
-        }
-
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
-
-        uint32_t groupCount = (numElements + 63) / 64; // match local_size_x=64 in shader
-        vkCmdDispatch(cmdBuffer, groupCount, 1, 1);
-
-        result = vkEndCommandBuffer(cmdBuffer);
-        if (result != VK_SUCCESS) {
-            throw std::runtime_error("vkEndCommandBuffer failed with error: " + std::to_string(result));
-        }
-    }
-
-
-    /**
-    * Submits the command buffer and waits for execution to complete.
-    */
     void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer) {
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -610,13 +423,19 @@ namespace mynydd {
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
         const char* shaderPath,
-        VkDescriptorSetLayout &descriptorLayout
+        VkDescriptorSetLayout &descriptorLayout,
+        std::vector<uint32_t> pushConstantSizes
     ) {
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
 
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
-            contextPtr->device, shader, descriptorLayout, pipelineLayout);
+            contextPtr->device, 
+            shader,
+            descriptorLayout,
+            pipelineLayout,
+            pushConstantSizes
+        );
 
         return {
             pipelineLayout,
@@ -647,12 +466,12 @@ namespace mynydd {
 
     VulkanDynamicResources::VulkanDynamicResources(
         std::shared_ptr<VulkanContext> contextPtr,
-        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
+        const std::vector<std::shared_ptr<Buffer>> buffers
     ) : contextPtr(contextPtr) {
 
-        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device);
+        descriptorSetLayout = createDescriptorSetLayout(contextPtr->device, buffers);
 
-        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool);
+        descriptorSet = allocateDescriptorSet(contextPtr->device, descriptorSetLayout, descriptorPool, buffers);
 
         updateDescriptorSet(
             contextPtr->device,
@@ -661,6 +480,158 @@ namespace mynydd {
         );
     }
 
+
+    void recordCommandBuffer(
+        VkCommandBuffer cmdBuffer,
+        std::shared_ptr<PipelineStep> pipeline_step,
+        bool memory_barrier = true
+    ) {
+            const auto& pipeline      = pipeline_step->getPipelineResourcesPtr()->pipeline;
+            const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
+            const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
+
+            if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
+            }
+
+            // Bind pipeline and descriptor sets
+            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
+
+
+            if (pipeline_step->hasPushConstantData()) {
+                PushConstantData pcData = pipeline_step->getPushConstantData();
+                uint32_t value = 0;
+                std::memcpy(&value, pcData.push_data.data(), sizeof(value));
+                vkCmdPushConstants(
+                    cmdBuffer,
+                    pipeline_step->getPipelineResourcesPtr()->pipelineLayout,
+                    VK_SHADER_STAGE_COMPUTE_BIT,
+                    0,
+                    pcData.size,
+                    pcData.push_data.data()
+                );
+            }
+
+            // Dispatch compute shader
+            vkCmdDispatch(cmdBuffer, 
+                pipeline_step->groupCountX,
+                pipeline_step->groupCountY,
+                pipeline_step->groupCountZ
+            );
+
+            // Insert memory barrier between shaders (except after last one)
+            if (memory_barrier) {
+                VkMemoryBarrier memoryBarrier{};
+                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                vkCmdPipelineBarrier(
+                    cmdBuffer,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    0,
+                    1, &memoryBarrier,
+                    0, nullptr,
+                    0, nullptr
+                );
+            }
+
+    }
+
+    PipelineStep::PipelineStep(
+        std::shared_ptr<VulkanContext> contextPtr, 
+        const char* shaderPath,
+        std::vector<std::shared_ptr<Buffer>> buffers,
+        uint32_t groupCountX,
+        uint32_t groupCountY,
+        uint32_t groupCountZ,
+        std::vector<uint32_t> pushConstantSizes
+    ) : contextPtr(contextPtr), groupCountX(groupCountX), groupCountY(groupCountY), groupCountZ(groupCountZ) {  
+        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
+            contextPtr,
+            buffers
+        );
+        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
+        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes);
+    }
+
+    PipelineStep::~PipelineStep() {
+        try {
+            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
+                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+            } else {
+                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                throw std::runtime_error("PipelineStep destructor failed");
+            }
+            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
+            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
+            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+        } catch (const std::exception &e) {
+            std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
+            throw std::runtime_error("PipelineStep destructor failed");
+        }
+    }
+
+    void executeBatch(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps,
+        bool beginCommandBuffer
+    ) {
+        if (PipelineSteps.empty()) {
+            throw std::runtime_error("No compute engines provided for batch execution.");
+        }
+
+        if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid Vulkan context in batch execution.");
+        }
+
+        VkCommandBuffer cmdBuffer = contextPtr->commandBuffer;
+
+        if (beginCommandBuffer) {
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to begin command buffer for batch execution.");
+            }        
+        } // else already begun
+        
+        for (size_t i = 0; i < PipelineSteps.size(); ++i) {
+            auto& pipelineStep = PipelineSteps[i];
+            if (!pipelineStep) {
+                throw std::runtime_error("Null PipelineStep pointer at index " + std::to_string(i));
+            }
+            recordCommandBuffer(
+                cmdBuffer,
+                pipelineStep,
+                i + 1 < PipelineSteps.size()
+            );
+        }
+
+        if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to end command buffer for batch execution.");
+        }
+
+        // Submit command buffer
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmdBuffer;
+
+        VkFence fence;
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        if (vkCreateFence(contextPtr->device, &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create fence for batch execution.");
+        }
+
+        if (vkQueueSubmit(contextPtr->computeQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
+            vkDestroyFence(contextPtr->device, fence, nullptr);
+            throw std::runtime_error("Failed to submit batched command buffer.");
+        }
+        vkWaitForFences(contextPtr->device, 1, &fence, VK_TRUE, UINT64_MAX);
+        vkDestroyFence(contextPtr->device, fence, nullptr);
+    }
 
 
 }

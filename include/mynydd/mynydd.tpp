@@ -3,6 +3,7 @@
 #include "mynydd/memory.hpp"
 #include "mynydd/mynydd.hpp"
 #include <assert.h>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <iostream>
@@ -13,77 +14,32 @@
 
 namespace mynydd {
     
-    VulkanContext createVulkanContext();
-    // Required forward declarations for Vulkan functions used in the template
-    VkBuffer createBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage);
-    VkDeviceMemory allocateAndBindMemory(
-        VkPhysicalDevice physicalDevice,
-        VkDevice device,
-        VkBuffer buffer,
-        VkMemoryPropertyFlags properties
-    );
-    VkDescriptorSet allocateDescriptorSet(
-        VkDevice device,
-        VkDescriptorSetLayout descriptorSetLayout,
-        VkDescriptorPool &descriptorPool
-    );
-    void updateDescriptorSet(
-        VkDevice device,
-        VkDescriptorSet descriptorSet,
-        VkBuffer buffer,
-        VkDeviceSize size
-    );
-    VulkanPipelineResources create_pipeline_resources(
-        std::shared_ptr<VulkanContext> contextPtr,
-        const char* shaderPath,
-        VkDescriptorSetLayout &descriptorLayout
-    );
-    VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
-    VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
-    void recordCommandBuffer(
-        VkCommandBuffer commandBuffer,
-        VkPipeline pipeline,
-        VkPipelineLayout pipelineLayout,
-        VkDescriptorSet descriptorSet,
-        uint32_t numElements
-    );
-    void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer);
-    VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
+    // VulkanContext createVulkanContext();
+    // // Required forward declarations for Vulkan functions used in the template
+    
+    // VkDescriptorSet allocateDescriptorSet(
+    //     VkDevice device,
+    //     VkDescriptorSetLayout descriptorSetLayout,
+    //     VkDescriptorPool &descriptorPool
+    // );
+    // VulkanPipelineResources create_pipeline_resources(
+    //     std::shared_ptr<VulkanContext> contextPtr,
+    //     const char* shaderPath,
+    //     VkDescriptorSetLayout &descriptorLayout,
+    //     std::vector<uint32_t> pushConstantSizes = {}
+    // );
+    // VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
+    // VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
+    // void recordCommandBuffer(
+    //     VkCommandBuffer commandBuffer,
+    //     VkPipeline pipeline,
+    //     VkPipelineLayout pipelineLayout,
+    //     VkDescriptorSet descriptorSet,
+    //     uint32_t numElements
+    // );
+    // void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer);
+    // VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
 
-    template<typename T>
-    ComputeEngine<T>::ComputeEngine(
-        std::shared_ptr<VulkanContext> contextPtr, 
-        const char* shaderPath,
-        std::vector<std::shared_ptr<AllocatedBuffer>> buffers
-    ) : contextPtr(contextPtr) {
-        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
-            contextPtr,
-            buffers
-        );
-        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
-        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout);
-    }
-
-    template<typename T>
-    ComputeEngine<T>::~ComputeEngine() {
-        std::cerr << "Destroying ComputeEngine resources..." << std::endl;
-        try {
-            std::cerr << "Destroying ComputeEngine..." << std::endl;
-            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
-                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
-            } else {
-                std::cerr << "Invalid handles in vkDestroyPipeline\n";
-                throw;
-            }
-            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
-            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
-            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
-        } catch (const std::exception &e) {
-            std::cerr << "Error during ComputeEngine destruction: " << e.what() << std::endl;
-            throw;
-        }
-        std::cerr << "ComputeEngine resources destroyed." << std::endl;
-    }
 
     struct TrivialUniform {
         float dummy = 0.0f;
@@ -93,7 +49,6 @@ namespace mynydd {
     void uploadBufferData(VkDevice device, VkDeviceMemory memory, const std::vector<T>& inputData) {
         void* mapped;
         VkDeviceSize size = sizeof(T) * inputData.size();
-        std::cerr << "Uploading buffer data" << std::endl;
         if (vkMapMemory(device, memory, 0, size, 0, &mapped) != VK_SUCCESS) {
             throw std::runtime_error("Failed to map buffer memory for upload");
         }
@@ -103,7 +58,7 @@ namespace mynydd {
     }
 
     template<typename U>
-    void uploadUniformData(std::shared_ptr<VulkanContext> vkc, const U uniform, std::shared_ptr<AllocatedBuffer> buff) {
+    void uploadUniformData(std::shared_ptr<VulkanContext> vkc, const U uniform, std::shared_ptr<Buffer> buff) {
         if (sizeof(U) > buff->getSize()) {
             throw std::runtime_error(
                 "Uniform size (" + std::to_string(sizeof(U)) + 
@@ -124,7 +79,7 @@ namespace mynydd {
 
 
     template<typename T>
-    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<AllocatedBuffer> buffer) {
+    void uploadData(std::shared_ptr<VulkanContext> vkc, const std::vector<T> &inputData, std::shared_ptr<Buffer> buffer) {
         try {
             if (inputData.empty()) {
                 throw std::runtime_error("Data vector is empty");
@@ -137,7 +92,6 @@ namespace mynydd {
                 throw std::runtime_error("Data size exceeds allocated buffer size");
             }
 
-            std::cerr << "About to upload buffer data" << std::endl;
             uploadBufferData<T>(vkc->device, buffer->getMemory(), inputData);
         }
         catch (const std::exception& e) {
@@ -162,38 +116,7 @@ namespace mynydd {
     }
 
     template<typename T>
-    void ComputeEngine<T>::execute(size_t numElements) {
-        std::cerr<< "Recording command buffer..." << std::endl;
-        try {
-            if (!this->contextPtr || this->contextPtr->device == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid Vulkan context or device handle");
-            }
-            if (!this->dynamicResourcesPtr || this->dynamicResourcesPtr->descriptorSet == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid dynamic resources or descriptor set handle");
-            }
-            if (this->pipelineResources.pipeline == VK_NULL_HANDLE || this->pipelineResources.pipelineLayout == VK_NULL_HANDLE) {
-                throw std::runtime_error("Invalid pipeline or pipeline layout handle");
-            }
-            recordCommandBuffer(
-                this->contextPtr->commandBuffer,
-                this->pipelineResources.pipeline,
-                this->pipelineResources.pipelineLayout,
-                this->dynamicResourcesPtr->descriptorSet,
-                numElements
-            );
-        } catch (const std::exception &e) {
-            std::cerr << "Error during execution setup: " << e.what() << std::endl;
-            throw;
-        }
-        submitAndWait(
-            this->contextPtr->device,
-            this->contextPtr->computeQueue,
-            this->contextPtr->commandBuffer
-        );
-    }
-
-    template<typename T>
-    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<AllocatedBuffer> buffer, size_t n_elements) {
+    std::vector<T> fetchData(std::shared_ptr<VulkanContext> vkc, std::shared_ptr<Buffer> buffer, size_t n_elements) {
 
         std::vector<T> output = readBufferData<T>(
             vkc->device,
@@ -204,5 +127,7 @@ namespace mynydd {
 
         return output;
     }
+
+
 
 }

@@ -1,0 +1,79 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer Histograms {
+    uint data[]; // flat array: each histogram is length numBins
+};
+
+layout(set = 0, binding = 1) writeonly buffer PrefixSums {
+    uint prefix[]; // same shape as data
+};
+
+layout(set = 0, binding = 2) uniform Params {
+    uint histogramCount; // number of histograms (= number of workgroups dispatched)
+    uint numBins;     // length of each histogram
+} params;
+
+shared uint localData[256];
+
+void main() {
+    uint histogramIdx = gl_WorkGroupID.x; // which histogram
+    if (histogramIdx >= params.histogramCount) {
+        return;
+    }
+
+    uint tid = gl_LocalInvocationID.x;
+
+    uint base = histogramIdx * params.numBins;
+
+    // Load elements into shared memory, if within range
+    uint val = 0;
+    if (tid < params.numBins) {
+        val = data[base + tid];
+        localData[tid] = val;
+    }
+    else {
+        localData[tid] = 0; // pad zeros if out of range
+    }
+
+    barrier();
+
+    // Exclusive prefix sum (Blelloch scan) in shared memory
+    // Up-sweep phase
+    uint offset = 1;
+    for (uint d = params.numBins >> 1; d > 0; d >>= 1) {
+        barrier();
+        if (tid < d) {
+            uint ai = offset*(2*tid+1) - 1;
+            uint bi = offset*(2*tid+2) - 1;
+            localData[bi] += localData[ai];
+        }
+        offset <<= 1;
+    }
+
+    // Clear last element for exclusive scan
+    if (tid == 0) {
+        localData[params.numBins - 1] = 0;
+    }
+
+    // Down-sweep phase
+    for (uint d = 1; d < params.numBins; d <<= 1) {
+        offset >>= 1;
+        barrier();
+        if (tid < d) {
+            uint ai = offset*(2*tid+1) - 1;
+            uint bi = offset*(2*tid+2) - 1;
+
+            uint t = localData[ai];
+            localData[ai] = localData[bi];
+            localData[bi] += t;
+        }
+    }
+    barrier();
+
+    // Write back prefix sums to output buffer
+    if (tid < params.numBins) {
+        prefix[base + tid] = localData[tid];
+    }
+}

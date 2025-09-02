@@ -11,24 +11,24 @@
 namespace mynydd {
     struct VulkanContext;
     
-    class AllocatedBuffer {
+    class Buffer {
     public:
-        AllocatedBuffer() = default;
+        Buffer() = default;
 
-        AllocatedBuffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform=false);
+        Buffer(std::shared_ptr<VulkanContext> vkc, size_t size, bool uniform=false);
 
         // Prevent copying
-        AllocatedBuffer(const AllocatedBuffer&) = delete;
-        AllocatedBuffer& operator=(const AllocatedBuffer&) = delete;
+        Buffer(const Buffer&) = delete;
+        Buffer& operator=(const Buffer&) = delete;
 
         // Move implementation
-        AllocatedBuffer(AllocatedBuffer&& other) noexcept
+        Buffer(Buffer&& other) noexcept
             : device(other.device), buffer(other.buffer), memory(other.memory), size(other.size) {
             other.buffer = VK_NULL_HANDLE;
             other.memory = VK_NULL_HANDLE;
         }
 
-        AllocatedBuffer& operator=(AllocatedBuffer&& other) noexcept {
+        Buffer& operator=(Buffer&& other) noexcept {
             if (this != &other) {
                 destroy();
                 device = other.device;
@@ -42,8 +42,7 @@ namespace mynydd {
             return *this;
         }
 
-        ~AllocatedBuffer() {
-            std::cerr << "Destroying AllocatedBuffer..." << std::endl;
+        ~Buffer() {
             destroy();
         }
 

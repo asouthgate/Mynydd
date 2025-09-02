@@ -13,6 +13,7 @@ set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 add_library(mynydd SHARED
     ${SOURCE_DIR}/mynydd.cpp
     ${SOURCE_DIR}/memory.cpp
+    ${SOURCE_DIR}/pipelines/radix_sort.cpp
 )
 
 target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
@@ -26,10 +27,12 @@ enable_testing()
 
 # test shaders
 
-set(SHADER_DIR ${TEST_SRC_DIR}/shaders)
+set(TEST_SHADER_DIR ${TEST_SRC_DIR}/shaders)
+set(SRC_SHADER_DIR ${SOURCE_DIR}/pipelines/shaders)
+
 set(SPIRV_DIR ${CMAKE_BINARY_DIR}/shaders)
 file(MAKE_DIRECTORY ${SPIRV_DIR})
-file(GLOB SHADER_SRC_FILES "${SHADER_DIR}/*.comp")
+file(GLOB SHADER_SRC_FILES "${SRC_SHADER_DIR}/*.comp" "${TEST_SHADER_DIR}/*.comp")
 message(STATUS "Found shaders: ${SHADER_SRC_FILES}")
 set(SHADER_SPV_FILES)
 
@@ -52,8 +55,14 @@ endforeach()
 add_custom_target(compile_shaders ALL DEPENDS ${SHADER_SPV_FILES})
 
 add_executable(tests
+    ${TEST_SRC_DIR}/test_morton_helpers.cpp 
+    ${TEST_SRC_DIR}/test_morton.cpp
     ${TEST_SRC_DIR}/test_mynydd.cpp
     ${TEST_SRC_DIR}/test_shader_kernels.cpp
+    ${TEST_SRC_DIR}/test_radix_sort.cpp
+    ${TEST_SRC_DIR}/test_particle_index.cpp
+    ${TEST_SRC_DIR}/test_transpose.cpp
+    ${TEST_SRC_DIR}/test_workgroup_scan.cpp
     ${SHADER_SPV_FILES}
 )
 
@@ -62,7 +71,12 @@ target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd
 add_dependencies(tests compile_shaders)
 
 add_test(NAME compute_tests COMMAND tests "[vulkan]")
+add_test(NAME morton COMMAND tests "[morton]")
 add_test(NAME shader_kernel_tests COMMAND tests "[shader_kernels]")
+add_test(NAME radix_sort COMMAND tests "[sort]")
+add_test(NAME morton_sort COMMAND tests "[morton_sort]")
+add_test(NAME transpose COMMAND tests "[transpose]")
+add_test(NAME index COMMAND tests "[index]")
 
 
 # === Compile example folders ===

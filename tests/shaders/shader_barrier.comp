@@ -1,0 +1,35 @@
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "kernels.comp.kern"
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Data {
+    double values[];
+};
+
+layout(set = 0, binding = 1) buffer outputData {
+    double outvalues[];
+};
+
+shared double stage1[64]; // per-workgroup shared memory
+
+void main() {
+    uint lid   = gl_LocalInvocationID.x;   // local index in workgroup
+    uint index = gl_GlobalInvocationID.x;  // global index
+
+    // Stage 1: multiply input by 2
+    stage1[lid] = 2.0 * values[index];
+
+    // Make sure all threads in the workgroup have finished Stage 1
+    memoryBarrierShared();
+    barrier();
+
+    // Stage 2: add neighbor's result (i+1) — will be wrong at boundaries
+    double neighbor = 0.0;
+    if (lid + 1 < 64) { // same workgroup
+        neighbor = stage1[lid + 1];
+    }
+    outvalues[index] = stage1[lid] + neighbor;
+}
