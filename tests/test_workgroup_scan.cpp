@@ -42,13 +42,13 @@ TEST_CASE("Test that workgroup scan works on the single work group case", "[vulk
     mynydd::uploadData<uint32_t>(contextPtr, perGroupHist, histBuffer);
     mynydd::uploadUniformData<PrefixParams>(contextPtr, pparams, pUniform);
 
-    auto prefixPipeline = std::make_shared<mynydd::PipelineStep<float>>(
+    auto prefixPipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{histBuffer, prefixBuffer, pUniform},
         groupCount
     );
 
-    mynydd::executeBatch<float>(contextPtr, {prefixPipeline});
+    mynydd::executeBatch(contextPtr, {prefixPipeline});
 
     std::vector<uint32_t> gpuPrefix = mynydd::fetchData<uint32_t>(contextPtr, prefixBuffer, numBins * groupCount);
 
@@ -127,13 +127,13 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     // Create pipelines:
     //  - transpose: in = histBuffer (groupCount x numBins), out = transposedBuffer (numBins x groupCount), params tUniform
     //  - prefix: in = transposedBuffer, out = prefixBuffer, params pUniform
-    auto transposePipeline = std::make_shared<mynydd::PipelineStep<float>>(
+    auto transposePipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/transpose.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{histBuffer, transposedBuffer, tUniform},
         (tparams.width * tparams.height + 256) / 256
     );
 
-    auto prefixPipeline = std::make_shared<mynydd::PipelineStep<float>>(
+    auto prefixPipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/workgroup_scan.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{transposedBuffer, prefixBuffer, pUniform},
         groupCount_postinv
@@ -142,7 +142,7 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     // NOTE: if your executeBatch currently only supports a single groupCount argument,
     // you will need to extend it to allow a 2D dispatch or flatten the transpose to 1D.
     // Here we assume an overload executeBatch that accepts (pipelineList, gx, gy, gz).
-    mynydd::executeBatch<float>(contextPtr, {transposePipeline, prefixPipeline});
+    mynydd::executeBatch(contextPtr, {transposePipeline, prefixPipeline});
 
     // Dispatch prefix: one workgroup per bin (1D). local_size_x = 256; only thread 0 does the scan.
     // We dispatch numBins workgroups in X

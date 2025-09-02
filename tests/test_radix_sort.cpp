@@ -91,7 +91,7 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
     auto output = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), true);
     auto uniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::RadixParams), true);
 
-    auto pipeline = std::make_shared<mynydd::PipelineStep<float>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/histogram.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{input, output, uniform},
         groupCount
@@ -112,7 +112,7 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
     mynydd::uploadUniformData<mynydd::RadixParams>(contextPtr, params, uniform);
     mynydd::uploadData<uint32_t>(contextPtr, inputData, input);
 
-    mynydd::executeBatch<float>(contextPtr, {pipeline});
+    mynydd::executeBatch(contextPtr, {pipeline});
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, output, groupCount * numBins);
 
@@ -173,14 +173,14 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     mynydd::uploadUniformData<SumParams>(contextPtr, sumParams, uniformBuffer);
 
     // Load the summation shader (compiled SPIR-V must match the shader code given)
-    auto pipeline = std::make_shared<mynydd::PipelineStep<float>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/histogram_sum.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{inputBuffer, outputBuffer, uniformBuffer},
         1
     );
 
     // Dispatch exactly 1 workgroup with 256 threads
-    mynydd::executeBatch<float>(contextPtr, {pipeline});
+    mynydd::executeBatch(contextPtr, {pipeline});
 
     // Fetch the summed histogram result
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outputBuffer, numBins);
@@ -428,7 +428,7 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
 
     auto groupCount = (nKeys + 63) / 64;
 
-    auto pipeline = std::make_shared<mynydd::PipelineStep<Particle>>(
+    auto pipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             inputBuffer, outputBuffer, uniformBuffer
@@ -436,7 +436,7 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
         groupCount
     );
 
-    mynydd::executeBatch<Particle>(contextPtr, {pipeline});
+    mynydd::executeBatch(contextPtr, {pipeline});
 
     std::vector<CellInfo> outIndex = mynydd::fetchData<CellInfo>(contextPtr, outputBuffer, nCells);
 

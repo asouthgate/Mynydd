@@ -481,4 +481,157 @@ namespace mynydd {
     }
 
 
+    void recordCommandBuffer(
+        VkCommandBuffer cmdBuffer,
+        std::shared_ptr<PipelineStep> pipeline_step,
+        bool memory_barrier = true
+    ) {
+            const auto& pipeline      = pipeline_step->getPipelineResourcesPtr()->pipeline;
+            const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
+            const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
+
+            if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
+                throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
+            }
+
+            // Bind pipeline and descriptor sets
+            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
+
+
+            if (pipeline_step->hasPushConstantData()) {
+                PushConstantData pcData = pipeline_step->getPushConstantData();
+                uint32_t value = 0;
+                std::memcpy(&value, pcData.push_data.data(), sizeof(value));
+                vkCmdPushConstants(
+                    cmdBuffer,
+                    pipeline_step->getPipelineResourcesPtr()->pipelineLayout,
+                    VK_SHADER_STAGE_COMPUTE_BIT,
+                    0,
+                    pcData.size,
+                    pcData.push_data.data()
+                );
+            }
+
+            // Dispatch compute shader
+            vkCmdDispatch(cmdBuffer, 
+                pipeline_step->groupCountX,
+                pipeline_step->groupCountY,
+                pipeline_step->groupCountZ
+            );
+
+            // Insert memory barrier between shaders (except after last one)
+            if (memory_barrier) {
+                VkMemoryBarrier memoryBarrier{};
+                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                vkCmdPipelineBarrier(
+                    cmdBuffer,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    0,
+                    1, &memoryBarrier,
+                    0, nullptr,
+                    0, nullptr
+                );
+            }
+
+    }
+
+    PipelineStep::PipelineStep(
+        std::shared_ptr<VulkanContext> contextPtr, 
+        const char* shaderPath,
+        std::vector<std::shared_ptr<Buffer>> buffers,
+        uint32_t groupCountX,
+        uint32_t groupCountY,
+        uint32_t groupCountZ,
+        std::vector<uint32_t> pushConstantSizes
+    ) : contextPtr(contextPtr), groupCountX(groupCountX), groupCountY(groupCountY), groupCountZ(groupCountZ) {  
+        this->dynamicResourcesPtr = std::make_shared<mynydd::VulkanDynamicResources>(
+            contextPtr,
+            buffers
+        );
+        assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
+        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes);
+    }
+
+    PipelineStep::~PipelineStep() {
+        try {
+            if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
+                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+            } else {
+                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                throw std::runtime_error("PipelineStep destructor failed");
+            }
+            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
+            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
+            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+        } catch (const std::exception &e) {
+            std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
+            throw std::runtime_error("PipelineStep destructor failed");
+        }
+    }
+
+    void executeBatch(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps,
+        bool beginCommandBuffer
+    ) {
+        if (PipelineSteps.empty()) {
+            throw std::runtime_error("No compute engines provided for batch execution.");
+        }
+
+        if (!contextPtr || contextPtr->device == VK_NULL_HANDLE) {
+            throw std::runtime_error("Invalid Vulkan context in batch execution.");
+        }
+
+        VkCommandBuffer cmdBuffer = contextPtr->commandBuffer;
+
+        if (beginCommandBuffer) {
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to begin command buffer for batch execution.");
+            }        
+        } // else already begun
+        
+        for (size_t i = 0; i < PipelineSteps.size(); ++i) {
+            auto& pipelineStep = PipelineSteps[i];
+            if (!pipelineStep) {
+                throw std::runtime_error("Null PipelineStep pointer at index " + std::to_string(i));
+            }
+            recordCommandBuffer(
+                cmdBuffer,
+                pipelineStep,
+                i + 1 < PipelineSteps.size()
+            );
+        }
+
+        if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to end command buffer for batch execution.");
+        }
+
+        // Submit command buffer
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmdBuffer;
+
+        VkFence fence;
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        if (vkCreateFence(contextPtr->device, &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create fence for batch execution.");
+        }
+
+        if (vkQueueSubmit(contextPtr->computeQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
+            vkDestroyFence(contextPtr->device, fence, nullptr);
+            throw std::runtime_error("Failed to submit batched command buffer.");
+        }
+        vkWaitForFences(contextPtr->device, 1, &fence, VK_TRUE, UINT64_MAX);
+        vkDestroyFence(contextPtr->device, fence, nullptr);
+    }
+
+
 }

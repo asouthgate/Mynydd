@@ -1,4 +1,3 @@
-#include <cstddef>
 #include <cstdint>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
@@ -104,7 +103,7 @@ TEST_CASE("Regression test against vec3/vec4 bit alignment problem; test that la
     auto mortonUniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(MortonParams), true);
 
-    auto mortonStep = std::make_shared<mynydd::PipelineStep<Particle>>(
+    auto mortonStep = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/morton_u32_3d.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             inputBuffer, outputBufferTest, mortonUniformBuffer
@@ -124,7 +123,7 @@ TEST_CASE("Regression test against vec3/vec4 bit alignment problem; test that la
     mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, mortonParams, mortonUniformBuffer);
 
-    mynydd::executeBatch<Particle>(contextPtr, {mortonStep});
+    mynydd::executeBatch(contextPtr, {mortonStep});
 
     auto mortonStepOutput = mynydd::fetchData<uint32_t>(contextPtr, outputBufferTest, nParticles);
     REQUIRE(mortonStepOutput[0] != 0);

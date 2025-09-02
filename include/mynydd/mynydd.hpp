@@ -88,8 +88,6 @@ namespace mynydd {
         VulkanDynamicResources& operator=(VulkanDynamicResources&&) = default;     // Allow move
     };
 
-    // TODO: no longer needs to be templated
-    template<typename T>
     class PipelineStep {
         public:
             PipelineStep(
@@ -143,6 +141,20 @@ namespace mynydd {
 
             PushConstantData m_pushConstantData{0, 0, std::vector<std::byte>{}};
     };
+
+
+    VkBuffer createBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage);
+    VkDeviceMemory allocateAndBindMemory(
+        VkPhysicalDevice physicalDevice,
+        VkDevice device,
+        VkBuffer buffer,
+        VkMemoryPropertyFlags properties
+    );
+    void executeBatch(
+        std::shared_ptr<VulkanContext> contextPtr,
+        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps,
+        bool beginCommandBuffer = true
+    );
 
 };
 
