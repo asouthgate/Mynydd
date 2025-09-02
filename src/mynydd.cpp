@@ -202,16 +202,6 @@ namespace mynydd {
         return shaderModule;
     }
 
-    /**
-    * Creates a descriptor set layout with one storage buffer binding.
-    * A descriptor set layout defines the structure of a descriptor set,
-    * which is used to bind resources (like buffers) to shaders.
-    * In turn, a descriptor set is a collection of descriptors that describe
-    * resources, for example, a storage buffer that can be accessed by a compute
-    * shader. We have to inform the GPU about the resources that will be used in
-    * the compute shader. This is analogous to telling a scheduler like SLURM what
-    * resources (like CPUs, memory) a job will need.
-    */
     VkDescriptorSetLayout createDescriptorSetLayout(
         VkDevice device,
         const std::vector<std::shared_ptr<Buffer>>& buffers
@@ -279,14 +269,6 @@ namespace mynydd {
         return descriptorSet;
     }
 
-    /**
-    * Binds a buffer to the given descriptor set at binding 0.
-    * The descriptor set contains information about the resources that the compute
-    * shader will use. In this case, the buffer will be used as a storage buffer,
-    * which means it can be read from and written to by the compute shader. For our
-    * GPU compute abstraction, this will correspond to dtypes that the compute
-    * shader will process.
-    */
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
@@ -343,8 +325,6 @@ namespace mynydd {
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
         if (!pushConstantSizes.empty()) {
-
-            std::cerr << "Creating pipeline step with push constant sizes!" << std::endl;
             std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
             for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
                 ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -416,10 +396,6 @@ namespace mynydd {
         return cmdBuffer;
     }
 
-
-    /**
-    * Submits the command buffer and waits for execution to complete.
-    */
     void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer) {
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
