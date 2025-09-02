@@ -5,7 +5,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
-#include <iostream>
 #include <glm/glm.hpp>
 #include <memory>
 #include <random>
@@ -63,12 +62,7 @@ TEST_CASE("Particle index works correctly", "[index]") {
         contextPtr, particleIndexPipeline.radixSortPipeline.ioSortedIndicesB, nParticles
     );
 
-    // for (size_t i = 0; i < particleIndexPipeline.getNCells(); ++i) {
-    //     std::cout << "Cell " << i << ": start=" << cellData[i].left << ", right=" << cellData[i].right << std::endl;
-    //     for (size_t j = cellData[i].left; j < cellData[i].right; ++j) {
-    //         std::cout << j << "  Particle index: " << indexData[j] << std::endl;
-    //     }
-    // }
+    // TODO: this test is trivial, fix
 
     REQUIRE(true);
 }
