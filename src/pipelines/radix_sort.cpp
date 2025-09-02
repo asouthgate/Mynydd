@@ -126,7 +126,6 @@ namespace mynydd {
 
     void RadixSortPipeline::execute_init() {
         // First, initialize the range index buffer
-        std::cerr << nInputElements << " input elements, initializing range indices." << std::endl;
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -142,15 +141,6 @@ namespace mynydd {
             false
         );
 
-        std::cerr << "Retrieving data from buffer " << ioSortedIndicesB->getBuffer() << std::endl;
-        auto init_retrieved = mynydd::fetchData<uint32_t>(
-            contextPtr, ioSortedIndicesB, nInputElements
-        );
-
-        for (size_t i = 0; i < nInputElements && i < 10; ++i) {
-            assert(init_retrieved[i] == i);
-        }
-
     }
 
     void RadixSortPipeline::execute() {
@@ -159,20 +149,6 @@ namespace mynydd {
 
         for (size_t pass = 0; pass < nPasses; ++pass) {
             execute_pass(pass);
-
-            auto ioIndices_retrieved = mynydd::fetchData<uint32_t>(
-                contextPtr, getSortedIndicesBufferAtPass(pass), nInputElements
-            );
-
-            int zeros = 0;
-            for (size_t i = 0; i < nInputElements; ++i) {
-                if (ioIndices_retrieved[i] == 0) {
-                    zeros++;
-                }
-                if (zeros > itemsPerGroup) {
-                    assert(zeros <= itemsPerGroup);
-                }
-            }
         }
     }
 
