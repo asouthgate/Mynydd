@@ -86,10 +86,6 @@ namespace mynydd {
         VulkanDynamicResources& operator=(const VulkanDynamicResources&) = delete; // No copy
         VulkanDynamicResources(VulkanDynamicResources&&) = default;                // Allow move
         VulkanDynamicResources& operator=(VulkanDynamicResources&&) = default;     // Allow move
-        void setBuffers(
-            std::shared_ptr<VulkanContext> contextPtr,
-            const std::vector<std::shared_ptr<Buffer>>& buffers
-        );
     };
 
     // TODO: no longer needs to be templated
@@ -106,7 +102,6 @@ namespace mynydd {
                 std::vector<uint32_t> pushConstantSizes = {}
             ); 
             ~PipelineStep();
-            void execute(size_t numElements); //numElements required for computing nthreads
             std::shared_ptr<VulkanPipelineResources> getPipelineResourcesPtr() const {
                 return std::make_shared<VulkanPipelineResources>(pipelineResources);
             }
