@@ -228,7 +228,6 @@ namespace mynydd {
                 PushConstantData pcData = pipeline_step->getPushConstantData();
                 uint32_t value = 0;
                 std::memcpy(&value, pcData.push_data.data(), sizeof(value));
-                std::cerr << "PUSH: " << value << " " <<  pcData.size << std::endl;
                 vkCmdPushConstants(
                     cmdBuffer,
                     pipeline_step->getPipelineResourcesPtr()->pipelineLayout,

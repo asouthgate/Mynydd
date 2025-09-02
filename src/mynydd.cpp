@@ -53,10 +53,6 @@ namespace mynydd {
         std::vector<VkPhysicalDevice> devices(deviceCount);
         vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-        // Check for a suitable physical device with compute capabilities
-        // Iterate through the devices and find one with a compute queue
-        // computeQueueFamilyIndex will be set to the index of the compute queue
-        // family This will pick the first device that has a compute queue
         for (const auto &device : devices) {
             uint32_t queueFamilyCount = 0;
             vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
@@ -77,18 +73,6 @@ namespace mynydd {
                 VkPhysicalDeviceProperties props;
                 vkGetPhysicalDeviceProperties(device, &props);
                 std::cout << "Selected device: " << props.deviceName << std::endl;
-                // Set compute queue family index
-                // A compute queue family index is a queue family that supports compute
-                // operations A queue family is a group of queues that share the same
-                // properties A queue is a submission point for commands to the GPU Why
-                // do GPUs have multiple queues? Because different types of operations
-                // (graphics, compute, transfer) can be executed in parallel Is there
-                // one type of queue per operation? No, a queue family can support
-                // multiple types of operations What does a queue family correspond to
-                // physically? A queue family corresponds to a physical hardware unit
-                // that can execute commands How many queue families does a GPU have? It
-                // varies by GPU, but typically there are several queue families for
-                // different operations
                 computeQueueFamilyIndex = i;
                 return device;
             }
@@ -98,10 +82,6 @@ namespace mynydd {
     throw std::runtime_error("No suitable GPU with compute queue found");
     }
 
-    // 3. Create logical device and get compute queue
-    // A logical device is different to a physical device in that
-    // it represents an abstraction of the physical device that can be used to
-    // interact with the GPU. It allows us to create resources like buffers,
     VkDevice createLogicalDevice(
         VkPhysicalDevice physicalDevice,
         uint32_t computeQueueFamilyIndex,
@@ -222,16 +202,6 @@ namespace mynydd {
         return shaderModule;
     }
 
-    /**
-    * Creates a descriptor set layout with one storage buffer binding.
-    * A descriptor set layout defines the structure of a descriptor set,
-    * which is used to bind resources (like buffers) to shaders.
-    * In turn, a descriptor set is a collection of descriptors that describe
-    * resources, for example, a storage buffer that can be accessed by a compute
-    * shader. We have to inform the GPU about the resources that will be used in
-    * the compute shader. This is analogous to telling a scheduler like SLURM what
-    * resources (like CPUs, memory) a job will need.
-    */
     VkDescriptorSetLayout createDescriptorSetLayout(
         VkDevice device,
         const std::vector<std::shared_ptr<Buffer>>& buffers
@@ -262,15 +232,6 @@ namespace mynydd {
         return layout;
     }
 
-    /**
-    * Creates a descriptor pool and allocates a descriptor set from it.
-    * A descriptor pool is a memory pool that holds descriptors,
-    * which are used to bind resources to shaders. These correspond to shader
-    * variables that need to be filled with data before dispatching a compute
-    * shader. For example, a descriptor set can hold a storage buffer that the
-    * compute shader will read from or write to, such as a buffer containing input
-    * data or output results, or uniform data that the shader needs to access.
-    */
     VkDescriptorSet allocateDescriptorSet(
         VkDevice device,
         VkDescriptorSetLayout layout,
@@ -308,14 +269,6 @@ namespace mynydd {
         return descriptorSet;
     }
 
-    /**
-    * Binds a buffer to the given descriptor set at binding 0.
-    * The descriptor set contains information about the resources that the compute
-    * shader will use. In this case, the buffer will be used as a storage buffer,
-    * which means it can be read from and written to by the compute shader. For our
-    * GPU compute abstraction, this will correspond to dtypes that the compute
-    * shader will process.
-    */
     void updateDescriptorSet(
         VkDevice device,
         VkDescriptorSet descriptorSet,
@@ -358,17 +311,6 @@ namespace mynydd {
         );
     }
     
-    /**
-    * Creates a compute pipeline with given shader and descriptor set layout.
-    * A compute pipeline is a set of instructions that the GPU will execute for
-    * compute operations. For pure compute, it's quite simple, as it only requires
-    * a shader module and a descriptor set layout. This is analogous to a data
-    * workflow, where the compute shader is the processing step, and the descriptor
-    * set layout defines the inputs and outputs of that processing step. Compare
-    * this to Nextflow, where a process is defined by a script that specifies how
-    * data flows through different steps. A key difference is that in Vulkan, we
-    * explicitly create a pipeline layout that includes the descriptor set layout.
-    */
     VkPipeline createComputePipeline(
         VkDevice device,
         VkShaderModule shaderModule,
@@ -383,8 +325,6 @@ namespace mynydd {
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
         if (!pushConstantSizes.empty()) {
-
-            std::cerr << "Creating pipeline step with push constant sizes!" << std::endl;
             std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
             for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
                 ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -428,13 +368,6 @@ namespace mynydd {
         return pipeline;
     }
 
-    /**
-    * Creates a command pool for the given queue family index.
-    * A command pool is a memory pool that holds command buffers,
-    * which are used to record commands that the GPU will execute.
-    * Physically, the command pool resides in the GPU memory and is used to
-    * allocate command buffers.
-    */
     VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex) {
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -448,13 +381,6 @@ namespace mynydd {
         return commandPool;
     }
 
-
-    /**
-    * Allocates a single command buffer from the given command pool.
-    * The pool contains command buffers that can be used to record commands.
-    * When we allocate _from_ the command pool, we are essentially reserving
-    * a command buffer that we can use to record commands for the GPU to execute.
-    */
     VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool pool) {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -470,10 +396,6 @@ namespace mynydd {
         return cmdBuffer;
     }
 
-
-    /**
-    * Submits the command buffer and waits for execution to complete.
-    */
     void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer) {
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
