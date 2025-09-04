@@ -10,9 +10,9 @@
 
 #include <mynydd/mynydd.hpp>
 
-#include <mynydd/shader_interop.hpp>
-#include "../src/pipelines/shaders/morton_kernels.comp.kern"
 #include "test_morton_helpers.hpp"
+#include "../src/pipelines/shaders/morton_kernels.comp.kern"
+
 
 
 TEST_CASE("Morton kernels produce expected results in 2D", "[morton]") {

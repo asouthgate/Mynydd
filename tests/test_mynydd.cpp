@@ -274,20 +274,15 @@ TEST_CASE("Compute pipeline processes data for float 1000 times", "[vulkan]") {
 
 
     mynydd::uploadData<float>(contextPtr, inputData, input);
-    std::cerr << "Uploaded data" << std::endl;
     // pipeline.execute(n);
     std::vector<std::shared_ptr<mynydd::PipelineStep>> pipelines;
     for (size_t i = 0; i < 1000; ++i) {
         pipelines.push_back(pipeline);
     }
     mynydd::executeBatch(contextPtr, {pipelines});
-    std::cerr << "Executed" << std::endl;
     std::vector<float> out = mynydd::fetchData<float>(contextPtr, input, n);
-    std::cerr << "Fetched" << std::endl;
     for (size_t i = 1; i < std::min<size_t>(out.size(), 10); ++i) {
-        std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
         REQUIRE(out[i] == Catch::Approx(1000.0 + static_cast<float>(i)));
     }
-    std::cerr << "Checked output" << std::endl;
     SUCCEED("Compute shader executed for 1.0/floats.");
 }
