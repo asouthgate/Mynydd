@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <mynydd/mynydd.hpp>
+#include <mynydd/shader_interop.hpp>
 
 
 struct Particle {
@@ -22,5 +23,6 @@ struct KeyRange {
 std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits);
 std::vector<KeyRange> computeKeyRanges(const std::vector<Particle>& particles, float dmax);
 std::vector<uint32_t> runMortonTest(std::shared_ptr<mynydd::VulkanContext> contextPtr, const uint32_t nBits, std::vector<Particle>& particles);
+int morton3D(int x, int y, int z);
 
 #endif // TEST_MORTON_HELPERS_HPP
