@@ -1,4 +1,3 @@
-#include <array>
 #include <assert.h>
 #include <cstddef>
 #include <cstdint>
@@ -42,9 +41,10 @@ namespace mynydd {
         return instance;
     }
 
-    // 2. Select physical device with compute support
-    VkPhysicalDevice pickPhysicalDevice(VkInstance instance,
-                                        uint32_t &computeQueueFamilyIndex) {
+    VkPhysicalDevice pickPhysicalDevice(
+        VkInstance instance,
+        uint32_t &computeQueueFamilyIndex
+    ) {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
         if (deviceCount == 0)
@@ -62,24 +62,16 @@ namespace mynydd {
                                                     queueFamilies.data());
 
             for (uint32_t i = 0; i < queueFamilyCount; ++i) {
-            // Print the number of queue families this GPU has
-            std::cout << "Number of queue families: " << queueFamilyCount
-                        << std::endl;
-            // Print the properties of each queue family
-            std::cout << "Queue family " << i << ": "
-                        << "Count: " << queueFamilies[i].queueCount
-                        << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
-            if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                VkPhysicalDeviceProperties props;
-                vkGetPhysicalDeviceProperties(device, &props);
-                std::cout << "Selected device: " << props.deviceName << std::endl;
-                computeQueueFamilyIndex = i;
-                return device;
+                if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                    VkPhysicalDeviceProperties props;
+                    vkGetPhysicalDeviceProperties(device, &props);
+                    std::cout << "Selected device: " << props.deviceName << std::endl;
+                    computeQueueFamilyIndex = i;
+                    return device;
+                }
             }
         }
-    }
-
-    throw std::runtime_error("No suitable GPU with compute queue found");
+        throw std::runtime_error("No suitable GPU with compute queue found");
     }
 
     VkDevice createLogicalDevice(
@@ -205,7 +197,7 @@ namespace mynydd {
     VkDescriptorSetLayout createDescriptorSetLayout(
         VkDevice device,
         const std::vector<std::shared_ptr<Buffer>>& buffers
-) {
+    ) {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
         size_t bindingIndex = 0;
@@ -396,29 +388,6 @@ namespace mynydd {
         return cmdBuffer;
     }
 
-    void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer) {
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmdBuffer;
-
-        // This fence is used to synchronize the command buffer execution
-        // Specifically, 
-        // it allows us to wait for the command buffer to finish executing,
-        // before we proceed to read the results from the buffer.
-        VkFence fence;
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        vkCreateFence(device, &fenceInfo, nullptr, &fence);
-
-        if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to submit command buffer");
-        }
-
-        vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-        vkDestroyFence(device, fence, nullptr);
-    }
-
 
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,
@@ -479,7 +448,6 @@ namespace mynydd {
             buffers
         );
     }
-
 
     void recordCommandBuffer(
         VkCommandBuffer cmdBuffer,
