@@ -14,33 +14,6 @@
 
 namespace mynydd {
     
-    // VulkanContext createVulkanContext();
-    // // Required forward declarations for Vulkan functions used in the template
-    
-    // VkDescriptorSet allocateDescriptorSet(
-    //     VkDevice device,
-    //     VkDescriptorSetLayout descriptorSetLayout,
-    //     VkDescriptorPool &descriptorPool
-    // );
-    // VulkanPipelineResources create_pipeline_resources(
-    //     std::shared_ptr<VulkanContext> contextPtr,
-    //     const char* shaderPath,
-    //     VkDescriptorSetLayout &descriptorLayout,
-    //     std::vector<uint32_t> pushConstantSizes = {}
-    // );
-    // VkCommandPool createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
-    // VkCommandBuffer allocateCommandBuffer(VkDevice device, VkCommandPool commandPool);
-    // void recordCommandBuffer(
-    //     VkCommandBuffer commandBuffer,
-    //     VkPipeline pipeline,
-    //     VkPipelineLayout pipelineLayout,
-    //     VkDescriptorSet descriptorSet,
-    //     uint32_t numElements
-    // );
-    // void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer);
-    // VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
-
-
     struct TrivialUniform {
         float dummy = 0.0f;
     };

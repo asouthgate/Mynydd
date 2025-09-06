@@ -396,29 +396,6 @@ namespace mynydd {
         return cmdBuffer;
     }
 
-    void submitAndWait(VkDevice device, VkQueue queue, VkCommandBuffer cmdBuffer) {
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmdBuffer;
-
-        // This fence is used to synchronize the command buffer execution
-        // Specifically, 
-        // it allows us to wait for the command buffer to finish executing,
-        // before we proceed to read the results from the buffer.
-        VkFence fence;
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        vkCreateFence(device, &fenceInfo, nullptr, &fence);
-
-        if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to submit command buffer");
-        }
-
-        vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-        vkDestroyFence(device, fence, nullptr);
-    }
-
 
     VulkanPipelineResources create_pipeline_resources(
         std::shared_ptr<VulkanContext> contextPtr,

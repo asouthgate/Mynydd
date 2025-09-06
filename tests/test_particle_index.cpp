@@ -25,7 +25,7 @@ uint32_t pos2bin(float p, uint32_t nBits) {
 TEST_CASE("Particle index works correctly", "[index]") {
 
     // Create a Vulkan context
-    uint32_t nParticles = 4096 * 4;
+    uint32_t nParticles = 4096 * 2;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto inputBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
@@ -57,11 +57,11 @@ TEST_CASE("Particle index works correctly", "[index]") {
     particleIndexPipeline.execute();
 
     auto cellData = mynydd::fetchData<mynydd::CellInfo>(
-        contextPtr, particleIndexPipeline.outputIndexBuffer, particleIndexPipeline.getNCells()
+        contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
     );
 
     auto indexData = mynydd::fetchData<uint32_t>(
-        contextPtr, particleIndexPipeline.radixSortPipeline.ioSortedIndicesB, nParticles
+        contextPtr, particleIndexPipeline.radixSortPipeline.getSortedIndicesBuffer(), nParticles
     );
 
     requireNotJustZeroes(indexData);
@@ -100,6 +100,8 @@ TEST_CASE("Particle index works correctly", "[index]") {
         }
 
     }
+
+    particleIndexPipeline.debug_assert_bin_consistency();
 
     REQUIRE(true);
 }

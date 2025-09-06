@@ -219,13 +219,13 @@ std::vector<uint32_t> runFullRadixSortTest(
 
     radixSortPipeline.execute_init();
 
-    mynydd::uploadData<uint32_t>(contextPtr, inputData0, radixSortPipeline.ioBufferA);
+    mynydd::uploadData<uint32_t>(contextPtr, inputData0, radixSortPipeline.m_ioBufferA);
 
-    auto inputBuffer = radixSortPipeline.ioBufferA;
-    auto outputBuffer = radixSortPipeline.ioBufferB;
+    auto inputBuffer = radixSortPipeline.m_ioBufferA;
+    auto outputBuffer = radixSortPipeline.m_ioBufferB;
 
     auto initialRange = mynydd::fetchData<uint32_t>(
-        contextPtr, radixSortPipeline.ioSortedIndicesB, n
+        contextPtr, radixSortPipeline.m_ioSortedIndicesB, n
     );
 
     for (size_t i = 0; i < n; ++i) {
@@ -238,8 +238,8 @@ std::vector<uint32_t> runFullRadixSortTest(
 
         radixSortPipeline.execute_pass(pass);
 
-        inputBuffer = pass % 2 == 0 ? radixSortPipeline.ioBufferA : radixSortPipeline.ioBufferB;
-        outputBuffer = pass % 2 == 0 ? radixSortPipeline.ioBufferB : radixSortPipeline.ioBufferA;
+        inputBuffer = pass % 2 == 0 ? radixSortPipeline.m_ioBufferA : radixSortPipeline.m_ioBufferB;
+        outputBuffer = pass % 2 == 0 ? radixSortPipeline.m_ioBufferB : radixSortPipeline.m_ioBufferA;
 
         uint32_t bitOffset = pass * radixSortPipeline.bitsPerPass;
         std::cerr << "Running test radix pass " << pass << " with bit offset " << bitOffset << std::endl;

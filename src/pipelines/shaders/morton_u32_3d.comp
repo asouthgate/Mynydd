@@ -5,12 +5,12 @@ layout(local_size_x = 64) in;
 
 #include "morton_kernels.comp.kern"
 
-struct Particle {
+struct ParticlePosition {
     vec3 position;
 };
 
 layout(set = 0, binding = 0) buffer inputData {
-    Particle particles[];
+    ParticlePosition particles[];
 } inData;
 
 layout(set = 0, binding = 1) buffer outputData {
