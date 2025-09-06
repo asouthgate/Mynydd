@@ -50,7 +50,7 @@ namespace mynydd {
                 nBitsPerAxis(nBitsPerAxis),
                 inputBuffer(inputBuffer),
                 nDataPoints(nDataPoints),
-                radixSortPipeline(contextPtr, itemsPerGroup, static_cast<uint32_t>(nDataPoints))
+                m_radixSortPipeline(contextPtr, itemsPerGroup, static_cast<uint32_t>(nDataPoints))
             {
                 
                 // assert (inputBuffer->getSize() == nDataPoints * sizeof(T) &&
@@ -63,7 +63,7 @@ namespace mynydd {
                 mortonStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/morton_u32_3d.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
-                        inputBuffer, radixSortPipeline.m_ioBufferA, mortonUniformBuffer
+                        inputBuffer, m_radixSortPipeline.m_ioBufferA, mortonUniformBuffer
                     },
                     (nDataPoints + 63) / 64
                 );
@@ -76,7 +76,7 @@ namespace mynydd {
                 sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
-                        radixSortPipeline.getSortedMortonKeysBuffer(), 
+                        m_radixSortPipeline.getSortedMortonKeysBuffer(), 
                         m_outputIndexCellRangeBuffer, 
                         indexUniformBuffer
                     },
@@ -112,7 +112,7 @@ namespace mynydd {
 
                 mynydd::executeBatch(contextPtr, {mortonStep});
 
-                radixSortPipeline.execute();
+                m_radixSortPipeline.execute();
                 // the index needs to be zeroed every time
                 vkCmdFillBuffer(
                     contextPtr->commandBuffer,
@@ -131,7 +131,7 @@ namespace mynydd {
 
             void debug_assert_bin_consistency() {
                 auto indexData = mynydd::fetchData<uint32_t>(
-                    contextPtr, radixSortPipeline.getSortedIndicesBuffer(), nDataPoints
+                    contextPtr, m_radixSortPipeline.getSortedIndicesBuffer(), nDataPoints
                 );
 
                 auto cellData = mynydd::fetchData<mynydd::CellInfo>(
@@ -179,6 +179,14 @@ namespace mynydd {
                 return m_outputIndexCellRangeBuffer;
             }
 
+            std::shared_ptr<mynydd::Buffer> getSortedIndicesBuffer() {
+                return m_radixSortPipeline.getSortedIndicesBuffer();
+            }
+
+            std::shared_ptr<mynydd::Buffer> getSortedMortonKeysBuffer() {
+                return m_radixSortPipeline.getSortedMortonKeysBuffer();
+            }
+
             uint32_t itemsPerGroup = 256; // Hardcoded temporarily
             uint32_t nDataPoints;
             glm::vec3 domainMin = glm::vec3(0.0f);
@@ -187,12 +195,12 @@ namespace mynydd {
 
             // TODO: don't necessarily need this to be shared ptr
             std::shared_ptr<mynydd::Buffer> inputBuffer;
-            RadixSortPipeline radixSortPipeline;
 
         private:
 
             std::shared_ptr<mynydd::Buffer> m_outputIndexCellRangeBuffer;  // sized number of cells
 
+            RadixSortPipeline m_radixSortPipeline;
 
             std::shared_ptr<mynydd::Buffer> mortonUniformBuffer;
             std::shared_ptr<mynydd::Buffer> indexUniformBuffer;

@@ -61,7 +61,7 @@ TEST_CASE("Particle index works correctly", "[index]") {
     );
 
     auto indexData = mynydd::fetchData<uint32_t>(
-        contextPtr, particleIndexPipeline.radixSortPipeline.getSortedIndicesBuffer(), nParticles
+        contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
     );
 
     requireNotJustZeroes(indexData);

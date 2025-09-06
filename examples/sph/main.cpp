@@ -54,8 +54,8 @@ int main(int argc, char** argv) {
         "examples/sph/compute_density.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             inputDensityBuffer,
-            particleIndexPipeline.radixSortPipeline.getSortedMortonKeysBuffer(),
-            particleIndexPipeline.radixSortPipeline.getSortedIndicesBuffer(),
+            particleIndexPipeline.getSortedMortonKeysBuffer(),
+            particleIndexPipeline.getSortedIndicesBuffer(),
             particleIndexPipeline.getOutputIndexCellRangeBuffer(),
             outputDensityBuffer
         },
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
         contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
     );
     auto indexData = mynydd::fetchData<uint32_t>(
-        contextPtr, particleIndexPipeline.radixSortPipeline.getSortedIndicesBuffer(), nParticles
+        contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
     );
 
     for (uint32_t morton_key = 0; morton_key < particleIndexPipeline.getNCells(); ++morton_key) {
