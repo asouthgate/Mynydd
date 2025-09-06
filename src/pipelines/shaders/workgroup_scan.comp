@@ -11,69 +11,97 @@ layout(set = 0, binding = 1) writeonly buffer PrefixSums {
 };
 
 layout(set = 0, binding = 2) uniform Params {
-    uint histogramCount; // number of histograms (= number of workgroups dispatched)
-    uint numBins;     // length of each histogram
+    uint histogramCount; // number of histograms (rows)
+    uint numBins;        // length of each histogram (may be > 256)
 } params;
 
-shared uint localData[256];
+// scratch for one tile (tile size = local_size_x)
+shared uint tile[256];
+// per-tile totals for this row; max tiles supported = 256 (so max row length = 256*256 = 65536)
+shared uint tileTotals[256];
 
 void main() {
-    uint histogramIdx = gl_WorkGroupID.x; // which histogram
-    if (histogramIdx >= params.histogramCount) {
-        return;
-    }
+    uint row = gl_WorkGroupID.x;
+    if (row >= params.histogramCount) return;
 
     uint tid = gl_LocalInvocationID.x;
+    uint tileSize = gl_WorkGroupSize.x; // 256
+    uint base = row * params.numBins;
 
-    uint base = histogramIdx * params.numBins;
+    // number of tiles needed to cover the row
+    uint nTiles = (params.numBins + tileSize - 1u) / tileSize;
+    if (nTiles == 0u) return;
 
-    // Load elements into shared memory, if within range
-    uint val = 0;
-    if (tid < params.numBins) {
-        val = data[base + tid];
-        localData[tid] = val;
+    // --- Phase 1: local exclusive scan for each tile, store tile totals ---
+    for (uint t = 0u; t < nTiles; ++t) {
+        uint idxInRow = t * tileSize + tid;         // index within row
+        uint globalIdx = base + idxInRow;          // global buffer index
+
+        // load (pad with 0)
+        uint v = (idxInRow < params.numBins) ? data[globalIdx] : 0u;
+        tile[tid] = v;
+        barrier();
+
+        // Blelloch exclusive scan over 'tile' (in-place), robust to non-power-of-two
+        // up-sweep
+        for (uint offset = 1u; offset < tileSize; offset <<= 1u) {
+            uint ai = (tid + 1u) * offset * 2u - 1u;
+            if (ai < tileSize) {
+                uint bi = ai - offset;
+                tile[ai] += tile[bi];
+            }
+            barrier();
+        }
+
+        // make exclusive
+        if (tid == tileSize - 1u) {
+            // save total (inclusive sum) for this tile: tile[last] currently holds inclusive sum
+            tileTotals[t] = tile[tid];
+            tile[tid] = 0u;
+        }
+        barrier();
+
+        // down-sweep
+        for (uint offset = tileSize >> 1u; offset > 0u; offset >>= 1u) {
+            uint ai = (tid + 1u) * offset * 2u - 1u;
+            if (ai < tileSize) {
+                uint bi = ai - offset;
+                uint tmp = tile[bi];
+                tile[bi] = tile[ai];
+                tile[ai] += tmp;
+            }
+            barrier();
+        }
+
+        // write back tile prefix (exclusive) for valid indices
+        if (idxInRow < params.numBins) {
+            prefix[globalIdx] = tile[tid];
+        }
+        barrier();
     }
-    else {
-        localData[tid] = 0; // pad zeros if out of range
-    }
 
+    // --- Phase 2: prefix-sum the tileTotals (serial in first warp) ---
+    // tileTotals contains inclusive sums per tile (from Phase 1). We need exclusive prefix.
+    // We'll let threads 0..min(nTiles, tileSize)-1 participate; nTiles <= 256 (by design).
+    if (tid == 0u) {
+        // serial prefix of tileTotals into itself as exclusive
+        uint running = 0u;
+        for (uint i = 0u; i < nTiles; ++i) {
+            uint cur = tileTotals[i];
+            tileTotals[i] = running;
+            running += cur;
+        }
+    }
     barrier();
 
-    // Exclusive prefix sum (Blelloch scan) in shared memory
-    // Up-sweep phase
-    uint offset = 1;
-    for (uint d = params.numBins >> 1; d > 0; d >>= 1) {
-        barrier();
-        if (tid < d) {
-            uint ai = offset*(2*tid+1) - 1;
-            uint bi = offset*(2*tid+2) - 1;
-            localData[bi] += localData[ai];
-        }
-        offset <<= 1;
-    }
-
-    // Clear last element for exclusive scan
-    if (tid == 0) {
-        localData[params.numBins - 1] = 0;
-    }
-
-    // Down-sweep phase
-    for (uint d = 1; d < params.numBins; d <<= 1) {
-        offset >>= 1;
-        barrier();
-        if (tid < d) {
-            uint ai = offset*(2*tid+1) - 1;
-            uint bi = offset*(2*tid+2) - 1;
-
-            uint t = localData[ai];
-            localData[ai] = localData[bi];
-            localData[bi] += t;
+    // --- Phase 3: add tile offsets to each element's prefix ---
+    for (uint t = 0u; t < nTiles; ++t) {
+        uint idxInRow = t * tileSize + tid;
+        uint globalIdx = base + idxInRow;
+        if (idxInRow < params.numBins) {
+            // add the exclusive prefix-of-tiles (tileTotals[t]) to the already-written tile-local prefix
+            prefix[globalIdx] += tileTotals[t];
         }
     }
-    barrier();
-
-    // Write back prefix sums to output buffer
-    if (tid < params.numBins) {
-        prefix[base + tid] = localData[tid];
-    }
+    // done
 }

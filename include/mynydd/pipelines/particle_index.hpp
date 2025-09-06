@@ -163,12 +163,6 @@ namespace mynydd {
                         uint32_t pj = pos2bin(particle.position.y, nBitsPerAxis);
                         uint32_t pk = pos2bin(particle.position.z, nBitsPerAxis);
 
-                        if (ak < 10) std::cerr << "Cell " << ak << " contains particle at " 
-                                << particle.position.x << ", " 
-                                << particle.position.y << ", " 
-                                << particle.position.z << " mapped to bin " 
-                                << pi << ", " << pj << ", " << pk << std::endl;
-
                         bini.push_back(pi);
                         binj.push_back(pj);
                         bink.push_back(pk);

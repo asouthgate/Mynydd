@@ -25,7 +25,10 @@ uint32_t pos2bin(float p, uint32_t nBits) {
 TEST_CASE("Particle index works correctly", "[index]") {
 
     // Create a Vulkan context
-    uint32_t nParticles = 4096 * 2;
+    uint32_t nParticles = 1 << 20;
+
+    std::cerr << "Running particle index test with " << nParticles << " particles." << std::endl;
+
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto inputBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
@@ -68,6 +71,7 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
     REQUIRE(particleIndexPipeline.getNCells() == 16 * 16 * 16);
 
+    uint32_t binsum = 0;
     for (uint32_t ak = 0; ak < particleIndexPipeline.getNCells(); ++ak) {
 
         uint nCellsPerAxis = (1 << particleIndexPipeline.nBitsPerAxis);
@@ -80,6 +84,8 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
         uint32_t start = cellData[ak_morton].left;
         uint32_t end = cellData[ak_morton].right;
+
+        binsum += (end - start);
 
         if (start == end) {
             continue; // Empty cell
@@ -103,5 +109,6 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
     particleIndexPipeline.debug_assert_bin_consistency();
 
-    REQUIRE(true);
+    std::cerr << "Particle index test: total particles in bins: " << binsum << std::endl;
+    REQUIRE(binsum == nParticles);
 }

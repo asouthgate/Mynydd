@@ -465,6 +465,17 @@ TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
 }
 
+
+TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes for n > 2^16 (regression)", "[sort]") {
+    const size_t n = 1 << 17; // 65536 elements for test
+    std::vector<uint32_t> inputData(n);
+    std::mt19937 rng(12345);
+    std::uniform_int_distribution<uint32_t> dist(0, ((1u << 31) - 1u));
+    for (auto& v : inputData) v = dist(rng);
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
+}
+
 void run_full_pipeline_morton(uint32_t nBits) {
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto particles = getMortonTestGridRegularParticleData(nBits);

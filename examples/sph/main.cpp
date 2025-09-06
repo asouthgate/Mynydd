@@ -1,3 +1,5 @@
+#include <chrono>
+#include <cstdint>
 #include <random>
 #include <glm/glm.hpp>
 #include <mynydd/mynydd.hpp>
@@ -16,6 +18,15 @@ struct Params {
 int main(int argc, char** argv) {
 
     uint32_t nParticles = 4096 * 16;
+    std::cerr << argc << std::endl;
+    if (argc == 2) {
+        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
+    } else if (argc > 2) {
+        std::cerr << "Usage: nParticles" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
 
     // Generate some input data to start with
     std::vector<ParticlePosition> inputPos(nParticles);
@@ -48,7 +59,7 @@ int main(int argc, char** argv) {
         glm::vec3(1.0f)  // domainMax
     );
 
-
+    uint32_t groupCount = (nParticles + 256 - 1) / 256;
     auto computeDensities = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
         "examples/sph/compute_density.comp.spv", 
@@ -59,16 +70,21 @@ int main(int argc, char** argv) {
             particleIndexPipeline.getOutputIndexCellRangeBuffer(),
             outputDensityBuffer
         },
-        256
+        groupCount
     );
 
     mynydd::uploadData<ParticlePosition>(contextPtr, inputPos, inputPosBuffer);
     mynydd::uploadData<float>(contextPtr, inputDensities, inputDensityBuffer);
 
-    particleIndexPipeline.execute();
 
+    auto start = std::chrono::high_resolution_clock::now();
+
+    particleIndexPipeline.execute();
     mynydd::executeBatch(contextPtr, {computeDensities});
     particleIndexPipeline.debug_assert_bin_consistency();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = end - start;
+    std::cerr << "Particle indexing + density computation took " << elapsed.count() << " ms" << std::endl;
 
     auto densities = mynydd::fetchData<float>(contextPtr, outputDensityBuffer, nParticles);
     // Check that densities are valid by iterating over the cell index, retrieving all particles in a bin, and manually computing density
@@ -79,6 +95,8 @@ int main(int argc, char** argv) {
         contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
     );
 
+    size_t printed = 0;
+
     for (uint32_t morton_key = 0; morton_key < particleIndexPipeline.getNCells(); ++morton_key) {
         uint32_t start = cellData[morton_key].left;
         uint32_t end = cellData[morton_key].right;
@@ -88,12 +106,12 @@ int main(int argc, char** argv) {
         }
 
         float avg_dens = 0.0f;
-        std::cerr << "Cell ak: " << morton_key << " raw range: " << start << " " << end << std::endl;
         for (uint32_t pind = start; pind < end; ++pind) {
             uint32_t unsorted_ind = indexData[pind];
             auto particle = inputPos[unsorted_ind];
 
-            if (morton_key < 20) std::cerr << "Cell " << morton_key 
+            if (printed < 10) {
+                std::cerr << "Cell " << morton_key 
                     << " with start" << start
                     << " and end" << end
                     << " contains particle at original_index"
@@ -102,11 +120,17 @@ int main(int argc, char** argv) {
                     << particle.position.y << ", " 
                     << particle.position.z << " with density: " 
                     << inputDensities[unsorted_ind] << std::endl;
+                printed++;
+            }
 
             avg_dens += inputDensities[unsorted_ind];
         }
         avg_dens /= float(end - start);
-        assert(fabs(avg_dens - densities[start]) < 1e-5);
+        if (fabs(avg_dens - densities[start]) < 1e-5) {
+        } else {
+            std::cerr << "Cell " << morton_key << " density check FAILED: computed " << avg_dens << " vs shader " << densities[start] << std::endl;
+            throw std::runtime_error("Density check failed");
+        }
 
     }
 
