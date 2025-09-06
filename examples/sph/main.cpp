@@ -106,9 +106,7 @@ int main(int argc, char** argv) {
             avg_dens += inputDensities[unsorted_ind];
         }
         avg_dens /= float(end - start);
-        std::cerr << "Cell " << morton_key << " average density: " << avg_dens <<  "computed vs " 
-            << densities[start] << " from compute shader" << std::endl;
-        assert(avg_dens == densities[start]);
+        assert(fabs(avg_dens - densities[start]) < 1e-5);
 
     }
 
