@@ -52,6 +52,11 @@ namespace mynydd {
                 nDataPoints(nDataPoints),
                 m_radixSortPipeline(contextPtr, itemsPerGroup, static_cast<uint32_t>(nDataPoints))
             {
+
+                bool isPow2 = (nDataPoints & (nDataPoints - 1)) != 0 || nDataPoints == 0;
+                if (isPow2) {
+                    throw std::runtime_error("Number of data points must be > 0 and a power of two");
+                }
                 
                 // assert (inputBuffer->getSize() == nDataPoints * sizeof(T) &&
                 //     "Input buffer size must match number of data points times size of T");
