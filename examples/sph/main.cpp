@@ -77,14 +77,16 @@ int main(int argc, char** argv) {
     mynydd::uploadData<float>(contextPtr, inputDensities, inputDensityBuffer);
 
 
-    auto start = std::chrono::high_resolution_clock::now();
-
+    auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
+    auto t1 = std::chrono::high_resolution_clock::now();
     mynydd::executeBatch(contextPtr, {computeDensities});
     particleIndexPipeline.debug_assert_bin_consistency();
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
-    std::cerr << "Particle indexing + density computation took " << elapsed.count() << " ms" << std::endl;
+    auto t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
+    std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
+    std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
+    std::cerr << "Density computation took " << elapsed2.count() << " ms" << std::endl;
 
     auto densities = mynydd::fetchData<float>(contextPtr, outputDensityBuffer, nParticles);
     // Check that densities are valid by iterating over the cell index, retrieving all particles in a bin, and manually computing density
