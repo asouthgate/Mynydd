@@ -19,11 +19,11 @@ SPHData simulate_inputs(uint32_t nParticles) {
         inputPos[ak].position = glm::vec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = dist(rng);
     }
-    return {inputDensities, inputPos, {}, {}};
+    return {inputDensities, inputPos, {}, {}, {}};
 }
 
 
-SPHData run_sph_example(const SPHData& inputData) {
+SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis) {
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
@@ -48,7 +48,7 @@ SPHData run_sph_example(const SPHData& inputData) {
     mynydd::ParticleIndexPipeline<ParticlePosition> particleIndexPipeline(
         contextPtr,
         pingPosBuffer,
-        4, // nBitsPerAxis
+        nBitsPerAxis, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
         glm::vec3(0.0f), // domainMin
@@ -103,7 +103,8 @@ SPHData run_sph_example(const SPHData& inputData) {
 
     return {
         mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles),
-        mynydd::fetchData<ParticlePosition>(contextPtr, pingPosBuffer, nParticles),
+        mynydd::fetchData<ParticlePosition>(contextPtr, pongPosBuffer, nParticles),
+        mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),
         mynydd::fetchData<mynydd::CellInfo>(contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells())
     };

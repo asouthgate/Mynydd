@@ -1,12 +1,17 @@
 #version 450
 layout(local_size_x = 256) in;
 
+
+struct ParticlePosition {
+    vec3 position;
+};
+
 layout(set = 0, binding = 0) readonly buffer InputDensities {
     float inputDensities[];
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
-    vec2 inputPositions[];
+    ParticlePosition inputPositions[];
 };
 
 layout(set = 0, binding = 2) readonly buffer PermutedInds {
@@ -18,7 +23,7 @@ layout(set = 0, binding = 3) buffer OutputDensities {
 };
 
 layout(set = 0, binding = 4) buffer OutputPositions {
-    vec2 outputPositions[];
+    ParticlePosition outputPositions[];
 };
 
 void main() {

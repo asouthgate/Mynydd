@@ -5,18 +5,36 @@
 
 #include "sph.hpp"
 
+void printSPHDataCSV(const SPHData& data) {
+    std::cout << "density,x,y,z,morton_key\n";
+    for (size_t i = 0; i < data.mortonKeys.size(); ++i) {
+        const auto& pos = data.positions[i];
+        float density = data.densities[i];
+        uint32_t key = data.mortonKeys[i];
+        std::cout << density << ","
+                  << pos.position.x << "," << pos.position.y << "," << pos.position.z << ","
+                  << key << "\n";
+    }
+}
+
 int main(int argc, char** argv) {
 
     uint32_t nParticles = 4096 * 16;
-
+    uint32_t nBitsPerAxis = 4;
     if (argc == 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-    } else if (argc > 2) {
+    } else if (argc == 3) {
+        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
+        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
+    }
+    else if (argc > 3) {
         std::cerr << "Usage: nParticles" << std::endl;
         return EXIT_FAILURE;
     }
 
     auto simulated = simulate_inputs(nParticles);
-    run_sph_example(simulated);
+    auto outputs = run_sph_example(simulated, nBitsPerAxis);
+
+    printSPHDataCSV(outputs);
 
 }

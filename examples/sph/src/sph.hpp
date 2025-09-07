@@ -12,10 +12,11 @@ struct ParticlePosition {
 struct SPHData {
     std::vector<float> densities;
     std::vector<ParticlePosition> positions;
+    std::vector<uint32_t> mortonKeys;
     std::vector<uint32_t> sortedIndices;
     std::vector<mynydd::CellInfo> cellInfos;
 };
 
 SPHData simulate_inputs(uint32_t nParticles);
 
-SPHData run_sph_example(const SPHData& inputData);
+SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis = 4);

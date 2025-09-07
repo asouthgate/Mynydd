@@ -95,19 +95,7 @@ TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
 
-    // auto particleIndexPipeline = out.particleIndexPipeline;
-
-
-
-    // auto densities = mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles);
-    // // Check that densities are valid by iterating over the cell index, retrieving all particles in a bin, and manually computing density
-    // auto indexData = mynydd::fetchData<uint32_t>(
-    //     contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
-    // );
-    // auto cellData = mynydd::fetchData<mynydd::CellInfo>(
-    //     contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
-    // );
-
+    auto outputPos = out.positions;
     auto cellData = out.cellInfos;
     auto densities = out.densities;
     auto indexData = out.sortedIndices;
@@ -129,8 +117,12 @@ TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
         for (uint32_t pind = start; pind < end; ++pind) {
             uint32_t unsorted_ind = indexData[pind];
             auto particle = inputPos[unsorted_ind];
+            
+            REQUIRE(particle.position.x == outputPos[pind].position.x);
+            REQUIRE(particle.position.y == outputPos[pind].position.y);
+            REQUIRE(particle.position.z == outputPos[pind].position.z);
 
-            if (printed < 10) {
+            if (morton_key < 5 || morton_key > nCells - 5) {
                 std::cerr << "Cell " << morton_key 
                     << " with start" << start
                     << " and end" << end
@@ -146,11 +138,7 @@ TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
             avg_dens += inputDensities[unsorted_ind];
         }
         avg_dens /= float(end - start);
-        if (fabs(avg_dens - densities[start]) < 1e-5) {
-        } else {
-            std::cerr << "Cell " << morton_key << " density check FAILED: computed " << avg_dens << " vs shader " << densities[start] << std::endl;
-            throw std::runtime_error("Density check failed");
-        }
+        REQUIRE (fabs(avg_dens - densities[start]) < 1e-5);
 
     }
 }
