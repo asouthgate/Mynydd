@@ -6,25 +6,9 @@
 #include <mynydd/pipelines/particle_index.hpp>
 #include <vector>
 
-struct ParticlePosition {
-    alignas(16) glm::vec3 position;
-};
+#include "sph.hpp"
 
-struct Params {
-    float dt;
-    float _pad[3];
-};
-
-int main(int argc, char** argv) {
-
-    uint32_t nParticles = 4096 * 16;
-    std::cerr << argc << std::endl;
-    if (argc == 2) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-    } else if (argc > 2) {
-        std::cerr << "Usage: nParticles" << std::endl;
-        return EXIT_FAILURE;
-    }
+void run_sph_example(uint32_t nParticles) {
 
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
 
@@ -154,5 +138,4 @@ int main(int argc, char** argv) {
 
     }
 
-
-}
+ }

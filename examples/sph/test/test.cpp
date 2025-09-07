@@ -5,7 +5,7 @@
 #include <catch2/catch_approx.hpp>
 
 #include <mynydd/shader_interop.hpp>
-#include "kernels.comp.kern"
+#include "../src/kernels.comp.kern"
 
 
 TEST_CASE("test_spiky_kernel", "[sph]") {
