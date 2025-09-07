@@ -5,7 +5,8 @@
 #include <catch2/catch_approx.hpp>
 
 #include <mynydd/shader_interop.hpp>
-#include "kernels.comp.kern"
+#include "../src/kernels.comp.kern"
+#include "../src/sph.hpp"
 
 
 TEST_CASE("test_spiky_kernel", "[sph]") {
@@ -82,4 +83,62 @@ TEST_CASE("cal_pressure_force_coefficient computes correctly", "[sph]") {
     float expected = ((pi / (rhoi*rhoi)) + (pj / (rhoj*rhoj))) * mj;
 
     REQUIRE(std::abs(result - expected) < 1e-6f);
+}
+
+
+TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
+
+
+    auto simulated = simulate_inputs(4096 * 16);
+    SPHData out = run_sph_example(simulated);
+
+    auto inputPos = simulated.positions;
+    auto inputDensities = simulated.densities;
+
+    auto outputPos = out.positions;
+    auto cellData = out.cellInfos;
+    auto densities = out.densities;
+    auto indexData = out.sortedIndices;
+
+    size_t nCells = static_cast<uint32_t>(cellData.size());
+    size_t printed = 0;
+
+    std:: cerr << "Checking SPH output with" << nCells << " cells" << std::endl;
+
+    for (uint32_t morton_key = 0; morton_key < nCells; ++morton_key) {
+        uint32_t start = cellData[morton_key].left;
+        uint32_t end = cellData[morton_key].right;
+
+        if (start == end) {
+            continue; // Empty cell
+        }
+
+        float avg_dens = 0.0f;
+        for (uint32_t pind = start; pind < end; ++pind) {
+            uint32_t unsorted_ind = indexData[pind];
+            auto particle = inputPos[unsorted_ind];
+            
+            REQUIRE(particle.position.x == outputPos[pind].position.x);
+            REQUIRE(particle.position.y == outputPos[pind].position.y);
+            REQUIRE(particle.position.z == outputPos[pind].position.z);
+
+            if (morton_key < 5 || morton_key > nCells - 5) {
+                std::cerr << "Cell " << morton_key 
+                    << " with start" << start
+                    << " and end" << end
+                    << " contains particle at original_index"
+                    << pind << " -> " << unsorted_ind << " at position "
+                    << particle.position.x << ", " 
+                    << particle.position.y << ", " 
+                    << particle.position.z << " with density: " 
+                    << inputDensities[unsorted_ind] << std::endl;
+                printed++;
+            }
+
+            avg_dens += inputDensities[unsorted_ind];
+        }
+        avg_dens /= float(end - start);
+        REQUIRE (fabs(avg_dens - densities[start]) < 1e-5);
+
+    }
 }

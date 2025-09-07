@@ -219,13 +219,13 @@ std::vector<uint32_t> runFullRadixSortTest(
 
     radixSortPipeline.execute_init();
 
-    mynydd::uploadData<uint32_t>(contextPtr, inputData0, radixSortPipeline.ioBufferA);
+    mynydd::uploadData<uint32_t>(contextPtr, inputData0, radixSortPipeline.m_ioBufferA);
 
-    auto inputBuffer = radixSortPipeline.ioBufferA;
-    auto outputBuffer = radixSortPipeline.ioBufferB;
+    auto inputBuffer = radixSortPipeline.m_ioBufferA;
+    auto outputBuffer = radixSortPipeline.m_ioBufferB;
 
     auto initialRange = mynydd::fetchData<uint32_t>(
-        contextPtr, radixSortPipeline.ioSortedIndicesB, n
+        contextPtr, radixSortPipeline.m_ioSortedIndicesB, n
     );
 
     for (size_t i = 0; i < n; ++i) {
@@ -238,8 +238,8 @@ std::vector<uint32_t> runFullRadixSortTest(
 
         radixSortPipeline.execute_pass(pass);
 
-        inputBuffer = pass % 2 == 0 ? radixSortPipeline.ioBufferA : radixSortPipeline.ioBufferB;
-        outputBuffer = pass % 2 == 0 ? radixSortPipeline.ioBufferB : radixSortPipeline.ioBufferA;
+        inputBuffer = pass % 2 == 0 ? radixSortPipeline.m_ioBufferA : radixSortPipeline.m_ioBufferB;
+        outputBuffer = pass % 2 == 0 ? radixSortPipeline.m_ioBufferB : radixSortPipeline.m_ioBufferA;
 
         uint32_t bitOffset = pass * radixSortPipeline.bitsPerPass;
         std::cerr << "Running test radix pass " << pass << " with bit offset " << bitOffset << std::endl;
@@ -457,6 +457,17 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
 
 TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes", "[sort]") {
     const size_t n = 1 << 16; // 65536 elements for test
+    std::vector<uint32_t> inputData(n);
+    std::mt19937 rng(12345);
+    std::uniform_int_distribution<uint32_t> dist(0, ((1u << 31) - 1u));
+    for (auto& v : inputData) v = dist(rng);
+    auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+    auto output_retrieved = runFullRadixSortTest(contextPtr, inputData);
+}
+
+
+TEST_CASE("Full 32-bit radix sort pipeline with 8-bit passes for n > 2^16 (regression)", "[sort]") {
+    const size_t n = 1 << 17; // 65536 elements for test
     std::vector<uint32_t> inputData(n);
     std::mt19937 rng(12345);
     std::uniform_int_distribution<uint32_t> dist(0, ((1u << 31) - 1u));

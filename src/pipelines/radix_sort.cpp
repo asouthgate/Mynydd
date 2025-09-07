@@ -31,11 +31,11 @@ namespace mynydd {
             throw std::runtime_error("groupCount * itemsPerGroup cannot be less than nInputElements.");
         }
 
-        ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
-        ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+        m_ioBufferA = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+        m_ioBufferB = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
 
-        ioSortedIndicesA = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
-        ioSortedIndicesB = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+        m_ioSortedIndicesA = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
+        m_ioSortedIndicesB = std::make_shared<mynydd::Buffer>(contextPtr, nInputElements * sizeof(uint32_t), false);
 
         perWorkgroupHistograms = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
         globalHistogram = std::make_shared<mynydd::Buffer>(contextPtr, numBins * sizeof(uint32_t), false);
@@ -52,7 +52,7 @@ namespace mynydd {
 
         initRangePipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/init_range_index.comp.spv",
-            std::vector<std::shared_ptr<mynydd::Buffer>>{ioSortedIndicesB}, // B will be prev for the first pass
+            std::vector<std::shared_ptr<mynydd::Buffer>>{m_ioSortedIndicesB}, // B will be prev for the first pass
             groupCount,
             1,
             1,
@@ -62,13 +62,13 @@ namespace mynydd {
         // Load compute pipelines
         histPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/histogram.comp.spv",
-            std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferA, perWorkgroupHistograms, radixUniform},
+            std::vector<std::shared_ptr<mynydd::Buffer>>{m_ioBufferA, perWorkgroupHistograms, radixUniform},
             groupCount
         );
 
         histPipelinePong = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/histogram.comp.spv",
-            std::vector<std::shared_ptr<mynydd::Buffer>>{ioBufferB, perWorkgroupHistograms, radixUniform},
+            std::vector<std::shared_ptr<mynydd::Buffer>>{m_ioBufferB, perWorkgroupHistograms, radixUniform},
             groupCount
         );
 
@@ -99,12 +99,12 @@ namespace mynydd {
         sortPipeline = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/radix_sort.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{
-                ioBufferA,
+                m_ioBufferA,
                 workgroupPrefixSums,
                 globalPrefixSum,
-                ioSortedIndicesB,
-                ioBufferB,
-                ioSortedIndicesA,
+                m_ioSortedIndicesB,
+                m_ioBufferB,
+                m_ioSortedIndicesA,
                 sortUniform
             },
             groupCount
@@ -112,12 +112,12 @@ namespace mynydd {
         sortPipelinePong = std::make_shared<mynydd::PipelineStep>(
             contextPtr, "shaders/radix_sort.comp.spv",
             std::vector<std::shared_ptr<mynydd::Buffer>>{
-                ioBufferB,
+                m_ioBufferB,
                 workgroupPrefixSums,
                 globalPrefixSum,
-                ioSortedIndicesA,
-                ioBufferA,
-                ioSortedIndicesB,
+                m_ioSortedIndicesA,
+                m_ioBufferA,
+                m_ioSortedIndicesB,
                 sortUniform
             },
             groupCount

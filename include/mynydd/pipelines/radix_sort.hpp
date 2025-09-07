@@ -50,16 +50,12 @@ namespace mynydd {
             void execute();
             void execute_pass(size_t pass);
             void execute_init();
-            std::shared_ptr<mynydd::Buffer> getSortedBuffer() {
-                return (nPasses % 2 == 0) ? ioBufferA : ioBufferB;
+            std::shared_ptr<mynydd::Buffer> getSortedMortonKeysBuffer() {
+                return (nPasses % 2 == 0) ? m_ioBufferA : m_ioBufferB;
             }
             std::shared_ptr<mynydd::Buffer> getSortedIndicesBuffer() {
-                return (nPasses % 2 == 0) ? ioSortedIndicesB : ioSortedIndicesA;
+                return (nPasses % 2 == 0) ? m_ioSortedIndicesB : m_ioSortedIndicesA;
             }
-            std::shared_ptr<mynydd::Buffer> getSortedIndicesBufferAtPass(uint32_t pass) {
-                return ((pass + 1) % 2 == 0) ? ioSortedIndicesB : ioSortedIndicesB;
-            }
-
 
             // TODO: getters
             uint32_t itemsPerGroup = 256; // Hardcoded temporarily
@@ -70,10 +66,10 @@ namespace mynydd {
             uint32_t nInputElements;
 
             // TODO: don't necessarily need this to be shared ptr
-            std::shared_ptr<mynydd::Buffer> ioBufferA;
-            std::shared_ptr<mynydd::Buffer> ioBufferB;
-            std::shared_ptr<mynydd::Buffer> ioSortedIndicesA;
-            std::shared_ptr<mynydd::Buffer> ioSortedIndicesB;
+            std::shared_ptr<mynydd::Buffer> m_ioBufferA;
+            std::shared_ptr<mynydd::Buffer> m_ioBufferB;
+            std::shared_ptr<mynydd::Buffer> m_ioSortedIndicesA;
+            std::shared_ptr<mynydd::Buffer> m_ioSortedIndicesB;
             std::shared_ptr<mynydd::Buffer> perWorkgroupHistograms;
             std::shared_ptr<mynydd::Buffer> globalHistogram;
             std::shared_ptr<mynydd::Buffer> globalPrefixSum;
