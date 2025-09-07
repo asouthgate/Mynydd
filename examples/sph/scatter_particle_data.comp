@@ -1,0 +1,31 @@
+#version 450
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer InputDensities {
+    float inputDensities[];
+};
+
+layout(set = 0, binding = 1) readonly buffer InputPositions {
+    vec2 inputPositions[];
+};
+
+layout(set = 0, binding = 2) readonly buffer PermutedInds {
+    uint inds[];
+};
+
+layout(set = 0, binding = 3) buffer OutputDensities {
+    float outputDensities[];
+};
+
+layout(set = 0, binding = 4) buffer OutputPositions {
+    vec2 outputPositions[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+
+    uint srcIdx = inds[idx];
+
+    outputDensities[idx] = inputDensities[srcIdx];
+    outputPositions[idx] = inputPositions[srcIdx];
+}
