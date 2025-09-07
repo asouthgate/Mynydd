@@ -6,16 +6,13 @@ struct CellInfo {
     uint right;
 };
 
+// THESE SHOULD BE SORTED
 layout(set = 0, binding = 0) readonly buffer InputDensities {
     float input_densities[];
 };
 
 layout(set = 0, binding = 1) readonly buffer SortedKeys {
     uint keys[];
-};
-
-layout(set = 0, binding = 2) readonly buffer PermutedInds {
-    uint inds[];
 };
 
 layout(set = 0, binding = 3) readonly buffer Cells {
@@ -28,7 +25,6 @@ layout(set = 0, binding = 4) buffer Densities {
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
-    uint dataIndex = inds[idx];
     uint key = keys[idx];
 
 
@@ -39,7 +35,7 @@ void main() {
 
     // Iterate all neighbors in the same bin
     for (uint i = cell.left; i < cell.right; i++) {
-        densitySum += input_densities[inds[i]];
+        densitySum += input_densities[i];
     }
 
     // Store average density (or 0 if no neighbors)

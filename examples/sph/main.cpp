@@ -40,18 +40,21 @@ int main(int argc, char** argv) {
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
-    auto inputPosBuffer = 
+    auto pingPosBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(ParticlePosition), false);
 
-    auto inputDensityBuffer = 
+    auto pongPosBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(ParticlePosition), false);
+
+    auto pingDensityBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
 
-    auto outputDensityBuffer = 
+    auto pongDensityBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
 
     mynydd::ParticleIndexPipeline<ParticlePosition> particleIndexPipeline(
         contextPtr,
-        inputPosBuffer,
+        pingPosBuffer,
         4, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
@@ -60,41 +63,56 @@ int main(int argc, char** argv) {
     );
 
     uint32_t groupCount = (nParticles + 256 - 1) / 256;
-    auto computeDensities = std::make_shared<mynydd::PipelineStep>(
+    
+    auto scatterParticleData = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
-        "examples/sph/compute_density.comp.spv", 
+        "examples/sph/scatter_particle_data.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
-            inputDensityBuffer,
-            particleIndexPipeline.getSortedMortonKeysBuffer(),
+            pingDensityBuffer,
+            pingPosBuffer,
             particleIndexPipeline.getSortedIndicesBuffer(),
-            particleIndexPipeline.getOutputIndexCellRangeBuffer(),
-            outputDensityBuffer
+            pongDensityBuffer,
+            pongPosBuffer
         },
         groupCount
     );
 
-    mynydd::uploadData<ParticlePosition>(contextPtr, inputPos, inputPosBuffer);
-    mynydd::uploadData<float>(contextPtr, inputDensities, inputDensityBuffer);
+    auto computeDensities = std::make_shared<mynydd::PipelineStep>(
+        contextPtr,
+        "examples/sph/compute_density.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
+            pongDensityBuffer,
+            particleIndexPipeline.getSortedMortonKeysBuffer(),
+            particleIndexPipeline.getSortedIndicesBuffer(),
+            particleIndexPipeline.getOutputIndexCellRangeBuffer(),
+            pingDensityBuffer
+        },
+        groupCount
+    );
+
+    mynydd::uploadData<ParticlePosition>(contextPtr, inputPos, pingPosBuffer);
+    mynydd::uploadData<float>(contextPtr, inputDensities, pingDensityBuffer);
 
 
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
     auto t1 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch(contextPtr, {computeDensities});
-    particleIndexPipeline.debug_assert_bin_consistency();
+    mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
     auto t2 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
     std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
     std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
     std::cerr << "Density computation took " << elapsed2.count() << " ms" << std::endl;
 
-    auto densities = mynydd::fetchData<float>(contextPtr, outputDensityBuffer, nParticles);
+    particleIndexPipeline.debug_assert_bin_consistency();
+
+    auto densities = mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles);
     // Check that densities are valid by iterating over the cell index, retrieving all particles in a bin, and manually computing density
-    auto cellData = mynydd::fetchData<mynydd::CellInfo>(
-        contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
-    );
     auto indexData = mynydd::fetchData<uint32_t>(
         contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
+    );
+    auto cellData = mynydd::fetchData<mynydd::CellInfo>(
+        contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
     );
 
     size_t printed = 0;
