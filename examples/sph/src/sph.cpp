@@ -8,10 +8,8 @@
 
 #include "sph.hpp"
 
-void run_sph_example(uint32_t nParticles) {
 
-    std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
-
+SPHData simulate_inputs(uint32_t nParticles) {
     // Generate some input data to start with
     std::vector<ParticlePosition> inputPos(nParticles);
     std::vector<float> inputDensities(nParticles);
@@ -21,6 +19,17 @@ void run_sph_example(uint32_t nParticles) {
         inputPos[ak].position = glm::vec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = dist(rng);
     }
+    return {inputDensities, inputPos, {}, {}};
+}
+
+
+SPHData run_sph_example(const SPHData& inputData) {
+
+    auto nParticles = static_cast<uint32_t>(inputData.positions.size());
+    std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
+
+    auto inputPos = inputData.positions;
+    auto inputDensities = inputData.densities;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
@@ -83,6 +92,8 @@ void run_sph_example(uint32_t nParticles) {
     auto t1 = std::chrono::high_resolution_clock::now();
     mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
     auto t2 = std::chrono::high_resolution_clock::now();
+
+
     std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
     std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
     std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
@@ -90,52 +101,11 @@ void run_sph_example(uint32_t nParticles) {
 
     particleIndexPipeline.debug_assert_bin_consistency();
 
-    auto densities = mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles);
-    // Check that densities are valid by iterating over the cell index, retrieving all particles in a bin, and manually computing density
-    auto indexData = mynydd::fetchData<uint32_t>(
-        contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
-    );
-    auto cellData = mynydd::fetchData<mynydd::CellInfo>(
-        contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
-    );
-
-    size_t printed = 0;
-
-    for (uint32_t morton_key = 0; morton_key < particleIndexPipeline.getNCells(); ++morton_key) {
-        uint32_t start = cellData[morton_key].left;
-        uint32_t end = cellData[morton_key].right;
-
-        if (start == end) {
-            continue; // Empty cell
-        }
-
-        float avg_dens = 0.0f;
-        for (uint32_t pind = start; pind < end; ++pind) {
-            uint32_t unsorted_ind = indexData[pind];
-            auto particle = inputPos[unsorted_ind];
-
-            if (printed < 10) {
-                std::cerr << "Cell " << morton_key 
-                    << " with start" << start
-                    << " and end" << end
-                    << " contains particle at original_index"
-                    << pind << " -> " << unsorted_ind << " at position "
-                    << particle.position.x << ", " 
-                    << particle.position.y << ", " 
-                    << particle.position.z << " with density: " 
-                    << inputDensities[unsorted_ind] << std::endl;
-                printed++;
-            }
-
-            avg_dens += inputDensities[unsorted_ind];
-        }
-        avg_dens /= float(end - start);
-        if (fabs(avg_dens - densities[start]) < 1e-5) {
-        } else {
-            std::cerr << "Cell " << morton_key << " density check FAILED: computed " << avg_dens << " vs shader " << densities[start] << std::endl;
-            throw std::runtime_error("Density check failed");
-        }
-
-    }
+    return {
+        mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles),
+        mynydd::fetchData<ParticlePosition>(contextPtr, pingPosBuffer, nParticles),
+        mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),
+        mynydd::fetchData<mynydd::CellInfo>(contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells())
+    };
 
  }

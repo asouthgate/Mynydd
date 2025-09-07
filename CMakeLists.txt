@@ -119,9 +119,12 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
 
     add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
 
+    # filter out main from cpp for test
+    list(FILTER EXAMPLE_CPP_SRC_FILES EXCLUDE REGEX ".*/main\\.cpp$")
+    
     # === Example tests ===
     if(EXISTS "${EXAMPLE_PATH}/test/test.cpp")
-        add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test/test.cpp ${EXAMPLE_SHADER_SPV_FILES})
+        add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test/test.cpp ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
         target_include_directories(${EXAMPLE}_test PRIVATE ${INCLUDE_DIR})
         target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
         add_dependencies(${EXAMPLE}_test compile_${EXAMPLE}_shaders)
