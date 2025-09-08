@@ -59,16 +59,10 @@ TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
         std::vector<uint32_t>{sizeof(uint32_t)}
     );
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin command buffer for batch execution.");
-    }
-
     uint32_t x = 976;
     pipeline->setPushConstantsData(x, 0);
 
-    mynydd::executeBatch(contextPtr, {pipeline}, false);
+    mynydd::executeBatch(contextPtr, {pipeline});
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outBuffer, n);
     for (size_t i = 0; i < n; ++i) {
