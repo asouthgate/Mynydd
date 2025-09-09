@@ -17,6 +17,7 @@ namespace mynydd_shader_interoperability {
     using mat2 = glm::mat2;
     using mat3 = glm::mat3;
     using mat4 = glm::mat4;
+    using uvec3 = glm::uvec3;
 
     // Scalar function helpers
     inline float fract(float x) { return x - std::floor(x); }

@@ -119,3 +119,24 @@ uint encodeMorton3D(float normX, float normY, float normZ, uint nbits) {
     uint bz = binPosition(normZ, nbits);
     return morton3D(bx, by, bz);
 }
+
+// Compact every 3rd bit starting from LSB
+uint compact1By2(uint x) {
+    x &= 0x09249249u;                    // mask out only Morton-relevant bits
+    x = (x ^ (x >> 2))  & 0x030C30C3u;
+    x = (x ^ (x >> 4))  & 0x0300F00Fu;
+    x = (x ^ (x >> 8))  & 0xFF0000FFu;
+    x = (x ^ (x >> 16)) & 0x000003FFu;   // result fits in 10 bits
+    return x;
+}
+
+// Decode a 3D Morton code into (x,y,z) with up to nbits bits per axis
+uvec3 decodeMorton3D(uint code, uint nbits) {
+    uvec3 full = uvec3(
+        compact1By2(code >> 0),
+        compact1By2(code >> 1),
+        compact1By2(code >> 2)
+    );
+    uint mask = (1u << nbits) - 1u;  // keep only the requested number of bits
+    return full & uvec3(mask);
+}

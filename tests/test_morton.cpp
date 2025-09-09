@@ -49,6 +49,16 @@ TEST_CASE("Morton kernels produce expected results in 3D", "[morton]") {
 
 }
 
+TEST_CASE("Require that Morton decode works as expected", "[morton]") {
+    uint32_t enc = morton3D(0, 6, 7);
+    REQUIRE(enc == 436);
+    glm::uvec3 dec = decodeMorton3D(enc, 10);
+    REQUIRE(dec.x == 0);
+    REQUIRE(dec.y == 6);
+    REQUIRE(dec.z == 7);
+
+}
+
 
 TEST_CASE("Binning works as expected for Morton curves", "[morton]") {
     // Test some known values again
