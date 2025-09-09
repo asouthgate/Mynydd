@@ -1,6 +1,10 @@
 #version 450
 layout(local_size_x = 256) in;
 
+#extension GL_GOOGLE_include_directive : enable
+#include "morton_kernels.comp.kern"
+
+
 struct CellInfo {
     uint left;
     uint right;

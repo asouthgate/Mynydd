@@ -108,12 +108,8 @@ namespace mynydd {
                     domainMin,
                     domainMax
                 };
-                // IndexParams indexParams{
-                //     nDataPoints
-                // };
 
                 mynydd::uploadUniformData<MortonParams>(contextPtr, mortonParams, mortonUniformBuffer);
-                // mynydd::uploadUniformData<MortonParams>(contextPtr, indexParams, indexUniformBuffer);
 
                 mynydd::executeBatch(contextPtr, {mortonStep});
 

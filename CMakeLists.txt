@@ -99,7 +99,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
 
         add_custom_command(
             OUTPUT ${SPIRV_OUT}
-            COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT}
+            COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT} -I${SRC_SHADER_DIR}
             DEPENDS ${SHADER}
             COMMENT "Compiling ${EXAMPLE}/${SHADER_NAME} to SPIR-V"
             VERBATIM
