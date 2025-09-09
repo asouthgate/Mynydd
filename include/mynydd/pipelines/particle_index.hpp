@@ -75,15 +75,15 @@ namespace mynydd {
                 m_outputIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
                     contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
 
-                indexUniformBuffer = std::make_shared<mynydd::Buffer>(
-                        contextPtr, sizeof(IndexParams), true);
+                // indexUniformBuffer = std::make_shared<mynydd::Buffer>(
+                //         contextPtr, sizeof(IndexParams), true);
 
                 sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
                         m_radixSortPipeline.getSortedMortonKeysBuffer(), 
                         m_outputIndexCellRangeBuffer, 
-                        indexUniformBuffer
+                        mortonUniformBuffer
                     },
                     (nDataPoints + 63) / 64
                 );
@@ -108,12 +108,12 @@ namespace mynydd {
                     domainMin,
                     domainMax
                 };
-                IndexParams indexParams{
-                    nDataPoints
-                };
+                // IndexParams indexParams{
+                //     nDataPoints
+                // };
 
                 mynydd::uploadUniformData<MortonParams>(contextPtr, mortonParams, mortonUniformBuffer);
-                mynydd::uploadUniformData<IndexParams>(contextPtr, indexParams, indexUniformBuffer);
+                // mynydd::uploadUniformData<MortonParams>(contextPtr, indexParams, indexUniformBuffer);
 
                 mynydd::executeBatch(contextPtr, {mortonStep});
 
