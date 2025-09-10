@@ -152,7 +152,8 @@ namespace mynydd {
     );
     void executeBatch(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps
+        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps,
+        bool beginCommandBuffer = true
     );
 
 };
