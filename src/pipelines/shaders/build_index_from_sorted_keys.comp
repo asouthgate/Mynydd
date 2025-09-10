@@ -22,7 +22,13 @@ layout(set = 0, binding = 1) buffer Cells {
     CellInfo cells[];
 };
 
-layout(set = 0, binding = 2) uniform Params {
+// Output: per-cell start index and count
+layout(set = 0, binding = 2) buffer FlateCells {
+    CellInfo flatCells[];
+};
+
+
+layout(set = 0, binding = 3) uniform Params {
     uint nBits;
     uint nParticles;
     vec3 domainMin;

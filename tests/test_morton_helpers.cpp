@@ -50,7 +50,7 @@ std::vector<uint32_t> runMortonTest(
     auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nParticles * sizeof(Particle), false);
     auto outputBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, nParticles * sizeof(uint32_t), true);
+        contextPtr, nParticles * sizeof(uint32_t), false);
     auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(Params), true);
 

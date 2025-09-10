@@ -75,13 +75,14 @@ namespace mynydd {
                 m_outputIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
                     contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
                 m_outputFlatIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
-                    contextPtr, 100 * sizeof(mynydd::CellInfo), false);
+                    contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
 
                 sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
                         m_radixSortPipeline.getSortedMortonKeysBuffer(), 
                         m_outputIndexCellRangeBuffer,
+                        m_outputFlatIndexCellRangeBuffer,
                         mortonUniformBuffer
                     },
                     (nDataPoints + 63) / 64

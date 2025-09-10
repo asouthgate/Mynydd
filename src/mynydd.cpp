@@ -306,7 +306,7 @@ namespace mynydd {
     VkDescriptorSetLayout createDescriptorSetLayout(
         VkDevice device,
         const std::vector<std::shared_ptr<Buffer>>& buffers
-) {
+    ) {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
         size_t bindingIndex = 0;
@@ -538,7 +538,6 @@ namespace mynydd {
     ) {
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
 
-        // std::cerr << "Creating pipeline for shader: " << shaderPath << std::endl;
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
             contextPtr->device, 
@@ -548,6 +547,9 @@ namespace mynydd {
             pipelineLayout,
             pushConstantSizes
         );
+
+        std::cerr << "Creating pipeline " << computePipeline << " for shader: " << shaderPath << std::endl;
+
 
         return {
             pipelineLayout,
