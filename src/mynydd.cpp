@@ -418,6 +418,7 @@ namespace mynydd {
     
     VkPipeline createComputePipeline(
         VkDevice device,
+        VkPhysicalDevice physicalDevice,
         VkShaderModule shaderModule,
         VkDescriptorSetLayout descriptorSetLayout,
         VkPipelineLayout &pipelineLayout,
@@ -429,25 +430,52 @@ namespace mynydd {
         layoutInfo.setLayoutCount = 1;
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(physicalDevice, &props);
+        uint32_t maxPushConstants = props.limits.maxPushConstantsSize;
+
         if (!pushConstantSizes.empty()) {
-            std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
+            std::vector<VkPushConstantRange> ranges;
+            ranges.reserve(pushConstantSizes.size());
+
+            uint32_t offset = 0;
             for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
-                ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-                ranges[j].offset = j == 0 ? 0 : ranges[j - 1].offset + ranges[j - 1].size;
-                ranges[j].size = pushConstantSizes[j];
+                uint32_t s = pushConstantSizes[j];
+
+                if (s == 0) {
+                    throw std::runtime_error("Push constant size must be > 0");
+                }
+                if ((s % 4) != 0) {
+                    throw std::runtime_error("Push constant size must be a multiple of 4");
+                }
+                if (offset + s > maxPushConstants) {
+                    throw std::runtime_error("Push constants exceed device maxPushConstantsSize");
+                }
+
+                VkPushConstantRange r{};
+                r.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+                r.offset = offset;
+                r.size = s;
+                ranges.push_back(r);
+
+                offset += s;
             }
 
-            layoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantSizes.size());
+            layoutInfo.pushConstantRangeCount = static_cast<uint32_t>(ranges.size());
             layoutInfo.pPushConstantRanges = ranges.data();
-        }
-        
-        if (
-            vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) !=
-            VK_SUCCESS
-        ) {
-            throw std::runtime_error("Failed to create pipeline layout");
-        }
 
+            // CreatePipelineLayout must be called while `ranges` is in scope
+            if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+                throw std::runtime_error("vkCreatePipelineLayout failed");
+            }
+        } else {
+            // no push constants
+            layoutInfo.pushConstantRangeCount = 0;
+            layoutInfo.pPushConstantRanges = nullptr;
+            if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+                throw std::runtime_error("vkCreatePipelineLayout failed");
+            }
+        }
         VkComputePipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         pipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -510,9 +538,11 @@ namespace mynydd {
     ) {
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
 
+        std::cerr << "Creating pipeline for shader: " << shaderPath << std::endl;
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
             contextPtr->device, 
+            contextPtr->physicalDevice,
             shader,
             descriptorLayout,
             pipelineLayout,
