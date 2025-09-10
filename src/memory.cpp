@@ -12,7 +12,7 @@ namespace mynydd {
 
         VkBuffer newBuffer = createBuffer(
             device, size,
-            uniform ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            uniform ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
         );
 
         VkDeviceMemory newBufferMemory = allocateAndBindMemory(

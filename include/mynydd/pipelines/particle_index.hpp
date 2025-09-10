@@ -74,15 +74,14 @@ namespace mynydd {
                 );
                 m_outputIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
                     contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
-
-                // indexUniformBuffer = std::make_shared<mynydd::Buffer>(
-                //         contextPtr, sizeof(IndexParams), true);
+                m_outputFlatIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
+                    contextPtr, 100 * sizeof(mynydd::CellInfo), false);
 
                 sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
                         m_radixSortPipeline.getSortedMortonKeysBuffer(), 
-                        m_outputIndexCellRangeBuffer, 
+                        m_outputIndexCellRangeBuffer,
                         mortonUniformBuffer
                     },
                     (nDataPoints + 63) / 64
@@ -115,6 +114,13 @@ namespace mynydd {
 
                 m_radixSortPipeline.execute();
                 // the index needs to be zeroed every time
+
+                VkCommandBufferBeginInfo beginInfo{};
+                beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
+                    throw std::runtime_error("Failed to begin command buffer for batch execution.");
+                }
+
                 vkCmdFillBuffer(
                     contextPtr->commandBuffer,
                     m_outputIndexCellRangeBuffer->getBuffer(),
@@ -122,7 +128,28 @@ namespace mynydd {
                     VK_WHOLE_SIZE,
                     0
                 );
-                mynydd::executeBatch(contextPtr, {sortedKeys2IndexStep});
+
+                VkBufferMemoryBarrier barrier{};
+                barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;        // writes from vkCmdFillBuffer
+                barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT; // compute shader reads/writes
+                barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.buffer = m_outputIndexCellRangeBuffer->getBuffer();
+                barrier.offset = 0;
+                barrier.size = VK_WHOLE_SIZE;
+
+                vkCmdPipelineBarrier(
+                    contextPtr->commandBuffer,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,           // after the fill
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,     // before compute
+                    0,
+                    0, nullptr,
+                    1, &barrier,
+                    0, nullptr
+                );
+
+                mynydd::executeBatch(contextPtr, {sortedKeys2IndexStep}, false);
 
             }
 
@@ -194,6 +221,7 @@ namespace mynydd {
         private:
 
             std::shared_ptr<mynydd::Buffer> m_outputIndexCellRangeBuffer;  // sized number of cells
+            std::shared_ptr<mynydd::Buffer> m_outputFlatIndexCellRangeBuffer;  // sized number of cells
 
             RadixSortPipeline m_radixSortPipeline;
 

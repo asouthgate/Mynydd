@@ -20,6 +20,7 @@ namespace mynydd {
     */
     struct VulkanContext {
         VkInstance instance;
+        VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
         VkPhysicalDevice physicalDevice;
         VkDevice device; // logical device used for interface
         VkQueue computeQueue; // compute queue used for commands
@@ -27,7 +28,7 @@ namespace mynydd {
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
 
-        VulkanContext();
+        VulkanContext(bool validationn=true);
 
         ~VulkanContext() {
             if (commandBuffer != VK_NULL_HANDLE) {
@@ -39,6 +40,15 @@ namespace mynydd {
             if (device != VK_NULL_HANDLE) {
                 vkDestroyDevice(device, nullptr);
             }
+
+            if (debugMessenger != VK_NULL_HANDLE) {
+                auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)
+                    vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+                if (func) {
+                    func(instance, debugMessenger, nullptr);
+                }
+            }
+
             if (instance != VK_NULL_HANDLE) {
                 vkDestroyInstance(instance, nullptr);
             }

@@ -92,30 +92,26 @@ namespace mynydd {
         std::vector<VkLayerProperties> layers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
 
-        std::cerr << "Available layers:" << std::endl;
-        for (auto& l : layers) {
-            std::cerr << "  " << l.layerName << std::endl;
-        }
+        // std::cerr << "Available layers:" << std::endl;
+        // for (auto& l : layers) {
+        //     std::cerr << "  " << l.layerName << std::endl;
+        // }
 
         uint32_t extCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
         std::vector<VkExtensionProperties> exts(extCount);
         vkEnumerateInstanceExtensionProperties(nullptr, &extCount, exts.data());
 
-        std::cerr << "Available extensions:" << std::endl;
-        for (auto& e : exts) {
-            std::cerr << "  " << e.extensionName << std::endl;
-        }
+        // std::cerr << "Available extensions:" << std::endl;
+        // for (auto& e : exts) {
+        //     std::cerr << "  " << e.extensionName << std::endl;
+        // }
 
         VkInstance instance;
         VkResult r = vkCreateInstance(&createInfo, nullptr, &instance);
         if (r != VK_SUCCESS) {
             throw std::runtime_error("Failed to create instance with validation");
         }
-
-        // Create debug messenger and keep handle in your VulkanContext
-        VkDebugUtilsMessengerEXT dbg = createDebugMessenger(instance);
-        (void)dbg; // store dbg in context (so you can destroy it later)
 
         return instance;
     }
@@ -168,16 +164,16 @@ namespace mynydd {
 
             for (uint32_t i = 0; i < queueFamilyCount; ++i) {
             // Print the number of queue families this GPU has
-            std::cerr << "Number of queue families: " << queueFamilyCount
-                        << std::endl;
-            // Print the properties of each queue family
-            std::cerr << "Queue family " << i << ": "
-                        << "Count: " << queueFamilies[i].queueCount
-                        << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
+            // std::cerr << "Number of queue families: " << queueFamilyCount
+            //             << std::endl;
+            // // Print the properties of each queue family
+            // std::cerr << "Queue family " << i << ": "
+            //             << "Count: " << queueFamilies[i].queueCount
+            //             << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
             if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
                 VkPhysicalDeviceProperties props;
                 vkGetPhysicalDeviceProperties(device, &props);
-                std::cerr << "Selected device: " << props.deviceName << std::endl;
+                // std::cerr << "Selected device: " << props.deviceName << std::endl;
                 computeQueueFamilyIndex = i;
                 return device;
             }
@@ -498,8 +494,8 @@ namespace mynydd {
             throw std::runtime_error("Failed to create compute pipeline");
         }
 
-        std::cerr << "Using pipeline = " << 
-            pipeline << ", layout to bind = " << pipelineLayout << ", descriptorSet = " << descriptorSetLayout << std::endl;
+        // std::cerr << "Using pipeline = " << 
+        //     pipeline << ", layout to bind = " << pipelineLayout << ", descriptorSet = " << descriptorSetLayout << std::endl;
 
         return pipeline;
     }
@@ -542,7 +538,7 @@ namespace mynydd {
     ) {
         VkShaderModule shader = loadShaderModule(contextPtr->device, shaderPath);
 
-        std::cerr << "Creating pipeline for shader: " << shaderPath << std::endl;
+        // std::cerr << "Creating pipeline for shader: " << shaderPath << std::endl;
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
             contextPtr->device, 
@@ -560,8 +556,12 @@ namespace mynydd {
         };
     }
 
-    VulkanContext::VulkanContext() {
-        instance = createInstanceWithValidation();
+    VulkanContext::VulkanContext(bool validation) {
+        if (validation) {
+            instance = createInstanceWithValidation();
+        } else {
+            instance = createInstance();
+        }
         physicalDevice =
             pickPhysicalDevice(instance, computeQueueFamilyIndex);
 
@@ -578,6 +578,12 @@ namespace mynydd {
         commandBuffer = allocateCommandBuffer(
             device, commandPool
         );
+
+        if (validation) {
+            // Create debug messenger and keep handle in your VulkanContext
+            VkDebugUtilsMessengerEXT dbg = createDebugMessenger(instance);
+            debugMessenger = dbg;
+        }
     }
 
     VulkanDynamicResources::VulkanDynamicResources(
@@ -606,9 +612,9 @@ namespace mynydd {
             const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
             const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
 
-            std::cerr << "Binding pipeline " << pipeline 
-                    << " layout=" << layout 
-                    << " descriptorSet=" << descriptorSet << std::endl;
+            // std::cerr << "Binding pipeline " << pipeline 
+            //         << " layout=" << layout 
+            //         << " descriptorSet=" << descriptorSet << std::endl;
             if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
                 throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
             }
@@ -682,7 +688,7 @@ namespace mynydd {
             if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
                 this->pipelineResources->pipeline != VK_NULL_HANDLE) {
             } else {
-                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                // std::cerr << "Invalid handles in vkDestroyPipeline\n";
                 throw std::runtime_error("PipelineStep destructor failed");
             }
             vkDestroyPipeline(this->contextPtr->device, this->pipelineResources->pipeline, nullptr);
