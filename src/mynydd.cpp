@@ -498,6 +498,9 @@ namespace mynydd {
             throw std::runtime_error("Failed to create compute pipeline");
         }
 
+        std::cerr << "Using pipeline = " << 
+            pipeline << ", layout to bind = " << pipelineLayout << ", descriptorSet = " << descriptorSetLayout << std::endl;
+
         return pipeline;
     }
 
@@ -602,6 +605,9 @@ namespace mynydd {
             const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
             const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
 
+            std::cerr << "Binding pipeline " << pipeline 
+                    << " layout=" << layout 
+                    << " descriptorSet=" << descriptorSet << std::endl;
             if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
                 throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
             }
@@ -665,20 +671,22 @@ namespace mynydd {
             buffers
         );
         assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
-        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes);
+        this->pipelineResources = std::make_shared<VulkanPipelineResources>(
+            create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes)
+        );
     }
 
     PipelineStep::~PipelineStep() {
         try {
             if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
-                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+                this->pipelineResources->pipeline != VK_NULL_HANDLE) {
             } else {
                 std::cerr << "Invalid handles in vkDestroyPipeline\n";
                 throw std::runtime_error("PipelineStep destructor failed");
             }
-            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
-            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
-            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources->pipeline, nullptr);
+            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources->pipelineLayout, nullptr);
+            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources->computeShaderModule, nullptr);
         } catch (const std::exception &e) {
             std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
             throw std::runtime_error("PipelineStep destructor failed");

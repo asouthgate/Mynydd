@@ -101,7 +101,7 @@ namespace mynydd {
             ); 
             ~PipelineStep();
             std::shared_ptr<VulkanPipelineResources> getPipelineResourcesPtr() const {
-                return std::make_shared<VulkanPipelineResources>(pipelineResources);
+                return pipelineResources;
             }
             std::shared_ptr<VulkanDynamicResources> getDynamicResourcesPtr() const {
                 return dynamicResourcesPtr;
@@ -137,7 +137,7 @@ namespace mynydd {
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
-            VulkanPipelineResources pipelineResources;
+            std::shared_ptr<VulkanPipelineResources> pipelineResources;
 
             PushConstantData m_pushConstantData{0, 0, std::vector<std::byte>{}};
     };
