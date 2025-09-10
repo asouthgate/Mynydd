@@ -15,6 +15,9 @@
 #include "test_morton_helpers.hpp"
 #include "test_utils.hpp"
 
+// #include "../src/pipelines/shaders/morton_kernels.comp.kern"
+// #include <mynydd/shader_interop.hpp>
+
 uint32_t pos2bin(float p, uint32_t nBits) {
     // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * float((1u << nbits) - 1u) + 0.5);
     float normPos = glm::clamp(p, 0.0f, 1.0f);
@@ -33,9 +36,6 @@ TEST_CASE("Particle index works correctly", "[index]") {
     auto inputBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
 
-    auto outputBufferTest = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(uint32_t), false);
-
     // Upload data
     std::vector<Particle> inputData(nParticles);
     std::mt19937 rng(12345); // Fixed seed for reproducibility
@@ -46,10 +46,11 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
     mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
 
+    uint nBits = 4;
     mynydd::ParticleIndexPipeline<Particle> particleIndexPipeline(
         contextPtr,
         inputBuffer,
-        4, // nBitsPerAxis
+        nBits, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
         glm::vec3(0.0f), // domainMin
@@ -62,6 +63,10 @@ TEST_CASE("Particle index works correctly", "[index]") {
     auto cellData = mynydd::fetchData<mynydd::CellInfo>(
         contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
     );
+    auto flatCellData = mynydd::fetchData<mynydd::CellInfo>(
+        contextPtr, particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
+    );
+
 
     auto indexData = mynydd::fetchData<uint32_t>(
         contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
@@ -82,8 +87,23 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
         uint32_t ak_morton = morton3D(i, j, k);
 
+        uvec3 demorton = decodeMorton3D(ak_morton, nBits);       
+        REQUIRE(demorton.x == i);
+        REQUIRE(demorton.y == j);
+        REQUIRE(demorton.z == k); 
+
+        uint32_t ak_flat = ijk2ak(demorton, nBits);
+
+        //REQUIRE(ak_flat == ak);
+
         uint32_t start = cellData[ak_morton].left;
         uint32_t end = cellData[ak_morton].right;
+
+        uint32_t flat_start = flatCellData[ak_flat].left;
+        uint32_t flat_end = flatCellData[ak_flat].right;
+
+        REQUIRE(start == flat_start);
+        REQUIRE(end == flat_end);
 
         binsum += (end - start);
 

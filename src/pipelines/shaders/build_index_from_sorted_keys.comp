@@ -41,9 +41,14 @@ void main() {
     if (i >= pc.nParticles) return;
     uint key = keys[i];
 
+    uvec3 ijk = decodeMorton3D(key, pc.nBits);
+
+    uint flat_ak = ijk2ak(ijk, pc.nBits);
+
     // Left boundary: first particle in cell
     if (i == 0 || key != keys[i - 1]) {
         cells[key].left = i;
+        flatCells[flat_ak].left = i;
     }
 
     barrier();
@@ -51,6 +56,7 @@ void main() {
     // Right boundary: last particle in cell
     if (i == pc.nParticles - 1 || key != keys[i + 1]) {
         cells[key].right = i + 1;
+        flatCells[flat_ak].right = i + 1;
     }
 
 }

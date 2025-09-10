@@ -202,6 +202,10 @@ namespace mynydd {
                 return m_outputIndexCellRangeBuffer;
             }
 
+            std::shared_ptr<mynydd::Buffer> getFlatOutputIndexCellRangeBuffer() const {
+                return m_outputFlatIndexCellRangeBuffer;
+            }
+
             std::shared_ptr<mynydd::Buffer> getSortedIndicesBuffer() {
                 return m_radixSortPipeline.getSortedIndicesBuffer();
             }

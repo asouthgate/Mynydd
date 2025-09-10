@@ -140,3 +140,8 @@ uvec3 decodeMorton3D(uint code, uint nbits) {
     uint mask = (1u << nbits) - 1u;  // keep only the requested number of bits
     return full & uvec3(mask);
 }
+
+uint ijk2ak(uvec3 ijk, uint nBits) {
+    uint dim = 1 << nBits;
+    return ijk.x + dim * (ijk.y + dim * ijk.z);
+}

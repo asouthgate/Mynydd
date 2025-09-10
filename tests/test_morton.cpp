@@ -11,7 +11,6 @@
 #include <mynydd/mynydd.hpp>
 
 #include "test_morton_helpers.hpp"
-#include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
 
 

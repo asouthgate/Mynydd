@@ -10,6 +10,8 @@
 #include <mynydd/mynydd.hpp>
 
 #include "test_morton_helpers.hpp"
+#include "../src/pipelines/shaders/morton_kernels.comp.kern"
+
 
 std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits) {
     const uint32_t nPerDim = pow(2, nBits);
