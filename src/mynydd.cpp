@@ -15,6 +15,111 @@ using namespace mynydd;
 
 namespace mynydd {
 
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT              messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT*  pCallbackData,
+        void*                                        pUserData) {
+
+        const char* severity = (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)   ? "ERROR" :
+                            (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) ? "WARN"  :
+                            (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)    ? "INFO"  : "VERBOSE";
+
+        std::cerr << "[VULKAN VALIDATION][" << severity << "] " << pCallbackData->pMessage << std::endl;
+        return VK_FALSE;
+    }
+
+    // Helper to create debug messenger (requires VK_EXT_debug_utils)
+    VkDebugUtilsMessengerEXT createDebugMessenger(VkInstance instance) {
+        VkDebugUtilsMessengerCreateInfoEXT dbgCreateInfo{};
+        dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        dbgCreateInfo.messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+        dbgCreateInfo.messageType =
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        dbgCreateInfo.pfnUserCallback = debugCallback;
+        dbgCreateInfo.pUserData = nullptr;
+
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+        VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
+        if (func) {
+            func(instance, &dbgCreateInfo, nullptr, &messenger);
+        }
+        return messenger;
+    }
+
+    VkInstance createInstanceWithValidation() {
+        // 1) desired layers & extensions
+        const char* layerNames[] = { "VK_LAYER_KHRONOS_validation" };
+
+        std::vector<const char*> enabledExtensions;
+        enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "NanoVulkan";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
+        appInfo.pEngineName = "Custom";
+        appInfo.engineVersion = VK_MAKE_VERSION(1,0,0);
+        appInfo.apiVersion = VK_API_VERSION_1_1;
+
+        // Optional: enable synchronization validation explicitly
+        VkValidationFeatureEnableEXT enables[] = {
+            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+        };
+        VkValidationFeaturesEXT validationFeatures{};
+        validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+        validationFeatures.enabledValidationFeatureCount = 1;
+        validationFeatures.pEnabledValidationFeatures = enables;
+
+        VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+        createInfo.enabledLayerCount = 1;
+        createInfo.ppEnabledLayerNames = layerNames;
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
+        createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+
+        // Chain validation features
+        createInfo.pNext = &validationFeatures;
+
+        uint32_t layerCount = 0;
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+        std::vector<VkLayerProperties> layers(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
+
+        std::cerr << "Available layers:" << std::endl;
+        for (auto& l : layers) {
+            std::cerr << "  " << l.layerName << std::endl;
+        }
+
+        uint32_t extCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> exts(extCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, exts.data());
+
+        std::cerr << "Available extensions:" << std::endl;
+        for (auto& e : exts) {
+            std::cerr << "  " << e.extensionName << std::endl;
+        }
+
+        VkInstance instance;
+        VkResult r = vkCreateInstance(&createInfo, nullptr, &instance);
+        if (r != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create instance with validation");
+        }
+
+        // Create debug messenger and keep handle in your VulkanContext
+        VkDebugUtilsMessengerEXT dbg = createDebugMessenger(instance);
+        (void)dbg; // store dbg in context (so you can destroy it later)
+
+        return instance;
+    }
+
     /**
     * Create a Vulkan instance.
     *
@@ -422,7 +527,7 @@ namespace mynydd {
     }
 
     VulkanContext::VulkanContext() {
-        instance = createInstance();
+        instance = createInstanceWithValidation();
         physicalDevice =
             pickPhysicalDevice(instance, computeQueueFamilyIndex);
 
