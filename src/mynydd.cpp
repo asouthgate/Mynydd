@@ -508,6 +508,7 @@ namespace mynydd {
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.queueFamilyIndex = queueFamilyIndex;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
         VkCommandPool commandPool;
         if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
@@ -695,8 +696,8 @@ namespace mynydd {
 
     void executeBatch(
         std::shared_ptr<VulkanContext> contextPtr,
-        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps,
-        bool beginCommandBuffer
+        const std::vector<std::shared_ptr<PipelineStep>>& PipelineSteps
+        // bool beginCommandBuffer
     ) {
         if (PipelineSteps.empty()) {
             throw std::runtime_error("No compute engines provided for batch execution.");
@@ -708,13 +709,13 @@ namespace mynydd {
 
         VkCommandBuffer cmdBuffer = contextPtr->commandBuffer;
 
-        if (beginCommandBuffer) {
+        // if (beginCommandBuffer) {
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
             if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
                 throw std::runtime_error("Failed to begin command buffer for batch execution.");
             }        
-        } // else already begun
+        // } // else already begun
         
         for (size_t i = 0; i < PipelineSteps.size(); ++i) {
             auto& pipelineStep = PipelineSteps[i];
