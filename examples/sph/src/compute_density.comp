@@ -4,6 +4,9 @@ layout(local_size_x = 256) in;
 #extension GL_GOOGLE_include_directive : enable
 #include "morton_kernels.comp.kern"
 
+struct ParticlePos {
+    vec3 position;
+};
 
 struct CellInfo {
     uint left;
@@ -15,21 +18,41 @@ layout(set = 0, binding = 0) readonly buffer InputDensities {
     float input_densities[];
 };
 
-layout(set = 0, binding = 1) readonly buffer SortedKeys {
+layout(set = 0, binding = 1) readonly buffer InputPositions {
+    ParticlePos input_positions[];
+};
+
+layout(set = 0, binding = 2) readonly buffer SortedKeys {
     uint keys[];
 };
 
-layout(set = 0, binding = 3) readonly buffer Cells {
+layout(set = 0, binding = 3) readonly buffer FlatCells {
+    CellInfo flat_cells[];
+};
+
+layout(set = 0, binding = 4) readonly buffer Cells {
     CellInfo cells[];
 };
 
-layout(set = 0, binding = 4) buffer Densities {
+layout(set = 0, binding = 5) buffer Densities {
     float densities[];
 };
+
+layout(push_constant) uniform Params {
+    uint nBits;
+    uint nParticles;
+    vec3 domainMin;
+    vec3 domainMax;
+} pc;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     uint key = keys[idx];
+
+    vec3 pos = input_positions[idx].position;
+    //uvec ijk = xyz2ijk(pos)
+    //uint flat_key = ijk2ak(ijk, pc.nBits)
+
 
 
     CellInfo cell = cells[key];

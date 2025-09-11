@@ -75,17 +75,29 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis) {
         "examples/sph/compute_density.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             pongDensityBuffer,
+            pongPosBuffer,
             particleIndexPipeline.getSortedMortonKeysBuffer(),
-            particleIndexPipeline.getSortedIndicesBuffer(),
+            particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
             particleIndexPipeline.getOutputIndexCellRangeBuffer(),
             pingDensityBuffer
         },
-        groupCount
+        groupCount,
+        1,
+        1,
+        std::vector<uint32_t>{sizeof(mynydd::MortonParams)}
     );
 
     mynydd::uploadData<ParticlePosition>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<float>(contextPtr, inputDensities, pingDensityBuffer);
 
+    mynydd::MortonParams gridParams = {
+        nBitsPerAxis,
+        nParticles,
+        glm::vec3(0.0f),
+        glm::vec3(1.0f)
+    };
+
+    computeDensities->setPushConstantsData(gridParams, 0);
 
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
