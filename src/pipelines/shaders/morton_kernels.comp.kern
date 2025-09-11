@@ -145,3 +145,11 @@ uint ijk2ak(uvec3 ijk, uint nBits) {
     uint dim = 1 << nBits;
     return ijk.x + dim * (ijk.y + dim * ijk.z);
 }
+
+uvec3 xyz2ijk(vec3 xyz, uint nBits) {
+    return uvec3(
+        binPosition(xyz.x, nBits), 
+        binPosition(xyz.y, nBits), 
+        binPosition(xyz.z, nBits)
+    );
+}

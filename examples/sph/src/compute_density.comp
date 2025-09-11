@@ -50,12 +50,13 @@ void main() {
     uint key = keys[idx];
 
     vec3 pos = input_positions[idx].position;
-    //uvec ijk = xyz2ijk(pos)
-    //uint flat_key = ijk2ak(ijk, pc.nBits)
+    uvec3 ijk = xyz2ijk(pos, pc.nBits);
+    uint flat_key = ijk2ak(ijk, pc.nBits);
 
 
 
-    CellInfo cell = cells[key];
+    //CellInfo cell = cells[key];
+    CellInfo cell = flat_cells[flat_key];
 
     float densitySum = 0.0;
     uint count = cell.right - cell.left;
