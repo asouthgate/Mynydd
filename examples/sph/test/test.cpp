@@ -1,3 +1,4 @@
+#include <cstdint>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -7,6 +8,7 @@
 #include <mynydd/shader_interop.hpp>
 #include "../src/kernels.comp.kern"
 #include "../src/sph.hpp"
+#include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
 
 TEST_CASE("test_spiky_kernel", "[sph]") {
@@ -86,11 +88,11 @@ TEST_CASE("cal_pressure_force_coefficient computes correctly", "[sph]") {
 }
 
 
-TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
+TEST_CASE("Test that pipeline produces correct density values for d =0", "[sph]") {
 
 
     auto simulated = simulate_inputs(4096 * 16);
-    SPHData out = run_sph_example(simulated);
+    SPHData out = run_sph_example(simulated, 4, 0);
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -99,15 +101,17 @@ TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
     auto cellData = out.cellInfos;
     auto densities = out.densities;
     auto indexData = out.sortedIndices;
-
+    
     size_t nCells = static_cast<uint32_t>(cellData.size());
     size_t printed = 0;
 
     std:: cerr << "Checking SPH output with" << nCells << " cells" << std::endl;
 
-    for (uint32_t morton_key = 0; morton_key < nCells; ++morton_key) {
-        uint32_t start = cellData[morton_key].left;
-        uint32_t end = cellData[morton_key].right;
+    for (uint32_t key = 0; key < nCells; ++key) {
+
+
+        uint32_t start = cellData[key].left;
+        uint32_t end = cellData[key].right;
 
         if (start == end) {
             continue; // Empty cell
@@ -122,23 +126,90 @@ TEST_CASE("Test that pipeline produces correct density values", "[sph]") {
             REQUIRE(particle.position.y == outputPos[pind].position.y);
             REQUIRE(particle.position.z == outputPos[pind].position.z);
 
-            if (morton_key < 5 || morton_key > nCells - 5) {
-                std::cerr << "Cell " << morton_key 
-                    << " with start" << start
-                    << " and end" << end
-                    << " contains particle at original_index"
-                    << pind << " -> " << unsorted_ind << " at position "
-                    << particle.position.x << ", " 
-                    << particle.position.y << ", " 
-                    << particle.position.z << " with density: " 
-                    << inputDensities[unsorted_ind] << std::endl;
-                printed++;
-            }
+            // if (key < 5 || key > nCells - 5) {
+            //     std::cerr << "Cell " << key 
+            //         << " with start" << start
+            //         << " and end" << end
+            //         << " contains particle at original_index"
+            //         << pind << " -> " << unsorted_ind << " at position "
+            //         << particle.position.x << ", " 
+            //         << particle.position.y << ", " 
+            //         << particle.position.z << " with density: " 
+            //         << inputDensities[unsorted_ind] << std::endl;
+            //     printed++;
+            // }
 
             avg_dens += inputDensities[unsorted_ind];
         }
         avg_dens /= float(end - start);
+        // std::cerr << "Cell " << key 
+        //     << " with start" << start
+        //     << " and end" << end
+        //     << " has average density " << avg_dens 
+        //     << " and computed density " << densities[start] 
+        //     << std::endl;
         REQUIRE (fabs(avg_dens - densities[start]) < 1e-5);
 
     }
+}
+
+
+TEST_CASE("Test that pipeline produces correct density values for random cell with d = 1, calculated directly in validation", "[sph]") {
+    // This test manually scans through in a loop to find particles in or near a cell
+    // And then manually calculate the densities
+    // The validation computation does therefore not use the index, so it is a more independent check
+
+    auto simulated = simulate_inputs(512);
+    SPHData out = run_sph_example(simulated, 4, 1);
+
+    auto inputPos = simulated.positions;
+    auto inputDensities = simulated.densities;
+
+    auto outputPos = out.positions;
+    auto outputDensities = out.densities;
+
+
+    for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
+
+        // choose from output pos so we can match to validation output density
+        glm::vec3 p0 = outputPos[p0idx].position;
+        uvec3 ijk = uvec3(
+            binPosition(p0.x, out.params.nBits),
+            binPosition(p0.y, out.params.nBits),
+            binPosition(p0.z, out.params.nBits)
+        );
+        std::cerr << "Checking density at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
+        float densitySum = 0;
+        uint count = 0;
+
+        // Now must iterate over inputPos which is matched to inputDensities
+        for (size_t pind = 0; pind < inputPos.size(); ++pind) {
+            auto p = inputPos[pind].position;
+            uvec3 b = uvec3(
+                binPosition(p.x, out.params.nBits),
+                binPosition(p.y, out.params.nBits),
+                binPosition(p.z, out.params.nBits)
+            );
+
+            // check if b is within a distance of 1 of ijk on an all axes
+            if ( (b.x + 1 >= ijk.x) && (b.x <= ijk.x + 1) &&
+                (b.y + 1 >= ijk.y) && (b.y <= ijk.y + 1) &&
+                (b.z + 1 >= ijk.z) && (b.z <= ijk.z + 1) ) 
+            {
+
+                densitySum += inputDensities[pind];
+                count++;
+            }
+        }
+
+        // Store average density (or 0 if no neighbors)
+        float density = (count > 0) ? densitySum / float(count) : 0.0;
+        float gpu_dens = outputDensities[p0idx];
+        std::cerr << "Cell " << ijk.x << ", " << ijk.y << ", " << ijk.z 
+            << " has " << count << " particles in or near it, average density " << density 
+            << " and gpu density " << gpu_dens 
+            << std::endl;
+        REQUIRE (fabs(gpu_dens - density) < 1e-5);
+    }
+
 }

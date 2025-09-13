@@ -43,6 +43,7 @@ layout(push_constant) uniform Params {
     uint nParticles;
     vec3 domainMin;
     vec3 domainMax;
+    int d;
 } pc;
 
 void main() {
@@ -53,8 +54,6 @@ void main() {
     uvec3 ijk = xyz2ijk(pos, pc.nBits);
     uint flat_key = ijk2ak(ijk, pc.nBits);
 
-
-
     //CellInfo cell = cells[key];
     CellInfo cell = flat_cells[flat_key];
 
@@ -62,15 +61,15 @@ void main() {
     //uint count = cell.right - cell.left;
     uint count = 0;
 
-    int d = 0;
+    int d = pc.d;
     uint maxg = 1 << pc.nBits;
     for (int di = -d; di <= d; ++di) {
         for (int dj = -d; dj <= d; ++dj) {        
             for (int dk = -d; dk <= d; ++dk) {
                 
-                uint ip = ijk.x + uint(di);
-                uint jp = ijk.y + uint(dj);
-                uint kp = ijk.z + uint(dk);
+                uint ip = uint(int(ijk.x) + di);
+                uint jp = uint(int(ijk.y) + dj);
+                uint kp = uint(int(ijk.z) + dk);
 
                 if (ip >= 0 && ip < maxg 
                     && jp >= 0 && jp < maxg
@@ -91,4 +90,5 @@ void main() {
 
     // Store average density (or 0 if no neighbors)
     densities[idx] = (count > 0) ? densitySum / float(count) : 0.0;
+    //densities[idx] = float(count);
 }
