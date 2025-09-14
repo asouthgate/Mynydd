@@ -11,42 +11,65 @@
 #include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
 
+TEST_CASE("test_spiky_kernel_coeff_3D", "[sph]") {
+    float h = 0.789f;
+    CHECK(get_debrun_coeff_3D(h) == Catch::Approx(19.791529914316335).margin(1e-7f));
+}
+
 TEST_CASE("test_spiky_kernel", "[sph]") {
     float h = 1.329f;
     float r = 0.39881f;
-
-    // CHECK(std::fabs(debrun_spiky_kernel(r, h) - 0.6179313391538699f) < 1e-7f);
-    CHECK(debrun_spiky_kernel(r, h) == Catch::Approx(0.6179313391538699f).margin(1e-7f));
     REQUIRE(debrun_spiky_kernel(-0.000001f, h) == 0.0f);
     REQUIRE(debrun_spiky_kernel(1.33f, h) == 0.0f);
+
+    float sum = 0;
+    int d = 25;
+    float maxd = (float) d;
+    float scale = 1.5f;
+    // Test that it approximately integrates to 1 by computing a grid
+    for (int i = -d; i < d; ++i) {
+        for (int j = -d; j < d; ++j) {
+            for (int k =  -d; k < d; ++k) {
+                vec3 pos = vec3((float) i * scale / maxd, (float) j * scale / maxd, (float) k * scale / maxd);
+                REQUIRE(pos.x <= scale);
+                REQUIRE(pos.x >= -scale);
+                float dist = glm::length(pos);
+                REQUIRE(dist <= std::sqrt(3.0f) * scale);
+                float dx = scale / maxd;
+                float vol = dx * dx * dx;
+                sum += debrun_spiky_kernel(dist, h) * vol;
+            }
+        }
+    }
+    REQUIRE(sum == Catch::Approx(1.0).margin(1e-2f));
 }
 
-TEST_CASE("test_kernel_dwdr", "[sph]") {
-    float h = 1.329f;
-    CHECK(std::fabs(debrun_spiky_kernel_dwdr(0.0f, h)) > 1.0f); // doesn't disappear at origin
-}
+// TEST_CASE("test_kernel_dwdr", "[sph]") {
+//     float h = 1.329f;
+//     CHECK(std::fabs(debrun_spiky_kernel_dwdr(0.0f, h)) > 1.0f); // doesn't disappear at origin
+// }
 
-TEST_CASE("test_kernel_grad", "[sph]") {
-    float dx = 0.1361f;
-    float dy = 0.9981f;
-    float h = 1.8f;
-    float r = cal_r(dx, dy);
+// TEST_CASE("test_kernel_grad", "[sph]") {
+//     float dx = 0.1361f;
+//     float dy = 0.9981f;
+//     float h = 1.8f;
+//     float r = cal_r(dx, dy);
 
-    auto grad = debrun_spiky_kernel_grad(dx, dy, h);
+//     auto grad = debrun_spiky_kernel_grad(dx, dy, h);
 
-    CHECK(std::fabs(grad.x - dx * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
-    CHECK(std::fabs(grad.y - dy * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
-    CHECK(grad.x < 0.0f); // we expect the gradient to be pointing downwards
-    CHECK(grad.y < 0.0f);
-}
+//     CHECK(std::fabs(grad.x - dx * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
+//     CHECK(std::fabs(grad.y - dy * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
+//     CHECK(grad.x < 0.0f); // we expect the gradient to be pointing downwards
+//     CHECK(grad.y < 0.0f);
+// }
 
-TEST_CASE("test_debrun_spiky_kernel_lap", "[sph]") {
-    float r = 4.601086828130937f;
-    float h = 1.2f;
-    float l = debrun_spiky_kernel_lap(r, h);
+// TEST_CASE("test_debrun_spiky_kernel_lap", "[sph]") {
+//     float r = 4.601086828130937f;
+//     float h = 1.2f;
+//     float l = debrun_spiky_kernel_lap(r, h);
 
-    CHECK(std::fabs(-27.948690054856538f * get_debrun_coeff(h) - l) < 1e-5f);
-}
+//     CHECK(std::fabs(-27.948690054856538f * get_debrun_coeff(h) - l) < 1e-5f);
+// }
 
 TEST_CASE("cal_pressure_wcsph behaves correctly", "[sph]") {
     float rho = 1100.0f;

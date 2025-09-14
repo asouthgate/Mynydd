@@ -1,38 +1,36 @@
 // Constants
 const float PI = 3.14159265359;
 
-float get_debrun_coeff(float h) {
-    return 10.0 / (PI * pow(h, 5.0));
+float get_debrun_coeff_3D(float h) {
+    return 15.0 / (PI * pow(h, 6.0));
 }
 
 float debrun_spiky_kernel(float r, float h) {
-    float coeff = get_debrun_coeff(h);
+    float coeff = get_debrun_coeff_3D(h);
     float val = coeff * pow(h - r, 3.0);
     float mask = step(0.0, r) * step(r, h); // 1.0 if 0 <= r <= h, else 0.0
     return val * mask;
 }
 
 float debrun_spiky_kernel_dwdr(float r, float h) {
-    float coeff = get_debrun_coeff(h) / h;
+    float coeff = get_debrun_coeff_3D(h) / h;
     float val = -3.0 * coeff * pow(h - r, 2.0);
     float mask = step(0.0, r) * step(r, h);
     return val * mask;
 }
 
 float debrun_spiky_kernel_lap(float r, float h) {
-    float coeff = get_debrun_coeff(h);
-    return coeff * ((12.0 * h) - (3.0 * pow(h, 2.0) / r) - (9.0 * r));
+    float coeff = get_debrun_coeff_3D(h);
+    float mask = step(0.0, r) * step(r, h);
+    float safe_r = max(r, 1e-6f);
+    return -3.0 * mask * coeff * ( (2.0 * pow(h, 2.0) / safe_r)  - (6.0 * h) + (4.0 * safe_r) );
 }
 
-float cal_r(float dx, float dy) {
-    return sqrt(pow(dx, 2.0) + pow(dy, 2.0));
-}
-
-vec2 debrun_spiky_kernel_grad(float dx, float dy, float h) {
-    float r = cal_r(dx, dy);
+vec3 debrun_spiky_kernel_grad(vec3 dv, float h) {
+    float r = length(dv);
     float safe_r = max(r, 1e-6f); // avoid divide-by-zero
     float dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
-    return vec2(dx * dwdror, dy * dwdror);
+    return dv * dwdror;
 }
 
 float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
