@@ -8,6 +8,11 @@ struct Vec3Aln16 {
     alignas(16) glm::vec3 data;
 };
 
+struct dVec3Aln32 {
+    alignas(32) glm::dvec3 data;
+};
+
+
 struct DensityParams {
     uint32_t nBits;
     uint32_t nParticles;
@@ -20,7 +25,7 @@ struct DensityParams {
 struct SPHData {
     std::vector<double> densities;
     std::vector<double> pressures;
-    std::vector<Vec3Aln16> pressureForces;
+    std::vector<dVec3Aln32> pressureForces;
     std::vector<Vec3Aln16> positions;
     std::vector<uint32_t> mortonKeys;
     std::vector<uint32_t> sortedIndices;

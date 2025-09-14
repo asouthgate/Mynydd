@@ -2,9 +2,15 @@
 layout(local_size_x = 256) in;
 
 #extension GL_GOOGLE_include_directive : enable
+#extension GL_ARB_gpu_shader_fp64 : enable
+
 
 struct Vec3Wrapper {
     vec3 data;
+};
+
+struct dVec3Wrapper {
+    dvec3 data;
 };
 
 struct CellInfo {
@@ -30,7 +36,7 @@ layout(set = 0, binding = 3) readonly buffer FlatCells {
 };
 
 layout(set = 0, binding = 4) buffer PressureForces {
-    Vec3Wrapper pressure_forces[];
+    dVec3Wrapper pressure_forces[];
 };
 
 layout(push_constant) uniform Params {
@@ -60,24 +66,25 @@ void main() {
     CellInfo neighborCells[MAX_CELLS];
     uint cellCount;
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
-    double h = 1.0 / double(1 << pc.nBits);
+    double h = 1.5 / double(1 << pc.nBits);
 
-    vec3 pressure_force = vec3(0.0, 0.0, 0.0);
+    dvec3 pressure_force = vec3(0.0, 0.0, 0.0);
     // now consume neighbors
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
             vec3 dv = input_positions[i].data - pos;
             double dist = length(dv);
-            vec3 gradw = debrun_spiky_kernel_grad(dv, h);
-            pressure_force += cal_pressure_force_ij(
+            dvec3 gradw = debrun_spiky_kernel_grad(dv, h);
+            dvec3 contrib = cal_pressure_force_ij(
                 gradw,
                 input_pressures[idx],
                 input_pressures[i],
                 input_densities[idx], 
                 input_densities[i],
-                h
+                double(1.0) // mass
             );
+            pressure_force += contrib;
         }
     }
     pressure_forces[idx].data = pressure_force;

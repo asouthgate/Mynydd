@@ -50,7 +50,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
 
     auto pressureForceBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Vec3Aln16), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
 
     mynydd::ParticleIndexPipeline<Vec3Aln16> particleIndexPipeline(
@@ -143,7 +143,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     return {
         mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles),
         mynydd::fetchData<double>(contextPtr, pressureBuffer, nParticles),
-        mynydd::fetchData<Vec3Aln16>(contextPtr, pressureForceBuffer, nParticles),
+        mynydd::fetchData<dVec3Aln32>(contextPtr, pressureForceBuffer, nParticles),
         mynydd::fetchData<Vec3Aln16>(contextPtr, pongPosBuffer, nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),

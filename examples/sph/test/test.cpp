@@ -156,7 +156,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
     
     size_t nCells = static_cast<uint32_t>(cellData.size());
     size_t printed = 0;
-    double h = 1.0f / (1 << nBitsPerAxis);
+    double h = 1.5f / (1 << nBitsPerAxis);
     std:: cerr << "Checking SPH output with" << nCells << " cells" << std::endl;
 
     for (uint32_t key = 0; key < nCells; ++key) {
@@ -179,8 +179,8 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             REQUIRE(particle.data.z == outputPos[pind].data.z);
             dens += cal_rho_ij(1.0, length(particle.data - outputPos[start].data), h);
         }
-        std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << std::fixed << std::setprecision(6) << dens  
-            << " vs gpu density " << std::fixed << std::setprecision(6) << densities[start] << std::endl;
+        // std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << std::fixed << std::setprecision(6) << dens  
+            // << " vs gpu density " << std::fixed << std::setprecision(6) << densities[start] << std::endl;
         REQUIRE (fabs(dens - densities[start]) < 1e-2);
 
     }
@@ -231,7 +231,7 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
                 (b.z + 1 >= ijk.z) && (b.z <= ijk.z + 1) ) 
             {
 
-                densitySum += cal_rho_ij(1.0, length(p - p0), 1.0 / (1 << nBitsPerAxis));
+                densitySum += cal_rho_ij(1.0, length(p - p0), 1.5 / (1 << nBitsPerAxis));
                 count++;
             }
         }

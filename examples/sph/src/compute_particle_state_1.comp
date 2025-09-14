@@ -2,6 +2,8 @@
 layout(local_size_x = 256) in;
 
 #extension GL_GOOGLE_include_directive : enable
+#extension GL_ARB_gpu_shader_fp64 : enable
+
 
 struct Vec3Wrapper {
     vec3 data;
@@ -75,7 +77,7 @@ void main() {
     uint cellCount;
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
 
-    double h = 1.0 / double(1 << pc.nBits);
+    double h = 1.5 / double(1 << pc.nBits);
     // now consume neighbors
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
@@ -87,5 +89,6 @@ void main() {
     }
 
     densities[idx] = densitySum;
-    pressures[idx] = cal_pressure_wcsph(densitySum, 3.0, 0.02, 7);
+    double rho0 = pc.nParticles;
+    pressures[idx] = cal_pressure_wcsph(densitySum, rho0, 0.02, 7);
 }
