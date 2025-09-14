@@ -47,7 +47,7 @@ TEST_CASE("Particle index works correctly", "[index]") {
     mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
 
     uint nBits = 4;
-    mynydd::ParticleIndexPipeline<Particle> particleIndexPipeline(
+    mynydd::ParticleIndexPipeline<Vec3Aln16> particleIndexPipeline(
         contextPtr,
         inputBuffer,
         nBits, // nBitsPerAxis

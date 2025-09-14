@@ -5,7 +5,7 @@
 #include <vector>
 
 struct Vec3Aln16 {
-    alignas(16) glm::vec3 position;
+    alignas(16) glm::vec3 data;
 };
 
 struct DensityParams {
@@ -20,6 +20,7 @@ struct DensityParams {
 struct SPHData {
     std::vector<float> densities;
     std::vector<float> pressures;
+    std::vector<Vec3Aln16> pressureForces;
     std::vector<Vec3Aln16> positions;
     std::vector<uint32_t> mortonKeys;
     std::vector<uint32_t> sortedIndices;

@@ -15,6 +15,11 @@ struct Particle {
     // uint32_t key;
 };
 
+struct Vec3Aln16 {
+    alignas(16) glm::vec3 data;
+};
+
+
 struct KeyRange {
     uint32_t keyMin;
     uint32_t keyMax;

@@ -172,10 +172,10 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             uint32_t unsorted_ind = indexData[pind];
             auto particle = inputPos[unsorted_ind];
             
-            REQUIRE(particle.position.x == outputPos[pind].position.x);
-            REQUIRE(particle.position.y == outputPos[pind].position.y);
-            REQUIRE(particle.position.z == outputPos[pind].position.z);
-            dens += cal_rho_ij(1.0, length(particle.position - outputPos[start].position), 1.0);
+            REQUIRE(particle.data.x == outputPos[pind].data.x);
+            REQUIRE(particle.data.y == outputPos[pind].data.y);
+            REQUIRE(particle.data.z == outputPos[pind].data.z);
+            dens += cal_rho_ij(1.0, length(particle.data - outputPos[start].data), 1.0);
         }
         // std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << dens 
         //     << " vs gpu density " << densities[start] << std::endl;
@@ -203,7 +203,7 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
 
         // choose from output pos so we can match to validation output density
-        glm::vec3 p0 = outputPos[p0idx].position;
+        glm::vec3 p0 = outputPos[p0idx].data;
         uvec3 ijk = uvec3(
             binPosition(p0.x, out.params.nBits),
             binPosition(p0.y, out.params.nBits),
@@ -215,7 +215,7 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
 
         // Now must iterate over inputPos which is matched to inputDensities
         for (size_t pind = 0; pind < inputPos.size(); ++pind) {
-            auto p = inputPos[pind].position;
+            auto p = inputPos[pind].data;
             uvec3 b = uvec3(
                 binPosition(p.x, out.params.nBits),
                 binPosition(p.y, out.params.nBits),

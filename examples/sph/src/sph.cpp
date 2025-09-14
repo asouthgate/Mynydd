@@ -17,10 +17,10 @@ SPHData simulate_inputs(uint32_t nParticles) {
     std::mt19937 rng(12345);
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
     for (size_t ak = 0; ak < nParticles; ++ak) {
-        inputPos[ak].position = glm::vec3(dist(rng), dist(rng), dist(rng));
+        inputPos[ak].data = glm::vec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = dist(rng);
     }
-    return {inputDensities, {}, inputPos, {}, {}, {}};
+    return {inputDensities, {}, {}, inputPos,  {}, {}};
 }
 
 
@@ -129,7 +129,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
     auto t1 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
+    mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities, computeForces});
     auto t2 = std::chrono::high_resolution_clock::now();
 
 
@@ -143,6 +143,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     return {
         mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles),
         mynydd::fetchData<float>(contextPtr, pressureBuffer, nParticles),
+        mynydd::fetchData<Vec3Aln16>(contextPtr, pressureForceBuffer, nParticles),
         mynydd::fetchData<Vec3Aln16>(contextPtr, pongPosBuffer, nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),

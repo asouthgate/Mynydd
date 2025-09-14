@@ -183,9 +183,9 @@ namespace mynydd {
                     std::vector<uint32_t> bink;
                     for (uint32_t pind = start; pind < end; ++pind) {
                         auto particle = inputData[indexData[pind]];
-                        uint32_t pi = pos2bin(particle.position.x, nBitsPerAxis);
-                        uint32_t pj = pos2bin(particle.position.y, nBitsPerAxis);
-                        uint32_t pk = pos2bin(particle.position.z, nBitsPerAxis);
+                        uint32_t pi = pos2bin(particle.data.x, nBitsPerAxis);
+                        uint32_t pj = pos2bin(particle.data.y, nBitsPerAxis);
+                        uint32_t pk = pos2bin(particle.data.z, nBitsPerAxis);
 
                         bini.push_back(pi);
                         binj.push_back(pj);
