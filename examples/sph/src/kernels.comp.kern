@@ -1,36 +1,44 @@
 // Constants
-const float PI = 3.14159265359;
+const double PI = 3.14159265359;
+const double D15 = 15.0;
+const double D6 = 6.0;
 
-float get_debrun_coeff_3D(float h) {
-    return 15.0 / (PI * pow(h, 6.0));
+double get_debrun_coeff_3D(double h) {
+    double hp6 = h * h * h * h * h * h;
+    return D15 / (PI * hp6);
 }
 
-float debrun_spiky_kernel(float r, float h) {
-    float coeff = get_debrun_coeff_3D(h);
-    float val = coeff * pow(h - r, 3.0);
-    float mask = step(0.0, r) * step(r, h); // 1.0 if 0 <= r <= h, else 0.0
+double debrun_spiky_kernel(double r, double h) {
+    double coeff = get_debrun_coeff_3D(h);
+    double hmr = h-r;
+    double hmr_pow3 = hmr * hmr * hmr;
+    double val = coeff * hmr_pow3;
+    double mask = step(0.0, r) * step(r, h); // 1.0 if 0 <= r <= h, else 0.0
     return val * mask;
 }
 
-float debrun_spiky_kernel_dwdr(float r, float h) {
-    float coeff = get_debrun_coeff_3D(h) / h;
-    float val = -3.0 * coeff * pow(h - r, 2.0);
-    float mask = step(0.0, r) * step(r, h);
+double debrun_spiky_kernel_dwdr(double r, double h) {
+    double coeff = get_debrun_coeff_3D(h) / h;
+    double hmr = h-r;
+    double hmr_pow2 = hmr * hmr;
+    double val = -3.0 * coeff * hmr_pow2;
+    double mask = step(0.0, r) * step(r, h);
     return val * mask;
 }
 
-float debrun_spiky_kernel_lap(float r, float h) {
-    float coeff = get_debrun_coeff_3D(h);
-    float mask = step(0.0, r) * step(r, h);
-    float safe_r = max(r, 1e-6f);
-    return -3.0 * mask * coeff * ( (2.0 * pow(h, 2.0) / safe_r)  - (6.0 * h) + (4.0 * safe_r) );
+double debrun_spiky_kernel_lap(double r, double h) {
+    double mask = step(0.0, r) * step(r, h); // 1.0 if 0 <= r <= h, else 0.0
+    double coeff = D6 * get_debrun_coeff_3D(h);
+    double term1 = coeff * (h - r);          // W''(r)
+    double term2 = - coeff * (h - r) * (h - r) / r;  // (2/r) * W'(r)
+    return mask * (term1 + term2);
 }
 
 vec3 debrun_spiky_kernel_grad(vec3 dv, float h) {
     float r = length(dv);
     float safe_r = max(r, 1e-6f); // avoid divide-by-zero
-    float dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
-    return dv * dwdror;
+    double dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
+    return dv * float(dwdror);
 }
 
 float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
@@ -41,9 +49,15 @@ float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
 
 float cal_rho_ij(float mass, float dist_ij, float h) {
     // formula is mass * kernel, mass = 1.0
-    return mass * debrun_spiky_kernel(dist_ij, h);
+    return mass * float(debrun_spiky_kernel(dist_ij, h));
 }
 
 float cal_pressure_force_coefficient(float pi, float pj, float rhoi, float rhoj, float mj) {
     return ((pi / (rhoi * rhoi)) + (pj / (rhoj * rhoj))) * mj;
 }
+
+vec3 cal_pressure_force_ij(vec3 gradw, float pi, float pj, float rhoi, float rhoj, float mj) {
+    float pforce_coefficient = - pi * cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
+    return pforce_coefficient * gradw;
+}
+

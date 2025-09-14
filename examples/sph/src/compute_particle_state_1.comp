@@ -7,8 +7,8 @@ layout(local_size_x = 256) in;
 
 const uint MAX_CELLS = 27; // d=1
 
-struct ParticlePos {
-    vec3 position;
+struct Vec3Wrapper {
+    vec3 data;
 };
 
 struct CellInfo {
@@ -22,7 +22,7 @@ layout(set = 0, binding = 0) readonly buffer InputDensities {
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
-    ParticlePos input_positions[];
+    Vec3Wrapper input_positions[];
 };
 
 layout(set = 0, binding = 2) readonly buffer SortedKeys {
@@ -40,6 +40,11 @@ layout(set = 0, binding = 4) readonly buffer Cells {
 layout(set = 0, binding = 5) buffer Densities {
     float densities[];
 };
+
+layout(set = 0, binding = 1) readonly buffer PressureForces {
+    Vec3Wrapper pressure_forces[];
+};
+
 
 layout(push_constant) uniform Params {
     uint nBits;
@@ -80,7 +85,7 @@ void main() {
     uint idx = gl_GlobalInvocationID.x;
     uint key = keys[idx];
 
-    vec3 pos = input_positions[idx].position;
+    vec3 pos = input_positions[idx].data;
     uvec3 ijk = xyz2ijk(pos, pc.nBits);
     uint flat_key = ijk2ak(ijk, pc.nBits);
 
@@ -102,13 +107,14 @@ void main() {
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
-            float dist = length(input_positions[i].position - pos);
+            float dist = length(input_positions[i].data - pos);
             densitySum += cal_rho_ij(1.0, dist, 1.0);
             count += 1;
         }
     }
 
-    // Store average density (or 0 if no neighbors)
     densities[idx] = densitySum;
-    //densities[idx] = float(count);
+
+    //pressure_forces[idx] = 
+
 }

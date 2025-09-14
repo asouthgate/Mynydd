@@ -4,7 +4,7 @@
 #include <mynydd/pipelines/particle_index.hpp>
 #include <vector>
 
-struct ParticlePosition {
+struct Vec3Aln16 {
     alignas(16) glm::vec3 position;
 };
 
@@ -19,7 +19,7 @@ struct DensityParams {
 
 struct SPHData {
     std::vector<float> densities;
-    std::vector<ParticlePosition> positions;
+    std::vector<Vec3Aln16> positions;
     std::vector<uint32_t> mortonKeys;
     std::vector<uint32_t> sortedIndices;
     std::vector<mynydd::CellInfo> cellInfos;

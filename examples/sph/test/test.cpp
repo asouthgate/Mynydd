@@ -21,6 +21,8 @@ TEST_CASE("test_spiky_kernel", "[sph]") {
     float r = 0.39881f;
     REQUIRE(debrun_spiky_kernel(-0.000001f, h) == 0.0f);
     REQUIRE(debrun_spiky_kernel(1.33f, h) == 0.0f);
+    REQUIRE(debrun_spiky_kernel(1.30f, h) >= 0.0f);
+    REQUIRE(debrun_spiky_kernel(0.1f, h) >= 0.0f);
 
     float sum = 0;
     int d = 25;
@@ -44,32 +46,58 @@ TEST_CASE("test_spiky_kernel", "[sph]") {
     REQUIRE(sum == Catch::Approx(1.0).margin(1e-2f));
 }
 
-// TEST_CASE("test_kernel_dwdr", "[sph]") {
-//     float h = 1.329f;
-//     CHECK(std::fabs(debrun_spiky_kernel_dwdr(0.0f, h)) > 1.0f); // doesn't disappear at origin
-// }
+TEST_CASE("test_kernel_dwdr", "[sph]") {
+     float h = 1.329f;
+     CHECK(std::fabs(debrun_spiky_kernel_dwdr(0.0f, h)) > 1.0f); // doesn't disappear at origin
+}
 
-// TEST_CASE("test_kernel_grad", "[sph]") {
-//     float dx = 0.1361f;
-//     float dy = 0.9981f;
-//     float h = 1.8f;
-//     float r = cal_r(dx, dy);
+TEST_CASE("test_kernel_grad", "[sph]") {
+    float dx = 0.1361f;
+    float dy = 0.9981f;
+    float dz = 0.5012f;
+    vec3 pos = vec3(dx, dy, dz);
+    float h = 1.8f;
+    float r = length(pos);
 
-//     auto grad = debrun_spiky_kernel_grad(dx, dy, h);
+    auto grad = debrun_spiky_kernel_grad(pos, h);
 
-//     CHECK(std::fabs(grad.x - dx * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
-//     CHECK(std::fabs(grad.y - dy * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
-//     CHECK(grad.x < 0.0f); // we expect the gradient to be pointing downwards
-//     CHECK(grad.y < 0.0f);
-// }
+    CHECK(std::fabs(grad.x - dx * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
+    CHECK(std::fabs(grad.y - dy * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
+    CHECK(std::fabs(grad.z - dz * debrun_spiky_kernel_dwdr(r, h) / r) < 1e-6f);
+    CHECK(grad.x < 0.0f); // we expect the gradient to be pointing downwards
+    CHECK(grad.y < 0.0f);
+}
 
-// TEST_CASE("test_debrun_spiky_kernel_lap", "[sph]") {
-//     float r = 4.601086828130937f;
-//     float h = 1.2f;
-//     float l = debrun_spiky_kernel_lap(r, h);
+TEST_CASE("test_debrun_spiky_kernel_lap", "[sph]") {
+    double h = 1.2f;
+    double dr = 1e-5f;  // small step for finite differences
+    vec3 v1 = vec3(0.9f, 0.9f, 0.9f);
+    double r = length(v1);
 
-//     CHECK(std::fabs(-27.948690054856538f * get_debrun_coeff(h) - l) < 1e-5f);
-// }
+    // Compute gradient at v1
+    auto grad_center = debrun_spiky_kernel_grad(v1, h);
+
+    // Finite difference approximation of Laplacian
+    double lap_fd = 0.0f;
+    for (int i = 0; i < 3; ++i) {
+        vec3 dv = vec3(0.0f);
+        if (i == 0) dv.x = dr;
+        if (i == 1) dv.y = dr;
+        if (i == 2) dv.z = dr;
+
+        auto grad_forward = debrun_spiky_kernel_grad(v1 + dv, h);
+        auto grad_backward = debrun_spiky_kernel_grad(v1 - dv, h);
+        double derivative = (grad_forward[i] - grad_backward[i]) / (2.0f * dr);
+        // derivative of i-th component along its coordinate
+        // float derivative = (grad_forwawrd[i] - grad_center[i]) / dr;
+        lap_fd += derivative;    
+    }
+    double lap_analytic = debrun_spiky_kernel_lap(r, h);
+
+    std:: cout << "Finite difference Laplacian: " << lap_fd << ", Analytic Laplacian: " << lap_analytic << std::endl;
+    // Compare
+    REQUIRE(Catch::Approx(lap_fd).epsilon(1e-3) == lap_analytic);
+}
 
 TEST_CASE("cal_pressure_wcsph behaves correctly", "[sph]") {
     float rho = 1100.0f;
@@ -149,8 +177,8 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             REQUIRE(particle.position.z == outputPos[pind].position.z);
             dens += cal_rho_ij(1.0, length(particle.position - outputPos[start].position), 1.0);
         }
-        std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << dens 
-            << " vs gpu density " << densities[start] << std::endl;
+        // std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << dens 
+        //     << " vs gpu density " << densities[start] << std::endl;
         REQUIRE (fabs(dens - densities[start]) < 1e-4);
 
     }
@@ -207,10 +235,10 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
 
         // Store average density (or 0 if no neighbors)
         float gpu_dens = outputDensities[p0idx];
-        std::cerr << "Cell " << ijk.x << ", " << ijk.y << ", " << ijk.z 
-            << " has " << count << " particles in or near it, average density " << densitySum 
-            << " and gpu density " << gpu_dens 
-            << std::endl;
+        // std::cerr << "Cell " << ijk.x << ", " << ijk.y << ", " << ijk.z 
+        //     << " has " << count << " particles in or near it, average density " << densitySum 
+        //     << " and gpu density " << gpu_dens 
+        //     << std::endl;
         REQUIRE (fabs(gpu_dens - densitySum) < 1e-5);
     }
 

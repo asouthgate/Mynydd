@@ -13,6 +13,7 @@ x = data["x"]
 y = data["y"]
 z = data["z"]
 morton = data["morton_key"]
+density = data["density"]
 
 unique_keys = morton.unique()
 
@@ -37,8 +38,35 @@ sc = ax.scatter(x, y, z, c=colors, marker='o', s=5, alpha=0.8)
 ax.set_xlabel("X", color="white")
 ax.set_ylabel("Y", color="white")
 ax.set_zlabel("Z", color="white")
-ax.set_title("Particle positions colored by offset Morton key colors", color="white")
+ax.set_title("Particle positions colored by Morton keys", color="white")
 ax.tick_params(colors="white", which='both')
 
 plt.savefig("particle_plot.png", transparent=True)
 plt.show()
+
+# Scatter plot colored by density with magma colormap
+fig = plt.figure(figsize=(10, 8), facecolor="none")
+ax = fig.add_subplot(111, projection="3d", facecolor="none")
+
+# normalize density values for colormap
+norm = plt.Normalize(vmin=density.min(), vmax=density.max())
+cmap = cm.get_cmap("magma")
+
+sc = ax.scatter(x, y, z, c=density, cmap=cmap, norm=norm,
+                marker='o', s=5, alpha=0.8)
+
+ax.set_xlabel("X", color="white")
+ax.set_ylabel("Y", color="white")
+ax.set_zlabel("Z", color="white")
+ax.set_title("Particle densities", color="white")
+ax.tick_params(colors="white", which="both")
+
+# add colorbar to show density mapping
+cbar = plt.colorbar(sc, ax=ax, shrink=0.6, pad=0.1)
+cbar.set_label("Density", color="white")
+cbar.ax.yaxis.set_tick_params(color="white")
+plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color="white")
+
+plt.savefig("particle_density_magma.png", transparent=True)
+plt.show()
+

@@ -200,6 +200,11 @@ namespace mynydd {
         deviceCreateInfo.queueCreateInfoCount = 1;
         deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
 
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.shaderFloat64 = VK_TRUE;
+
+        deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+
         VkDevice device;
         if (
             vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device) !=
