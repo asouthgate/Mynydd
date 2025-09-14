@@ -14,7 +14,7 @@ struct CellInfo {
 
 // THESE SHOULD BE SORTED
 layout(set = 0, binding = 0) readonly buffer InputDensities {
-    float input_densities[];
+    double input_densities[];
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
@@ -22,7 +22,7 @@ layout(set = 0, binding = 1) readonly buffer InputPositions {
 };
 
 layout(set = 0, binding = 2) readonly buffer InputPressures {
-    float input_pressures[];
+    double input_pressures[];
 };
 
 layout(set = 0, binding = 3) readonly buffer FlatCells {
@@ -60,6 +60,7 @@ void main() {
     CellInfo neighborCells[MAX_CELLS];
     uint cellCount;
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
+    double h = 1.0 / double(1 << pc.nBits);
 
     vec3 pressure_force = vec3(0.0, 0.0, 0.0);
     // now consume neighbors
@@ -67,15 +68,15 @@ void main() {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
             vec3 dv = input_positions[i].data - pos;
-            float dist = length(dv);
-            vec3 gradw = debrun_spiky_kernel_grad(dv, 1.0);
+            double dist = length(dv);
+            vec3 gradw = debrun_spiky_kernel_grad(dv, h);
             pressure_force += cal_pressure_force_ij(
                 gradw,
                 input_pressures[idx],
                 input_pressures[i],
                 input_densities[idx], 
                 input_densities[i],
-                1.0
+                h
             );
         }
     }

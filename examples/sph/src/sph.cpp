@@ -13,9 +13,9 @@
 SPHData simulate_inputs(uint32_t nParticles) {
     // Generate some input data to start with
     std::vector<Vec3Aln16> inputPos(nParticles);
-    std::vector<float> inputDensities(nParticles);
+    std::vector<double> inputDensities(nParticles);
     std::mt19937 rng(12345);
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    std::uniform_real_distribution<double> dist(0.0f, 1.0f);
     for (size_t ak = 0; ak < nParticles; ++ak) {
         inputPos[ak].data = glm::vec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = dist(rng);
@@ -41,13 +41,13 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Vec3Aln16), false);
 
     auto pingDensityBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
 
     auto pongDensityBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
 
     auto pressureBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
 
     auto pressureForceBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Vec3Aln16), false);
@@ -114,7 +114,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
 
 
     mynydd::uploadData<Vec3Aln16>(contextPtr, inputPos, pingPosBuffer);
-    mynydd::uploadData<float>(contextPtr, inputDensities, pingDensityBuffer);
+    mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
 
     DensityParams gridParams = {
         nBitsPerAxis,
@@ -141,8 +141,8 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     particleIndexPipeline.debug_assert_bin_consistency();
 
     return {
-        mynydd::fetchData<float>(contextPtr, pingDensityBuffer, nParticles),
-        mynydd::fetchData<float>(contextPtr, pressureBuffer, nParticles),
+        mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles),
+        mynydd::fetchData<double>(contextPtr, pressureBuffer, nParticles),
         mynydd::fetchData<Vec3Aln16>(contextPtr, pressureForceBuffer, nParticles),
         mynydd::fetchData<Vec3Aln16>(contextPtr, pongPosBuffer, nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),

@@ -2,6 +2,7 @@
 const double PI = 3.14159265359;
 const double D15 = 15.0;
 const double D6 = 6.0;
+const double MINDIST = 1e-6;
 
 double get_debrun_coeff_3D(double h) {
     double hp6 = h * h * h * h * h * h;
@@ -34,29 +35,33 @@ double debrun_spiky_kernel_lap(double r, double h) {
     return mask * (term1 + term2);
 }
 
-vec3 debrun_spiky_kernel_grad(vec3 dv, float h) {
-    float r = length(dv);
-    float safe_r = max(r, 1e-6f); // avoid divide-by-zero
+vec3 debrun_spiky_kernel_grad(vec3 dv, double h) {
+    double r = length(dv);
+    double safe_r = max(r, MINDIST); // avoid divide-by-zero
     double dwdror = debrun_spiky_kernel_dwdr(r, h) / safe_r;
     return dv * float(dwdror);
 }
 
-float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
+double cal_pressure_wcsph(double rho, double rho0, double c2, int gamma) {
     // bweak is a constant for this call
-    float bweak = c2 * rho0 / gamma;
-    return bweak * (pow(rho / rho0, gamma) - 1.0f);
+    double bweak = c2 * rho0 / double(gamma);
+    double prod = 1.0;
+    for (int g = 0; g < gamma; ++g) {
+        prod = prod * rho / rho0;
+    }
+    return bweak * (prod - 1.0f);
 }
 
-float cal_rho_ij(float mass, float dist_ij, float h) {
+double cal_rho_ij(double mass, double dist_ij, double h) {
     // formula is mass * kernel, mass = 1.0
-    return mass * float(debrun_spiky_kernel(dist_ij, h));
+    return mass * debrun_spiky_kernel(dist_ij, h);
 }
 
-float cal_pressure_force_coefficient(float pi, float pj, float rhoi, float rhoj, float mj) {
+double cal_pressure_force_coefficient(double pi, double pj, double rhoi, double rhoj, double mj) {
     return ((pi / (rhoi * rhoi)) + (pj / (rhoj * rhoj))) * mj;
 }
 
-vec3 cal_pressure_force_ij(vec3 gradw, float pi, float pj, float rhoi, float rhoj, float mj) {
-    float pforce_coefficient = - pi * cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
-    return pforce_coefficient * gradw;
+vec3 cal_pressure_force_ij(vec3 gradw, double pi, double pj, double rhoi, double rhoj, double mj) {
+    double pforce_coefficient = - pi * cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
+    return float(pforce_coefficient) * gradw;
 }

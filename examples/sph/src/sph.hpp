@@ -18,8 +18,8 @@ struct DensityParams {
 
 
 struct SPHData {
-    std::vector<float> densities;
-    std::vector<float> pressures;
+    std::vector<double> densities;
+    std::vector<double> pressures;
     std::vector<Vec3Aln16> pressureForces;
     std::vector<Vec3Aln16> positions;
     std::vector<uint32_t> mortonKeys;

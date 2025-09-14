@@ -14,7 +14,7 @@ struct CellInfo {
 
 // THESE SHOULD BE SORTED
 layout(set = 0, binding = 0) readonly buffer InputMasses {
-    float input_masses[];
+    double input_masses[];
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
@@ -34,11 +34,11 @@ layout(set = 0, binding = 4) readonly buffer Cells {
 };
 
 layout(set = 0, binding = 5) buffer Densities {
-    float densities[];
+    double densities[];
 };
 
 layout(set = 0, binding = 6) buffer Pressures {
-    float pressures[];
+    double pressures[];
 };
 
 layout(push_constant) uniform Params {
@@ -64,7 +64,7 @@ void main() {
     //CellInfo cell = cells[key];
     CellInfo cell = flat_cells[flat_key];
 
-    float densitySum = 0.0;
+    double densitySum = 0.0;
     //uint count = cell.right - cell.left;
     uint count = 0;
 
@@ -75,12 +75,13 @@ void main() {
     uint cellCount;
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
 
+    double h = 1.0 / double(1 << pc.nBits);
     // now consume neighbors
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
-            float dist = length(input_positions[i].data - pos);
-            densitySum += cal_rho_ij(1.0, dist, 1.0);
+            double dist = length(input_positions[i].data - pos);
+            densitySum += cal_rho_ij(1.0, dist, h);
             count += 1;
         }
     }
