@@ -3,6 +3,9 @@ layout(local_size_x = 256) in;
 
 #extension GL_GOOGLE_include_directive : enable
 #include "morton_kernels.comp.kern"
+#include "kernels.comp.kern"
+
+const uint MAX_CELLS = 27; // d=1
 
 struct ParticlePos {
     vec3 position;
@@ -46,6 +49,33 @@ layout(push_constant) uniform Params {
     int d;
 } pc;
 
+void gather_neighbor_cells(
+    uvec3 ijk,
+    int d,
+    uint maxg,
+    out CellInfo cells[MAX_CELLS],
+    out uint count
+) {
+    count = 0;
+    for (int di = -d; di <= d; ++di) {
+        for (int dj = -d; dj <= d; ++dj) {
+            for (int dk = -d; dk <= d; ++dk) {
+                int ip = int(ijk.x) + di;
+                int jp = int(ijk.y) + dj;
+                int kp = int(ijk.z) + dk;
+
+                if (ip >= 0 && ip < int(maxg) &&
+                    jp >= 0 && jp < int(maxg) &&
+                    kp >= 0 && kp < int(maxg)) {
+                    
+                    uint flat_keyp = ijk2ak(uvec3(ip,jp,kp), pc.nBits);
+                    cells[count++] = flat_cells[flat_keyp];
+                }
+            }
+        }
+    }
+}
+
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     uint key = keys[idx];
@@ -63,32 +93,22 @@ void main() {
 
     int d = pc.d;
     uint maxg = 1 << pc.nBits;
-    for (int di = -d; di <= d; ++di) {
-        for (int dj = -d; dj <= d; ++dj) {        
-            for (int dk = -d; dk <= d; ++dk) {
-                
-                uint ip = uint(int(ijk.x) + di);
-                uint jp = uint(int(ijk.y) + dj);
-                uint kp = uint(int(ijk.z) + dk);
 
-                if (ip >= 0 && ip < maxg 
-                    && jp >= 0 && jp < maxg
-                    && kp >= 0 && kp < maxg
-                ) {
-                    uint flat_keyp = ijk2ak(uvec3(ip,jp,kp), pc.nBits);
-                    CellInfo cell = flat_cells[flat_keyp];
-                    // Iterate all neighbors in the same bin
-                    for (uint i = cell.left; i < cell.right; i++) {
-                        densitySum += input_densities[i];
-                        count += 1;
-                    }
-                }
-            }
+    CellInfo neighborCells[MAX_CELLS];
+    uint cellCount;
+    gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
+
+    // now consume neighbors
+    for (uint c = 0u; c < cellCount; ++c) {
+        CellInfo cell = neighborCells[c];
+        for (uint i = cell.left; i < cell.right; ++i) {
+            float dist = length(input_positions[i].position - pos);
+            densitySum += cal_rho_ij(1.0, dist, 1.0);
+            count += 1;
         }
     }
- 
 
     // Store average density (or 0 if no neighbors)
-    densities[idx] = (count > 0) ? densitySum / float(count) : 0.0;
+    densities[idx] = densitySum;
     //densities[idx] = float(count);
 }

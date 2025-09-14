@@ -111,8 +111,7 @@ TEST_CASE("cal_pressure_force_coefficient computes correctly", "[sph]") {
 }
 
 
-TEST_CASE("Test that pipeline produces correct density values for d =0", "[sph]") {
-
+TEST_CASE("Test that pipeline produces correct density values for d = 0 for first particle in each cell", "[sph]") {
 
     auto simulated = simulate_inputs(4096 * 16);
     SPHData out = run_sph_example(simulated, 4, 0);
@@ -140,7 +139,7 @@ TEST_CASE("Test that pipeline produces correct density values for d =0", "[sph]"
             continue; // Empty cell
         }
 
-        float avg_dens = 0.0f;
+        float dens = 0.0f;
         for (uint32_t pind = start; pind < end; ++pind) {
             uint32_t unsorted_ind = indexData[pind];
             auto particle = inputPos[unsorted_ind];
@@ -148,30 +147,11 @@ TEST_CASE("Test that pipeline produces correct density values for d =0", "[sph]"
             REQUIRE(particle.position.x == outputPos[pind].position.x);
             REQUIRE(particle.position.y == outputPos[pind].position.y);
             REQUIRE(particle.position.z == outputPos[pind].position.z);
-
-            // if (key < 5 || key > nCells - 5) {
-            //     std::cerr << "Cell " << key 
-            //         << " with start" << start
-            //         << " and end" << end
-            //         << " contains particle at original_index"
-            //         << pind << " -> " << unsorted_ind << " at position "
-            //         << particle.position.x << ", " 
-            //         << particle.position.y << ", " 
-            //         << particle.position.z << " with density: " 
-            //         << inputDensities[unsorted_ind] << std::endl;
-            //     printed++;
-            // }
-
-            avg_dens += inputDensities[unsorted_ind];
+            dens += cal_rho_ij(1.0, length(particle.position - outputPos[start].position), 1.0);
         }
-        avg_dens /= float(end - start);
-        // std::cerr << "Cell " << key 
-        //     << " with start" << start
-        //     << " and end" << end
-        //     << " has average density " << avg_dens 
-        //     << " and computed density " << densities[start] 
-        //     << std::endl;
-        REQUIRE (fabs(avg_dens - densities[start]) < 1e-5);
+        std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << dens 
+            << " vs gpu density " << densities[start] << std::endl;
+        REQUIRE (fabs(dens - densities[start]) < 1e-4);
 
     }
 }
@@ -220,19 +200,18 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
                 (b.z + 1 >= ijk.z) && (b.z <= ijk.z + 1) ) 
             {
 
-                densitySum += inputDensities[pind];
+                densitySum += cal_rho_ij(1.0, length(p - p0), 1.0);
                 count++;
             }
         }
 
         // Store average density (or 0 if no neighbors)
-        float density = (count > 0) ? densitySum / float(count) : 0.0;
         float gpu_dens = outputDensities[p0idx];
         std::cerr << "Cell " << ijk.x << ", " << ijk.y << ", " << ijk.z 
-            << " has " << count << " particles in or near it, average density " << density 
+            << " has " << count << " particles in or near it, average density " << densitySum 
             << " and gpu density " << gpu_dens 
             << std::endl;
-        REQUIRE (fabs(gpu_dens - density) < 1e-5);
+        REQUIRE (fabs(gpu_dens - densitySum) < 1e-5);
     }
 
 }

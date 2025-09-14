@@ -39,8 +39,9 @@ float cal_pressure_wcsph(float rho, float rho0, float c2, float gamma) {
     return bweak * (pow(rho / rho0, gamma) - 1.0f);
 }
 
-float cal_rho_ij(float mass_j, float dist_ij, float h) {
-    return mass_j * debrun_spiky_kernel(dist_ij, h);
+float cal_rho_ij(float mass, float dist_ij, float h) {
+    // formula is mass * kernel, mass = 1.0
+    return mass * debrun_spiky_kernel(dist_ij, h);
 }
 
 float cal_pressure_force_coefficient(float pi, float pj, float rhoi, float rhoj, float mj) {
