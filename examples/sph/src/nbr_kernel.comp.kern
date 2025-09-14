@@ -1,0 +1,29 @@
+
+const uint MAX_CELLS = 27; // d=1
+
+void gather_neighbor_cells(
+    uvec3 ijk,
+    int d,
+    uint maxg,
+    out CellInfo cells[MAX_CELLS],
+    out uint count
+) {
+    count = 0;
+    for (int di = -d; di <= d; ++di) {
+        for (int dj = -d; dj <= d; ++dj) {
+            for (int dk = -d; dk <= d; ++dk) {
+                int ip = int(ijk.x) + di;
+                int jp = int(ijk.y) + dj;
+                int kp = int(ijk.z) + dk;
+
+                if (ip >= 0 && ip < int(maxg) &&
+                    jp >= 0 && jp < int(maxg) &&
+                    kp >= 0 && kp < int(maxg)) {
+                    
+                    uint flat_keyp = ijk2ak(uvec3(ip,jp,kp), pc.nBits);
+                    cells[count++] = flat_cells[flat_keyp];
+                }
+            }
+        }
+    }
+}
