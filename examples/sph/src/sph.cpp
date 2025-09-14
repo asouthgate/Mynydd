@@ -45,6 +45,9 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     auto pongDensityBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
 
+    auto pressureBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(float), false);
+
     auto pressureForceBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Vec3Aln16), false);
 
@@ -80,10 +83,26 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             pongDensityBuffer,
             pongPosBuffer,
-            particleIndexPipeline.getSortedMortonKeysBuffer(),
+            particleIndexPipeline.getSortedMortonKeysBuffer(), // TODO: dont need anymore
             particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
-            particleIndexPipeline.getOutputIndexCellRangeBuffer(),
+            particleIndexPipeline.getOutputIndexCellRangeBuffer(), // DONT NEED ANYMORE
             pingDensityBuffer,
+            pressureBuffer
+        },
+        groupCount,
+        1,
+        1,
+        std::vector<uint32_t>{sizeof(DensityParams)}
+    );
+
+    auto computeForces = std::make_shared<mynydd::PipelineStep>(
+        contextPtr,
+        "examples/sph/compute_particle_state_2.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
+            pingDensityBuffer,
+            pongPosBuffer,
+            pressureBuffer,
+            particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
             pressureForceBuffer
         },
         groupCount,
@@ -91,6 +110,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         1,
         std::vector<uint32_t>{sizeof(DensityParams)}
     );
+
 
     mynydd::uploadData<Vec3Aln16>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<float>(contextPtr, inputDensities, pingDensityBuffer);

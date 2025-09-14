@@ -13,32 +13,24 @@ struct CellInfo {
 };
 
 // THESE SHOULD BE SORTED
-layout(set = 0, binding = 0) readonly buffer InputMasses {
-    float input_masses[];
+layout(set = 0, binding = 0) readonly buffer InputDensities {
+    float input_densities[];
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
     Vec3Wrapper input_positions[];
 };
 
-layout(set = 0, binding = 2) readonly buffer SortedKeys {
-    uint keys[];
+layout(set = 0, binding = 0) readonly buffer InputPressures {
+    float input_pressures[];
 };
 
-layout(set = 0, binding = 3) readonly buffer FlatCells {
+layout(set = 0, binding = 2) readonly buffer FlatCells {
     CellInfo flat_cells[];
 };
 
-layout(set = 0, binding = 4) readonly buffer Cells {
-    CellInfo cells[];
-};
-
-layout(set = 0, binding = 5) buffer Densities {
-    float densities[];
-};
-
-layout(set = 0, binding = 6) buffer Pressures {
-    float pressures[];
+layout(set = 0, binding = 3) buffer PressureForces {
+    Vec3Wrapper pressure_forces[];
 };
 
 layout(push_constant) uniform Params {
@@ -55,18 +47,15 @@ layout(push_constant) uniform Params {
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
-    uint key = keys[idx];
 
     vec3 pos = input_positions[idx].data;
     uvec3 ijk = xyz2ijk(pos, pc.nBits);
     uint flat_key = ijk2ak(ijk, pc.nBits);
 
-    //CellInfo cell = cells[key];
     CellInfo cell = flat_cells[flat_key];
 
     float densitySum = 0.0;
     //uint count = cell.right - cell.left;
-    uint count = 0;
 
     int d = pc.d;
     uint maxg = 1 << pc.nBits;
@@ -81,10 +70,9 @@ void main() {
         for (uint i = cell.left; i < cell.right; ++i) {
             float dist = length(input_positions[i].data - pos);
             densitySum += cal_rho_ij(1.0, dist, 1.0);
-            count += 1;
         }
     }
 
-    densities[idx] = densitySum;
-    pressures[idx] = cal_pressure_wcsph(densitySum, 3.0, 0.02, 7);
+    //densities[idx] = densitySum;
+
 }
