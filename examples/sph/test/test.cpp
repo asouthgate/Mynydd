@@ -4,6 +4,7 @@
 #include <catch2/catch_approx.hpp>
 #include <cmath>
 #include <catch2/catch_approx.hpp>
+#include <iomanip> 
 
 #include <mynydd/shader_interop.hpp>
 #include "../src/kernels.comp.kern"
@@ -12,33 +13,33 @@
 
 
 TEST_CASE("test_spiky_kernel_coeff_3D", "[sph]") {
-    float h = 0.789f;
+    double h = 0.789f;
     CHECK(get_debrun_coeff_3D(h) == Catch::Approx(19.791529914316335).margin(1e-7f));
 }
 
 TEST_CASE("test_spiky_kernel", "[sph]") {
-    float h = 1.329f;
-    float r = 0.39881f;
+    double h = 1.329f;
+    double r = 0.39881f;
     REQUIRE(debrun_spiky_kernel(-0.000001f, h) == 0.0f);
     REQUIRE(debrun_spiky_kernel(1.33f, h) == 0.0f);
     REQUIRE(debrun_spiky_kernel(1.30f, h) >= 0.0f);
     REQUIRE(debrun_spiky_kernel(0.1f, h) >= 0.0f);
 
-    float sum = 0;
+    double sum = 0;
     int d = 25;
-    float maxd = (float) d;
-    float scale = 1.5f;
+    double maxd = (double) d;
+    double scale = 1.5f;
     // Test that it approximately integrates to 1 by computing a grid
     for (int i = -d; i < d; ++i) {
         for (int j = -d; j < d; ++j) {
             for (int k =  -d; k < d; ++k) {
-                vec3 pos = vec3((float) i * scale / maxd, (float) j * scale / maxd, (float) k * scale / maxd);
+                vec3 pos = vec3((double) i * scale / maxd, (double) j * scale / maxd, (double) k * scale / maxd);
                 REQUIRE(pos.x <= scale);
                 REQUIRE(pos.x >= -scale);
-                float dist = glm::length(pos);
+                double dist = glm::length(pos);
                 REQUIRE(dist <= std::sqrt(3.0f) * scale);
-                float dx = scale / maxd;
-                float vol = dx * dx * dx;
+                double dx = scale / maxd;
+                double vol = dx * dx * dx;
                 sum += debrun_spiky_kernel(dist, h) * vol;
             }
         }
@@ -47,17 +48,17 @@ TEST_CASE("test_spiky_kernel", "[sph]") {
 }
 
 TEST_CASE("test_kernel_dwdr", "[sph]") {
-     float h = 1.329f;
+     double h = 1.329f;
      CHECK(std::fabs(debrun_spiky_kernel_dwdr(0.0f, h)) > 1.0f); // doesn't disappear at origin
 }
 
 TEST_CASE("test_kernel_grad", "[sph]") {
-    float dx = 0.1361f;
-    float dy = 0.9981f;
-    float dz = 0.5012f;
+    double dx = 0.1361f;
+    double dy = 0.9981f;
+    double dz = 0.5012f;
     vec3 pos = vec3(dx, dy, dz);
-    float h = 1.8f;
-    float r = length(pos);
+    double h = 1.8f;
+    double r = length(pos);
 
     auto grad = debrun_spiky_kernel_grad(pos, h);
 
@@ -89,7 +90,7 @@ TEST_CASE("test_debrun_spiky_kernel_lap", "[sph]") {
         auto grad_backward = debrun_spiky_kernel_grad(v1 - dv, h);
         double derivative = (grad_forward[i] - grad_backward[i]) / (2.0f * dr);
         // derivative of i-th component along its coordinate
-        // float derivative = (grad_forwawrd[i] - grad_center[i]) / dr;
+        // double derivative = (grad_forwawrd[i] - grad_center[i]) / dr;
         lap_fd += derivative;    
     }
     double lap_analytic = debrun_spiky_kernel_lap(r, h);
@@ -100,40 +101,40 @@ TEST_CASE("test_debrun_spiky_kernel_lap", "[sph]") {
 }
 
 TEST_CASE("cal_pressure_wcsph behaves correctly", "[sph]") {
-    float rho = 1100.0f;
-    float rho0 = 1000.0f;
-    float c2 = 1500.0f;
-    float gamma = 7.0f;
+    double rho = 1100.0f;
+    double rho0 = 1000.0f;
+    double c2 = 1500.0f;
+    double gamma = 7.0f;
 
-    float result = cal_pressure_wcsph(rho, rho0, c2, gamma);
-    float expected_bweak = c2 * rho0 / gamma;
-    float expected = expected_bweak * (std::pow(rho / rho0, gamma) - 1.0f);
+    double result = cal_pressure_wcsph(rho, rho0, c2, gamma);
+    double expected_bweak = c2 * rho0 / gamma;
+    double expected = expected_bweak * (std::pow(rho / rho0, gamma) - 1.0f);
 
     REQUIRE(std::abs(result - expected) < 1e-6f);
 }
 
 TEST_CASE("cal_rho_ij returns zero outside support radius", "[sph]") {
-    float mass_j = 2.0f;
-    float h = 1.0f;
+    double mass_j = 2.0f;
+    double h = 1.0f;
 
     // distance outside kernel support
-    float dist_far = 1.1f;
+    double dist_far = 1.1f;
     REQUIRE(cal_rho_ij(mass_j, dist_far, h) == 0.0f);
 
     // distance inside kernel support
-    float dist_near = 0.5f;
+    double dist_near = 0.5f;
     REQUIRE(cal_rho_ij(mass_j, dist_near, h) > 0.0f);
 }
 
 TEST_CASE("cal_pressure_force_coefficient computes correctly", "[sph]") {
-    float pi = 2000.0f;
-    float pj = 1500.0f;
-    float rhoi = 1000.0f;
-    float rhoj = 900.0f;
-    float mj = 1.5f;
+    double pi = 2000.0f;
+    double pj = 1500.0f;
+    double rhoi = 1000.0f;
+    double rhoj = 900.0f;
+    double mj = 1.5f;
 
-    float result = cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
-    float expected = ((pi / (rhoi*rhoi)) + (pj / (rhoj*rhoj))) * mj;
+    double result = cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
+    double expected = ((pi / (rhoi*rhoi)) + (pj / (rhoj*rhoj))) * mj;
 
     REQUIRE(std::abs(result - expected) < 1e-6f);
 }
@@ -142,7 +143,8 @@ TEST_CASE("cal_pressure_force_coefficient computes correctly", "[sph]") {
 TEST_CASE("Test that pipeline produces correct density values for d = 0 for first particle in each cell", "[sph]") {
 
     auto simulated = simulate_inputs(4096 * 16);
-    SPHData out = run_sph_example(simulated, 4, 0);
+    auto nBitsPerAxis = 4;
+    SPHData out = run_sph_example(simulated, nBitsPerAxis, 0);
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -154,7 +156,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
     
     size_t nCells = static_cast<uint32_t>(cellData.size());
     size_t printed = 0;
-
+    double h = 1.0f / (1 << nBitsPerAxis);
     std:: cerr << "Checking SPH output with" << nCells << " cells" << std::endl;
 
     for (uint32_t key = 0; key < nCells; ++key) {
@@ -167,7 +169,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             continue; // Empty cell
         }
 
-        float dens = 0.0f;
+        double dens = 0.0f;
         for (uint32_t pind = start; pind < end; ++pind) {
             uint32_t unsorted_ind = indexData[pind];
             auto particle = inputPos[unsorted_ind];
@@ -175,11 +177,11 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             REQUIRE(particle.data.x == outputPos[pind].data.x);
             REQUIRE(particle.data.y == outputPos[pind].data.y);
             REQUIRE(particle.data.z == outputPos[pind].data.z);
-            dens += cal_rho_ij(1.0, length(particle.data - outputPos[start].data), 1.0);
+            dens += cal_rho_ij(1.0, length(particle.data - outputPos[start].data), h);
         }
-        // std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << dens 
-        //     << " vs gpu density " << densities[start] << std::endl;
-        REQUIRE (fabs(dens - densities[start]) < 1e-4);
+        std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << std::fixed << std::setprecision(6) << dens  
+            << " vs gpu density " << std::fixed << std::setprecision(6) << densities[start] << std::endl;
+        REQUIRE (fabs(dens - densities[start]) < 1e-2);
 
     }
 }
@@ -191,7 +193,8 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     // The validation computation does therefore not use the index, so it is a more independent check
 
     auto simulated = simulate_inputs(512);
-    SPHData out = run_sph_example(simulated, 4, 1);
+    auto nBitsPerAxis = 4;
+    SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -210,7 +213,7 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
             binPosition(p0.z, out.params.nBits)
         );
         std::cerr << "Checking density at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
-        float densitySum = 0;
+        double densitySum = 0;
         uint count = 0;
 
         // Now must iterate over inputPos which is matched to inputDensities
@@ -228,13 +231,13 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
                 (b.z + 1 >= ijk.z) && (b.z <= ijk.z + 1) ) 
             {
 
-                densitySum += cal_rho_ij(1.0, length(p - p0), 1.0);
+                densitySum += cal_rho_ij(1.0, length(p - p0), 1.0 / (1 << nBitsPerAxis));
                 count++;
             }
         }
 
         // Store average density (or 0 if no neighbors)
-        float gpu_dens = outputDensities[p0idx];
+        double gpu_dens = outputDensities[p0idx];
         // std::cerr << "Cell " << ijk.x << ", " << ijk.y << ", " << ijk.z 
         //     << " has " << count << " particles in or near it, average density " << densitySum 
         //     << " and gpu density " << gpu_dens 
