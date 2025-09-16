@@ -6,6 +6,10 @@ struct ParticlePosition {
     vec3 position;
 };
 
+struct dVec3Wrapper {
+    dvec3 position;
+};
+
 layout(set = 0, binding = 0) readonly buffer InputDensities {
     float inputDensities[];
 };
@@ -14,16 +18,24 @@ layout(set = 0, binding = 1) readonly buffer InputPositions {
     ParticlePosition inputPositions[];
 };
 
-layout(set = 0, binding = 2) readonly buffer PermutedInds {
+layout(set = 0, binding = 2) readonly buffer InputVelocities {
+    dVec3Wrapper inputVelocities[];
+};
+
+layout(set = 0, binding = 3) readonly buffer PermutedInds {
     uint inds[];
 };
 
-layout(set = 0, binding = 3) buffer OutputDensities {
+layout(set = 0, binding = 4) buffer OutputDensities {
     float outputDensities[];
 };
 
-layout(set = 0, binding = 4) buffer OutputPositions {
+layout(set = 0, binding = 5) buffer OutputPositions {
     ParticlePosition outputPositions[];
+};
+
+layout(set = 0, binding = 6) readonly buffer OutputVelocities {
+    dVec3Wrapper outputVelocities[];
 };
 
 void main() {

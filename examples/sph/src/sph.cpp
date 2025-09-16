@@ -52,6 +52,12 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     auto pressureForceBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
+    auto pingVelocityBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
+
+    auto pongVelocityBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
+
 
     mynydd::ParticleIndexPipeline<Vec3Aln16> particleIndexPipeline(
         contextPtr,
@@ -71,9 +77,11 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             pingDensityBuffer,
             pingPosBuffer,
+            pingVelocityBuffer,
             particleIndexPipeline.getSortedIndicesBuffer(),
             pongDensityBuffer,
-            pongPosBuffer
+            pongPosBuffer,
+            pongVelocityBuffer
         },
         groupCount
     );
