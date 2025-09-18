@@ -4,11 +4,6 @@ layout(local_size_x = 256) in;
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_ARB_gpu_shader_fp64 : enable
 
-
-struct Vec3Wrapper {
-    vec3 data;
-};
-
 struct dVec3Wrapper {
     dvec3 data;
 };
@@ -24,37 +19,54 @@ layout(set = 0, binding = 0) readonly buffer InputDensities {
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
-    Vec3Wrapper input_positions[];
+    dVec3Wrapper input_positions[];
 };
 
-layout(set = 0, binding = 2) readonly buffer InputPressures {
+layout(set = 0, binding = 2) readonly buffer InputVelocities {
+    dVec3Wrapper input_velocities[];
+};
+
+layout(set = 0, binding = 3) readonly buffer InputPressures {
     double input_pressures[];
 };
 
-layout(set = 0, binding = 3) readonly buffer FlatCells {
+layout(set = 0, binding = 4) readonly buffer FlatCells {
     CellInfo flat_cells[];
 };
 
-layout(set = 0, binding = 4) buffer PressureForces {
+// These are not actually necessary, just for debugging
+layout(set = 0, binding = 5) buffer PressureForces {
     dVec3Wrapper pressure_forces[];
 };
+
+layout(set = 0, binding = 6) buffer OutputPositions {
+    dVec3Wrapper output_positions[];
+};
+
+layout(set = 0, binding = 7) buffer OutputVelocities {
+    dVec3Wrapper output_velocities[];
+};
+
 
 layout(push_constant) uniform Params {
     uint nBits;
     uint nParticles;
-    vec3 domainMin;
-    vec3 domainMax;
+    dvec3 domainMin;
+    dvec3 domainMax;
     int d;
+    double dt;
 } pc;
 
 #include "morton_kernels.comp.kern"
 #include "kernels.comp.kern"
 #include "nbr_kernel.comp.kern"
 
+const double MASS = 1.0;
+
 void main() {
     uint idx = gl_GlobalInvocationID.x;
 
-    vec3 pos = input_positions[idx].data;
+    dvec3 pos = input_positions[idx].data;
     uvec3 ijk = xyz2ijk(pos, pc.nBits);
     uint flat_key = ijk2ak(ijk, pc.nBits);
 
@@ -68,12 +80,12 @@ void main() {
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
     double h = 1.5 / double(1 << pc.nBits);
 
-    dvec3 pressure_force = vec3(0.0, 0.0, 0.0);
+    dvec3 pressure_force = dvec3(0.0, 0.0, 0.0);
     // now consume neighbors
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
-            vec3 dv = input_positions[i].data - pos;
+            dvec3 dv = input_positions[i].data - pos;
             double dist = length(dv);
             dvec3 gradw = debrun_spiky_kernel_grad(dv, h);
             dvec3 contrib = cal_pressure_force_ij(
@@ -82,11 +94,13 @@ void main() {
                 input_pressures[i],
                 input_densities[idx], 
                 input_densities[i],
-                double(1.0) // mass
+                MASS // mass
             );
             pressure_force += contrib;
         }
     }
     pressure_forces[idx].data = pressure_force;
+    output_velocities[idx].data = input_velocities[idx].data + pressure_force * pc.dt / MASS;
+    output_positions[idx].data = input_positions[idx].data + output_velocities[idx].data * pc.dt;
 
 }

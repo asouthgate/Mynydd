@@ -12,12 +12,12 @@
 
 SPHData simulate_inputs(uint32_t nParticles) {
     // Generate some input data to start with
-    std::vector<Vec3Aln16> inputPos(nParticles);
+    std::vector<dVec3Aln32> inputPos(nParticles);
     std::vector<double> inputDensities(nParticles);
     std::mt19937 rng(12345);
-    std::uniform_real_distribution<double> dist(0.0f, 1.0f);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
     for (size_t ak = 0; ak < nParticles; ++ak) {
-        inputPos[ak].data = glm::vec3(dist(rng), dist(rng), dist(rng));
+        inputPos[ak].data = glm::dvec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = dist(rng);
     }
     return {inputDensities, {}, {}, inputPos,  {}, {}};
@@ -34,39 +34,39 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
+    // 2 Buffers are required: x_n and x_n+1
+    // TODO: figure out whether vec3 or dvec3 for positions
     auto pingPosBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Vec3Aln16), false);
-
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
     auto pongPosBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Vec3Aln16), false);
-
-    auto pingDensityBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
-
-    auto pongDensityBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
-
-    auto pressureBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
-
-    auto pressureForceBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
+    // 2 Buffers are required: v_n-1/2 and v_n+1/2
     auto pingVelocityBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
-
     auto pongVelocityBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
+    // 2 buffers are only required only for memory safety, not for computing 1 step at a time.
+    auto pingDensityBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
+    auto pongDensityBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
 
-    mynydd::ParticleIndexPipeline<Vec3Aln16> particleIndexPipeline(
+    // These buffers are not required, other than for debugging.
+    auto pressureBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
+    auto pressureForceBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
+
+    mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
         contextPtr,
         pingPosBuffer,
         nBitsPerAxis, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
-        glm::vec3(0.0f), // domainMin
-        glm::vec3(1.0f)  // domainMax
+        glm::dvec3(0.0), // domainMin
+        glm::dvec3(1.0)  // domainMax
     );
 
     uint32_t groupCount = (nParticles + 256 - 1) / 256;
@@ -110,34 +110,46 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             pingDensityBuffer,
             pongPosBuffer,
+            pongVelocityBuffer,
             pressureBuffer,
             particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
-            pressureForceBuffer
+            pressureForceBuffer,
+            pingPosBuffer,
+            pingVelocityBuffer,
         },
         groupCount,
         1,
         1,
-        std::vector<uint32_t>{sizeof(DensityParams)}
+        std::vector<uint32_t>{sizeof(Step2Params)}
     );
 
 
-    mynydd::uploadData<Vec3Aln16>(contextPtr, inputPos, pingPosBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
 
     DensityParams gridParams = {
         nBitsPerAxis,
         nParticles,
-        glm::vec3(0.0f),
-        glm::vec3(1.0f),
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
         dist
     };
 
-    computeDensities->setPushConstantsData(gridParams, 0);
+    Step2Params step2Params = {
+        nBitsPerAxis,
+        nParticles,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        dist,
+        0.001
+    };
 
+    computeDensities->setPushConstantsData(gridParams, 0);
+    computeForces->setPushConstantsData(step2Params, 0);
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
     auto t1 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities, computeForces});
+    mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
     auto t2 = std::chrono::high_resolution_clock::now();
 
 
@@ -152,7 +164,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles),
         mynydd::fetchData<double>(contextPtr, pressureBuffer, nParticles),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pressureForceBuffer, nParticles),
-        mynydd::fetchData<Vec3Aln16>(contextPtr, pongPosBuffer, nParticles),
+        mynydd::fetchData<dVec3Aln32>(contextPtr, pongPosBuffer, nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),
         mynydd::fetchData<mynydd::CellInfo>(contextPtr, particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()),

@@ -18,10 +18,10 @@
 // #include "../src/pipelines/shaders/morton_kernels.comp.kern"
 // #include <mynydd/shader_interop.hpp>
 
-uint32_t pos2bin(float p, uint32_t nBits) {
-    // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * float((1u << nbits) - 1u) + 0.5);
-    float normPos = glm::clamp(p, 0.0f, 1.0f);
-    float b = normPos * static_cast<float>((1u << nBits) - 1u) + 0.5f;
+uint32_t pos2bin(double p, uint32_t nBits) {
+    // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * double((1u << nbits) - 1u) + 0.5);
+    double normPos = glm::clamp(p, 0.0, 1.0);
+    double b = normPos * static_cast<double>((1u << nBits) - 1u) + 0.5;
     return static_cast<uint32_t>(b);
 }
 
@@ -34,27 +34,27 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto inputBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
     // Upload data
-    std::vector<Particle> inputData(nParticles);
+    std::vector<dVec3Aln32> inputData(nParticles);
     std::mt19937 rng(12345); // Fixed seed for reproducibility
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
     for (auto& v : inputData) {
-        v.position = glm::vec3(dist(rng), dist(rng), dist(rng));
+        v.data = glm::dvec3(dist(rng), dist(rng), dist(rng));
     }
 
-    mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, inputData, inputBuffer);
 
     uint nBits = 4;
-    mynydd::ParticleIndexPipeline<Vec3Aln16> particleIndexPipeline(
+    mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
         contextPtr,
         inputBuffer,
         nBits, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
-        glm::vec3(0.0f), // domainMin
-        glm::vec3(1.0f)  // domainMax
+        glm::dvec3(0.0), // domainMin
+        glm::dvec3(1.0)  // domainMax
     );
 
     // Execute the pipeline
@@ -116,9 +116,9 @@ TEST_CASE("Particle index works correctly", "[index]") {
         for (uint32_t pind = start; pind < end; ++pind) {
             auto particle = inputData[indexData[pind]];
 ;
-            float pi = pos2bin(particle.position.x, particleIndexPipeline.nBitsPerAxis);
-            float pj = pos2bin(particle.position.y, particleIndexPipeline.nBitsPerAxis);
-            float pk = pos2bin(particle.position.z, particleIndexPipeline.nBitsPerAxis);
+            double pi = pos2bin(particle.data.x, particleIndexPipeline.nBitsPerAxis);
+            double pj = pos2bin(particle.data.y, particleIndexPipeline.nBitsPerAxis);
+            double pk = pos2bin(particle.data.z, particleIndexPipeline.nBitsPerAxis);
 
             REQUIRE(pi == i);
             REQUIRE(pj == j);

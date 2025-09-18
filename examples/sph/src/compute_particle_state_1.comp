@@ -4,9 +4,8 @@ layout(local_size_x = 256) in;
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_ARB_gpu_shader_fp64 : enable
 
-
-struct Vec3Wrapper {
-    vec3 data;
+struct dVec3Wrapper {
+    dvec3 data;
 };
 
 struct CellInfo {
@@ -14,13 +13,13 @@ struct CellInfo {
     uint right;
 };
 
-// THESE SHOULD BE SORTED
+// TODO: unused for now, will be used
 layout(set = 0, binding = 0) readonly buffer InputMasses {
     double input_masses[];
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
-    Vec3Wrapper input_positions[];
+    dVec3Wrapper input_positions[];
 };
 
 layout(set = 0, binding = 2) readonly buffer SortedKeys {
@@ -46,8 +45,8 @@ layout(set = 0, binding = 6) buffer Pressures {
 layout(push_constant) uniform Params {
     uint nBits;
     uint nParticles;
-    vec3 domainMin;
-    vec3 domainMax;
+    dvec3 domainMin;
+    dvec3 domainMax;
     int d;
 } pc;
 
@@ -59,7 +58,7 @@ void main() {
     uint idx = gl_GlobalInvocationID.x;
     uint key = keys[idx];
 
-    vec3 pos = input_positions[idx].data;
+    dvec3 pos = input_positions[idx].data;
     uvec3 ijk = xyz2ijk(pos, pc.nBits);
     uint flat_key = ijk2ak(ijk, pc.nBits);
 

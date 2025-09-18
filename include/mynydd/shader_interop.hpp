@@ -53,6 +53,7 @@ namespace mynydd_shader_interoperability {
     using glm::length;
     using glm::cross;
     using glm::max;
+    using glm::min;
 }
 
 using namespace mynydd_shader_interoperability;

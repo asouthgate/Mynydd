@@ -4,10 +4,6 @@
 #include <mynydd/pipelines/particle_index.hpp>
 #include <vector>
 
-struct Vec3Aln16 {
-    alignas(16) glm::vec3 data;
-};
-
 struct dVec3Aln32 {
     alignas(32) glm::dvec3 data;
 };
@@ -16,9 +12,18 @@ struct dVec3Aln32 {
 struct DensityParams {
     uint32_t nBits;
     uint32_t nParticles;
-    alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
-    alignas(16) glm::vec3 domainMax;
+    alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
+    alignas(32) glm::dvec3 domainMax;
     int dist;
+};
+
+struct Step2Params {
+    uint32_t nBits;
+    uint32_t nParticles;
+    alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
+    alignas(32) glm::dvec3 domainMax;
+    int dist;
+    double dt;
 };
 
 
@@ -26,7 +31,7 @@ struct SPHData {
     std::vector<double> densities;
     std::vector<double> pressures;
     std::vector<dVec3Aln32> pressureForces;
-    std::vector<Vec3Aln16> positions;
+    std::vector<dVec3Aln32> positions;
     std::vector<uint32_t> mortonKeys;
     std::vector<uint32_t> sortedIndices;
     std::vector<mynydd::CellInfo> cellInfos;

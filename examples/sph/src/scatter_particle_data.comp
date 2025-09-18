@@ -1,21 +1,16 @@
 #version 450
 layout(local_size_x = 256) in;
 
-
-struct ParticlePosition {
-    vec3 position;
-};
-
 struct dVec3Wrapper {
     dvec3 position;
 };
 
 layout(set = 0, binding = 0) readonly buffer InputDensities {
-    float inputDensities[];
+    double inputDensities[];
 };
 
 layout(set = 0, binding = 1) readonly buffer InputPositions {
-    ParticlePosition inputPositions[];
+    dVec3Wrapper inputPositions[];
 };
 
 layout(set = 0, binding = 2) readonly buffer InputVelocities {
@@ -27,11 +22,11 @@ layout(set = 0, binding = 3) readonly buffer PermutedInds {
 };
 
 layout(set = 0, binding = 4) buffer OutputDensities {
-    float outputDensities[];
+    double outputDensities[];
 };
 
 layout(set = 0, binding = 5) buffer OutputPositions {
-    ParticlePosition outputPositions[];
+    dVec3Wrapper outputPositions[];
 };
 
 layout(set = 0, binding = 6) readonly buffer OutputVelocities {

@@ -13,16 +13,16 @@
 #include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
 
-std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits) {
+std::vector<dVec3Aln32> getMortonTestGridRegularParticleData(uint32_t nBits) {
     const uint32_t nPerDim = pow(2, nBits);
     const uint32_t nParticles = pow(nPerDim, 3);
     // generate deterministic particle positions
-    std::vector<Particle> testParticles(nParticles);
+    std::vector<dVec3Aln32> testParticles(nParticles);
     uint32_t idx = 0;
     for (uint32_t z = 0; z < nPerDim; ++z) {
         for (uint32_t y = 0; y < nPerDim; ++y) {
             for (uint32_t x = 0; x < nPerDim; ++x) {
-                testParticles[idx].position = glm::vec3(float(x), float(y), float(z));
+                testParticles[idx].data = glm::dvec3(double(x), double(y), double(z));
                 // testParticles[idx].key = 0;
                 ++idx;
             }
@@ -36,7 +36,7 @@ std::vector<Particle> getMortonTestGridRegularParticleData(uint32_t nBits) {
 std::vector<uint32_t> runMortonTest(
     std::shared_ptr<mynydd::VulkanContext> contextPtr,
     const uint32_t nBits,
-    std::vector<Particle>& particles
+    std::vector<dVec3Aln32>& particles
 ) {
     std::cerr << "TEST: Running Morton test with " << nBits << " bits..." << std::endl;
     auto t0 = std::chrono::high_resolution_clock::now();
@@ -45,12 +45,12 @@ std::vector<uint32_t> runMortonTest(
     struct Params {
         uint32_t nBits;
         uint32_t nParticles;
-        alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
-        alignas(16) glm::vec3 domainMax;
-    } params{nBits, nParticles, glm::vec3(0.0f), glm::vec3(float(nPerDim - 1))};
+        alignas(16) glm::dvec3 domainMin; // alignas required for silly alignment issues
+        alignas(16) glm::dvec3 domainMax;
+    } params{nBits, nParticles, glm::dvec3(0.0), glm::dvec3(double(nPerDim - 1))};
 
     auto inputBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, nParticles * sizeof(Particle), false);
+        contextPtr, nParticles * sizeof(dVec3Aln32), false);
     auto outputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nParticles * sizeof(uint32_t), false);
     auto uniformBuffer = std::make_shared<mynydd::Buffer>(
@@ -58,7 +58,7 @@ std::vector<uint32_t> runMortonTest(
 
     auto t1 = std::chrono::high_resolution_clock::now();
 
-    mynydd::uploadData<Particle>(contextPtr, particles, inputBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, particles, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, params, uniformBuffer);
 
     auto groupCount = (nParticles + 63) / 64;

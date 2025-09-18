@@ -21,8 +21,8 @@ namespace mynydd {
     struct MortonParams {
         uint32_t nBits;
         uint32_t nParticles;
-        alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
-        alignas(16) glm::vec3 domainMax;
+        alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
+        alignas(32) glm::dvec3 domainMax;
     };
 
     struct CellInfo {
@@ -44,8 +44,8 @@ namespace mynydd {
                 uint32_t nBitsPerAxis,
                 uint32_t itemsPerGroup, 
                 uint32_t nDataPoints,
-                glm::vec3 domainMin = glm::vec3(0.0f),
-                glm::vec3 domainMax = glm::vec3(1.0f)
+                glm::dvec3 domainMin = glm::dvec3(0.0),
+                glm::dvec3 domainMax = glm::dvec3(1.0)
             ) : contextPtr(contextPtr),
                 nBitsPerAxis(nBitsPerAxis),
                 inputBuffer(inputBuffer),
@@ -94,10 +94,10 @@ namespace mynydd {
             }
             ~ParticleIndexPipeline() {}; // member variables are RAII
 
-            uint32_t pos2bin(float p, uint32_t nBits) {
-                // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * float((1u << nbits) - 1u) + 0.5);
-                float normPos = glm::clamp(p, 0.0f, 1.0f);
-                float b = normPos * static_cast<float>((1u << nBits) - 1u) + 0.5f;
+            uint32_t pos2bin(double p, uint32_t nBits) {
+                // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * double((1u << nbits) - 1u) + 0.5);
+                double normPos = glm::clamp(p, 0.0, 1.0);
+                double b = normPos * static_cast<double>((1u << nBits) - 1u) + 0.5;
                 return static_cast<uint32_t>(b);
             }
 
@@ -186,15 +186,21 @@ namespace mynydd {
                         uint32_t pi = pos2bin(particle.data.x, nBitsPerAxis);
                         uint32_t pj = pos2bin(particle.data.y, nBitsPerAxis);
                         uint32_t pk = pos2bin(particle.data.z, nBitsPerAxis);
-
                         bini.push_back(pi);
                         binj.push_back(pj);
                         bink.push_back(pk);
                     }
+
                     // All in a bin should have the same pak value
-                    for (auto pi : bini) assert(pi == bini[0]);
-                    for (auto pj : binj) assert(pj == binj[0]); 
-                    for (auto pk : bink) assert(pk == bink[0]);
+                    for (auto pi : bini) {
+                        assert(pi == bini[0]);
+                    }
+                    for (auto pj : binj) {
+                        assert(pj == binj[0]);
+                    }
+                    for (auto pk : bink) {
+                        assert(pk == bink[0]);
+                    }
                 }
             }
 
@@ -216,8 +222,8 @@ namespace mynydd {
 
             uint32_t itemsPerGroup = 256; // Hardcoded temporarily
             uint32_t nDataPoints;
-            glm::vec3 domainMin = glm::vec3(0.0f);
-            glm::vec3 domainMax = glm::vec3(1.0f);
+            glm::dvec3 domainMin = glm::dvec3(0.0);
+            glm::dvec3 domainMax = glm::dvec3(1.0);
             uint32_t nBitsPerAxis;
 
             // TODO: don't necessarily need this to be shared ptr

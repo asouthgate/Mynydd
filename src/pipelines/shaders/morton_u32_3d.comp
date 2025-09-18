@@ -6,7 +6,7 @@ layout(local_size_x = 64) in;
 #include "morton_kernels.comp.kern"
 
 struct ParticlePosition {
-    vec3 position;
+    dvec3 position;
 };
 
 layout(set = 0, binding = 0) buffer inputData {
@@ -20,8 +20,8 @@ layout(set = 0, binding = 1) buffer outputData {
 layout(set = 0, binding = 2) uniform Params {
     uint nBits;
     uint nParticles;
-    vec3 domainMin;
-    vec3 domainMax;
+    dvec3 domainMin;
+    dvec3 domainMax;
 } params;
 
 void main() {
@@ -30,7 +30,7 @@ void main() {
         outData.keys[idx] = 9999; // for debugging; not an error, intentional
         return;
     }
-    vec3 norm_pos = (inData.particles[idx].position - params.domainMin) / (params.domainMax - params.domainMin);
+    dvec3 norm_pos = (inData.particles[idx].position - params.domainMin) / (params.domainMax - params.domainMin);
 
     uint key = morton3D_loop(
         binPosition(norm_pos.x, params.nBits),

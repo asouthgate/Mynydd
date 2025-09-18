@@ -9,7 +9,7 @@ void printSPHDataCSV(const SPHData& data) {
     std::cout << "density,pressure,fpx,fpy,fpz,x,y,z,morton_key\n";
     for (size_t i = 0; i < data.mortonKeys.size(); ++i) {
         const auto& pos = data.positions[i];
-        float density = data.densities[i];
+        double density = data.densities[i];
         uint32_t key = data.mortonKeys[i];
         std::cout << density << "," << data.pressures[i] << "," << data.pressureForces[i].data.x << ","
                     << data.pressureForces[i].data.y << "," << data.pressureForces[i].data.z << ","
