@@ -199,9 +199,11 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
 
-    auto outputPos = out.positions;
+    auto outputPos = out.positions; // these are sorted
     auto outputDensities = out.densities;
 
+    auto outputNewPos = out.newPositions;
+    auto outputNewVel = out.newVelocities;
 
     for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
 
@@ -238,11 +240,45 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
 
         // Store average density (or 0 if no neighbors)
         double gpu_dens = outputDensities[p0idx];
-        // std::cerr << "Cell " << ijk.x << ", " << ijk.y << ", " << ijk.z 
-        //     << " has " << count << " particles in or near it, average density " << densitySum 
-        //     << " and gpu density " << gpu_dens 
-        //     << std::endl;
         REQUIRE (fabs(gpu_dens - densitySum) < 1e-5);
     }
 
+}
+
+
+TEST_CASE("Test that pipeline produces correct position, velocity values for random cell with d = 1, calculated directly in validation", "[sph]") {
+    // This test manually scans through in a loop to find particles in or near a cell
+    // And then manually calculate the densities
+    // The validation computation does therefore not use the index, so it is a more independent check
+
+    auto simulated = simulate_inputs(1024);
+    auto nBitsPerAxis = 4;
+    SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
+
+    auto outputPos = out.positions; // these are sorted
+    auto outputVel = out.velocities; // these are sorted
+    auto outputPressureForces = out.pressureForces;
+
+    auto outputNewPos = out.newPositions;
+    auto outputNewVel = out.newVelocities;
+
+    for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
+        // Just check that leapfrog is done correctly using the output pressure forces
+
+        glm::dvec3 p0 = outputPos[p0idx].data;
+        glm::dvec3 v0 = outputVel[p0idx].data;
+        glm::dvec3 f0 = outputPressureForces[p0idx].data;
+        REQUIRE(glm::length(f0) > 0);
+        double dt = 0.001;
+        glm::dvec3 expected_v1 = v0 + f0 * dt;
+        glm::dvec3 expected_x1 = p0 + expected_v1 * dt;
+        glm::dvec3 gpu_v1 = outputNewVel[p0idx].data;
+        glm::dvec3 gpu_x1 = outputNewPos[p0idx].data;
+        std::cerr << "Checking leapfrog at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
+        REQUIRE (glm::length(gpu_v1 - expected_v1) < 1e-6);
+        REQUIRE (glm::length(gpu_x1 - expected_x1) < 1e-6);
+        REQUIRE (glm::length(gpu_x1 - p0) > 1e-6);
+        REQUIRE (glm::length(gpu_v1 - v0) > 1e-6);
+
+    }
 }

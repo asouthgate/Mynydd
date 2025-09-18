@@ -24,7 +24,7 @@ SPHData simulate_inputs(uint32_t nParticles) {
 }
 
 
-SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dist) {
+SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dist, double dt) {
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
@@ -104,7 +104,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::vector<uint32_t>{sizeof(DensityParams)}
     );
 
-    auto computeForces = std::make_shared<mynydd::PipelineStep>(
+    auto leapFrogStep = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
         "examples/sph/compute_particle_state_2.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
@@ -141,11 +141,11 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         glm::dvec3(0.0),
         glm::dvec3(1.0),
         dist,
-        0.001
+        dt
     };
 
     computeDensities->setPushConstantsData(gridParams, 0);
-    computeForces->setPushConstantsData(step2Params, 0);
+    leapFrogStep->setPushConstantsData(step2Params, 0);
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -153,7 +153,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     auto t2 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.debug_assert_bin_consistency();
     auto t3 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch(contextPtr, {computeForces});
+    mynydd::executeBatch(contextPtr, {leapFrogStep});
     auto t4 = std::chrono::high_resolution_clock::now();
 
 
@@ -169,9 +169,12 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         mynydd::fetchData<double>(contextPtr, pressureBuffer, nParticles),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pressureForceBuffer, nParticles),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pongPosBuffer, nParticles),
+        mynydd::fetchData<dVec3Aln32>(contextPtr, pongVelocityBuffer, nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),
         mynydd::fetchData<mynydd::CellInfo>(contextPtr, particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()),
+        mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles),
+        mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles),
         gridParams
     };
 
