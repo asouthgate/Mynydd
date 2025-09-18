@@ -8,14 +8,6 @@ struct dVec3Aln32 {
     alignas(32) glm::dvec3 data;
 };
 
-struct DensityParams {
-    uint32_t nBits;
-    uint32_t nParticles;
-    alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
-    alignas(32) glm::dvec3 domainMax;
-    int dist;
-};
-
 struct Step2Params {
     uint32_t nBits;
     uint32_t nParticles;
@@ -23,6 +15,7 @@ struct Step2Params {
     alignas(32) glm::dvec3 domainMax;
     int dist;
     double dt;
+    double h;
 };
 
 
@@ -37,7 +30,7 @@ struct SPHData {
     std::vector<mynydd::CellInfo> cellInfos;
     std::vector<dVec3Aln32> newPositions;
     std::vector<dVec3Aln32> newVelocities;
-    DensityParams params;
+    Step2Params params;
 };
 
 SPHData simulate_inputs(uint32_t nParticles);

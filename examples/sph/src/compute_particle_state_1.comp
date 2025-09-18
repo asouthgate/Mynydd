@@ -48,6 +48,8 @@ layout(push_constant) uniform Params {
     dvec3 domainMin;
     dvec3 domainMax;
     int d;
+    double dt;
+    double h;
 } pc;
 
 #include "morton_kernels.comp.kern"
@@ -76,13 +78,12 @@ void main() {
     uint cellCount;
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
 
-    double h = 1.5 / double(1 << pc.nBits);
     // now consume neighbors
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
             double dist = length(input_positions[i].data - pos);
-            densitySum += cal_rho_ij(1.0, dist, h);
+            densitySum += cal_rho_ij(1.0, dist, pc.h);
             count += 1;
         }
     }

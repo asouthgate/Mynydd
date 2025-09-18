@@ -13,14 +13,16 @@
 SPHData simulate_inputs(uint32_t nParticles) {
     // Generate some input data to start with
     std::vector<dVec3Aln32> inputPos(nParticles);
+    std::vector<dVec3Aln32> inputVel(nParticles);
     std::vector<double> inputDensities(nParticles);
     std::mt19937 rng(12345);
     std::uniform_real_distribution<double> dist(0.0, 1.0);
     for (size_t ak = 0; ak < nParticles; ++ak) {
         inputPos[ak].data = glm::dvec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = dist(rng);
+        inputVel[ak].data = glm::dvec3(0.0, 0.0, 0.0);
     }
-    return {inputDensities, {}, {}, inputPos,  {}, {}};
+    return {inputDensities, {}, {}, inputPos,  inputVel, {}};
 }
 
 
@@ -30,6 +32,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
 
     auto inputPos = inputData.positions;
+    auto inputVel = inputData.velocities;
     auto inputDensities = inputData.densities;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
@@ -101,7 +104,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         groupCount,
         1,
         1,
-        std::vector<uint32_t>{sizeof(DensityParams)}
+        std::vector<uint32_t>{sizeof(Step2Params)}
     );
 
     auto leapFrogStep = std::make_shared<mynydd::PipelineStep>(
@@ -123,17 +126,9 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         std::vector<uint32_t>{sizeof(Step2Params)}
     );
 
-
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, inputVel, pingVelocityBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
-
-    DensityParams gridParams = {
-        nBitsPerAxis,
-        nParticles,
-        glm::dvec3(0.0),
-        glm::dvec3(1.0),
-        dist
-    };
 
     Step2Params step2Params = {
         nBitsPerAxis,
@@ -141,10 +136,11 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         glm::dvec3(0.0),
         glm::dvec3(1.0),
         dist,
-        dt
+        dt,
+        1.0 / double(1 << nBitsPerAxis)
     };
 
-    computeDensities->setPushConstantsData(gridParams, 0);
+    computeDensities->setPushConstantsData(step2Params, 0);
     leapFrogStep->setPushConstantsData(step2Params, 0);
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
@@ -155,7 +151,6 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     auto t3 = std::chrono::high_resolution_clock::now();
     mynydd::executeBatch(contextPtr, {leapFrogStep});
     auto t4 = std::chrono::high_resolution_clock::now();
-
 
     std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
     std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
@@ -175,7 +170,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
         mynydd::fetchData<mynydd::CellInfo>(contextPtr, particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles),
-        gridParams
+        step2Params
     };
 
  }

@@ -156,7 +156,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
     
     size_t nCells = static_cast<uint32_t>(cellData.size());
     size_t printed = 0;
-    double h = 1.5 / (1 << nBitsPerAxis);
+    double h = 1.0 / (1 << nBitsPerAxis);
     std:: cerr << "Checking SPH output with" << nCells << " cells" << std::endl;
 
     for (uint32_t key = 0; key < nCells; ++key) {
@@ -205,6 +205,8 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     auto outputNewPos = out.newPositions;
     auto outputNewVel = out.newVelocities;
 
+    double h = 1.0 / (1 << nBitsPerAxis);
+
     for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
 
         // choose from output pos so we can match to validation output density
@@ -227,19 +229,14 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
                 binPosition(p.z, out.params.nBits)
             );
 
-            // check if b is within a distance of 1 of ijk on an all axes
-            if ( (b.x + 1 >= ijk.x) && (b.x <= ijk.x + 1) &&
-                (b.y + 1 >= ijk.y) && (b.y <= ijk.y + 1) &&
-                (b.z + 1 >= ijk.z) && (b.z <= ijk.z + 1) ) 
-            {
-
-                densitySum += cal_rho_ij(1.0, length(p - p0), 1.5 / (1 << nBitsPerAxis));
-                count++;
-            }
+            densitySum += cal_rho_ij(1.0, length(p - p0), h);
+            count++;
         }
 
         // Store average density (or 0 if no neighbors)
         double gpu_dens = outputDensities[p0idx];
+        std::cerr << "Found " << count << " neighbors, computed density " << std::fixed << std::setprecision(6) << densitySum  
+            << " vs gpu density " << std::fixed << std::setprecision(6) << gpu_dens << std::endl;
         REQUIRE (fabs(gpu_dens - densitySum) < 1e-5);
     }
 
@@ -251,7 +248,7 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
     // And then manually calculate the densities
     // The validation computation does therefore not use the index, so it is a more independent check
 
-    auto simulated = simulate_inputs(1024);
+    auto simulated = simulate_inputs(2048);
     auto nBitsPerAxis = 4;
     SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
 
@@ -280,5 +277,41 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         REQUIRE (glm::length(gpu_x1 - p0) > 1e-6);
         REQUIRE (glm::length(gpu_v1 - v0) > 1e-6);
 
+    }
+}
+
+
+TEST_CASE("Test that sparse inputs with a starting downward velocity move downward", "[sph]") {
+    // This test manually scans through in a loop to find particles in or near a cell
+    // And then manually calculate the densities
+    // The validation computation does therefore not use the index, so it is a more independent check
+
+    auto simulated = simulate_inputs(256);
+
+    // set simulated input velocities to downward
+    for (size_t k = 0; k < simulated.velocities.size(); ++k) {
+        simulated.velocities[k].data = glm::dvec3(0.0, -0.01, 0.0);
+    }
+
+    auto nBitsPerAxis = 8;
+    SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
+    auto outputPos = out.positions; // these are sorted
+    auto outputVel = out.velocities; // these are sorted
+    auto outputNewPos = out.newPositions;
+    auto outputNewVel = out.newVelocities;
+    auto outputPressureForces = out.pressureForces;
+    auto outputPressures = out.pressures;
+    auto outputDensities = out.densities;
+
+    for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
+        glm::dvec3 p0 = outputPos[p0idx].data;
+        glm::dvec3 gpu_x1 = outputNewPos[p0idx].data;
+        std::cerr << "Checking downward motion at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
+        std::cerr << "Pressure force is " << outputPressureForces[p0idx].data.x << ", " << outputPressureForces[p0idx].data.y << ", " << outputPressureForces[p0idx].data.z << std::endl;
+        std::cerr << "Out velocity is " << outputNewVel[p0idx].data.x << ", " << outputNewVel[p0idx].data.y << ", " << outputNewVel[p0idx].data.z << std::endl;
+        std::cerr << "Out outputVel is " << outputVel[p0idx].data.x << ", " << outputVel[p0idx].data.y << ", " << outputVel[p0idx].data.z << std::endl;
+        std::cerr << "Pressure is " << outputPressures[p0idx] << std::endl;
+        std::cerr << "Density is " << outputDensities[p0idx] << std::endl;
+        REQUIRE (gpu_x1.y < p0.y); // should be lower down
     }
 }

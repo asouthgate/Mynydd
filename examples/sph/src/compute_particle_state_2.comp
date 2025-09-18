@@ -55,6 +55,7 @@ layout(push_constant) uniform Params {
     dvec3 domainMax;
     int d;
     double dt;
+    double h;
 } pc;
 
 #include "morton_kernels.comp.kern"
@@ -78,7 +79,6 @@ void main() {
     CellInfo neighborCells[MAX_CELLS];
     uint cellCount;
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
-    double h = 1.5 / double(1 << pc.nBits);
 
     dvec3 pressure_force = dvec3(0.0, 0.0, 0.0);
     // now consume neighbors
@@ -87,7 +87,7 @@ void main() {
         for (uint i = cell.left; i < cell.right; ++i) {
             dvec3 dv = input_positions[i].data - pos;
             double dist = length(dv);
-            dvec3 gradw = debrun_spiky_kernel_grad(dv, h);
+            dvec3 gradw = debrun_spiky_kernel_grad(dv, pc.h);
             dvec3 contrib = cal_pressure_force_ij(
                 gradw,
                 input_pressures[idx],
@@ -100,7 +100,8 @@ void main() {
         }
     }
     pressure_forces[idx].data = pressure_force;
-    output_velocities[idx].data = input_velocities[idx].data + pressure_force * pc.dt / MASS;
-    output_positions[idx].data = input_positions[idx].data + output_velocities[idx].data * pc.dt;
+    dvec3 newvel = input_velocities[idx].data + pressure_force * pc.dt / MASS;
+    output_velocities[idx].data = newvel;
+    output_positions[idx].data = input_positions[idx].data + newvel * pc.dt;
 
 }
