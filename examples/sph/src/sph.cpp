@@ -151,14 +151,18 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     auto t1 = std::chrono::high_resolution_clock::now();
     mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
     auto t2 = std::chrono::high_resolution_clock::now();
+    particleIndexPipeline.debug_assert_bin_consistency();
+    auto t3 = std::chrono::high_resolution_clock::now();
+    mynydd::executeBatch(contextPtr, {computeForces});
+    auto t4 = std::chrono::high_resolution_clock::now();
 
 
     std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
     std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
     std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
     std::cerr << "Density computation took " << elapsed2.count() << " ms" << std::endl;
-
-    particleIndexPipeline.debug_assert_bin_consistency();
+    std::chrono::duration<double, std::milli> elapsed3 = t4 - t3;
+    std::cerr << "Leapfrog took " << elapsed3.count() << " ms" << std::endl;
 
     return {
         mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles),
