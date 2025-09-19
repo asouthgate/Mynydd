@@ -264,11 +264,15 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         glm::dvec3 f0 = outputPressureForces[p0idx].data;
         REQUIRE(glm::length(f0) > 0);
         double dt = out.params.dt;
-        glm::dvec3 expected_v1 = v0 + f0 * dt / out.params.mass;
+        glm::dvec3 expected_v1_prop = v0 + f0 * dt / out.params.mass;
+        glm::dvec3 expected_x1_prop = p0 + expected_v1_prop * dt;
+        glm::dvec3 expected_v1 = adjust_boundary_vel(expected_x1_prop, expected_v1_prop, out.params.domainMin, out.params.domainMax, 0.75);
         glm::dvec3 expected_x1 = p0 + expected_v1 * dt;
         glm::dvec3 gpu_v1 = outputNewVel[p0idx].data;
         glm::dvec3 gpu_x1 = outputNewPos[p0idx].data;
         std::cerr << "Checking leapfrog at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
+        std::cerr << "Checking leapfrog at index " << p0idx <<  " newvel " << expected_v1.x << ", " << expected_v1.y << ", " << expected_v1.z << std::endl;
+        std::cerr << "Checking leapfrog at index " << p0idx <<  " newvel " << gpu_v1.x << ", " << gpu_v1.y << ", " << gpu_v1.z << std::endl;
         REQUIRE (glm::length(gpu_v1 - expected_v1) < 1e-6);
         REQUIRE (glm::length(gpu_x1 - expected_x1) < 1e-6);
         REQUIRE (glm::length(gpu_x1 - p0) > 1e-6);

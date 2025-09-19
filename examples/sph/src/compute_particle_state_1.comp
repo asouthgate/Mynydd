@@ -90,6 +90,6 @@ void main() {
     }
 
     densities[idx] = densitySum;
-    double rho0 = pc.nParticles;
+    double rho0 = 1.0;
     pressures[idx] = cal_pressure_wcsph(densitySum, rho0, 0.02, 7);
 }

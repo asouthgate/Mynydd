@@ -143,7 +143,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
     }
 
     // normalize mass so that density is approx 1.0
-    double mass = 1.0 / nParticles;
+    double mass = h * h * h / nParticles;
 
     Step2Params step2Params = {
         nBitsPerAxis,

@@ -65,3 +65,17 @@ dvec3 cal_pressure_force_ij(dvec3 gradw, double pi, double pj, double rhoi, doub
     double pforce_coefficient = cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
     return -pforce_coefficient * gradw;
 }
+
+dvec3 adjust_boundary_vel(dvec3 prop_pos, dvec3 new_vel, dvec3 bmin, dvec3 bmax, double damping) {
+    dvec3 adj_vel = new_vel;
+
+    adj_vel.x *=  prop_pos.x <= bmin.x ? -1.0 : 1.0;
+    adj_vel.y *=  prop_pos.y <= bmin.y ? -1.0 : 1.0;
+    adj_vel.z *=  prop_pos.z <= bmin.z ? -1.0 : 1.0;
+
+    adj_vel.x *=  prop_pos.x > bmax.x ? -1.0 : 1.0;
+    adj_vel.y *=  prop_pos.y > bmax.y ? -1.0 : 1.0;
+    adj_vel.z *=  prop_pos.z > bmax.z ? -1.0 : 1.0;
+
+    return adj_vel;
+}
