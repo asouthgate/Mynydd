@@ -26,7 +26,7 @@ SPHData simulate_inputs(uint32_t nParticles) {
 }
 
 
-SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int index_search_dist, double dt) {
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params) {
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
@@ -65,7 +65,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
     mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
         contextPtr,
         pingPosBuffer,
-        nBitsPerAxis, // nBitsPerAxis
+        params.nBits, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
         glm::dvec3(0.0), // domainMin
@@ -104,7 +104,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
         groupCount,
         1,
         1,
-        std::vector<uint32_t>{sizeof(Step2Params)}
+        std::vector<uint32_t>{sizeof(SPHParams)}
     );
 
     auto leapFrogStep = std::make_shared<mynydd::PipelineStep>(
@@ -123,7 +123,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
         groupCount,
         1,
         1,
-        std::vector<uint32_t>{sizeof(Step2Params)}
+        std::vector<uint32_t>{sizeof(SPHParams)}
     );
 
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
@@ -131,13 +131,13 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
 
     double h;
-    if (index_search_dist == 0) {
+    if (params.dist == 0) {
         std::cerr << "Using d = 0 (same cell only) for SPH search" << std::endl;
-        h = 0.5 / double(1 << nBitsPerAxis);
-    } else if (index_search_dist == 1) {
+        h = 0.5 / double(1 << params.nBits);
+    } else if (params.dist == 1) {
         std::cerr << "Using d = 1 (neighbouring cells) for SPH search" << std::endl;
         // h should be 1 because otherwise ball can fall outside of searched area (points are not always in middle of cells)
-        h = 1.0 / double(1 << nBitsPerAxis);
+        h = 1.0 / double(1 << params.nBits);
     } else {
         throw std::runtime_error("Only index_search_dist of 0 or 1 supported");
     }
@@ -145,19 +145,8 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
     // normalize mass so that density is approx 1.0
     double mass = h * h * h / nParticles;
 
-    Step2Params step2Params = {
-        nBitsPerAxis,
-        nParticles,
-        glm::dvec3(0.0),
-        glm::dvec3(1.0),
-        index_search_dist,
-        dt,
-        h,
-        mass
-    };
-
-    computeDensities->setPushConstantsData(step2Params, 0);
-    leapFrogStep->setPushConstantsData(step2Params, 0);
+    computeDensities->setPushConstantsData(params, 0);
+    leapFrogStep->setPushConstantsData(params, 0);
     auto t0 = std::chrono::high_resolution_clock::now();
     particleIndexPipeline.execute();
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -185,8 +174,7 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int ind
         mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles),
         mynydd::fetchData<mynydd::CellInfo>(contextPtr, particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles),
-        mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles),
-        step2Params
+        mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles)
     };
 
  }

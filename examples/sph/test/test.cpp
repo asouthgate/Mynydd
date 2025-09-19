@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <random>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -142,9 +143,19 @@ TEST_CASE("cal_pressure_force_coefficient computes correctly", "[sph]") {
 
 TEST_CASE("Test that pipeline produces correct density values for d = 0 for first particle in each cell", "[sph]") {
 
-    auto simulated = simulate_inputs(4096 * 16);
-    auto nBitsPerAxis = 4;
-    SPHData out = run_sph_example(simulated, nBitsPerAxis, 0);
+    SPHParams params {
+        4,
+        4096 * 16,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.005,
+        1.0 / (1 << 4),
+        0.02,
+        glm::dvec3(0.0, 0.0, 0.0)
+    };
+    auto simulated = simulate_inputs(params.nBits);
+    SPHData out = run_sph_example(simulated, params);
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -176,7 +187,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             REQUIRE(particle.data.x == outputPos[pind].data.x);
             REQUIRE(particle.data.y == outputPos[pind].data.y);
             REQUIRE(particle.data.z == outputPos[pind].data.z);
-            dens += cal_rho_ij(out.params.mass, length(particle.data - outputPos[start].data), out.params.h);
+            dens += cal_rho_ij(params.mass, length(particle.data - outputPos[start].data), params.h);
         }
         // std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << std::fixed << std::setprecision(6) << dens  
             // << " vs gpu density " << std::fixed << std::setprecision(6) << densities[start] << std::endl;
@@ -191,9 +202,19 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     // And then manually calculate the densities
     // The validation computation does therefore not use the index, so it is a more independent check
 
-    auto simulated = simulate_inputs(512);
-    auto nBitsPerAxis = 4;
-    SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
+    SPHParams params {
+        4,
+        512,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.005,
+        1.0 / (1 << 4),
+        0.02,
+        glm::dvec3(0.0, 0.0, 0.0)
+    };
+    auto simulated = simulate_inputs(params.nParticles);
+    SPHData out = run_sph_example(simulated, params);
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -209,9 +230,9 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
         // choose from output pos so we can match to validation output density
         glm::dvec3 p0 = outputPos[p0idx].data;
         uvec3 ijk = uvec3(
-            binPosition(p0.x, out.params.nBits),
-            binPosition(p0.y, out.params.nBits),
-            binPosition(p0.z, out.params.nBits)
+            binPosition(p0.x, params.nBits),
+            binPosition(p0.y, params.nBits),
+            binPosition(p0.z, params.nBits)
         );
         std::cerr << "Checking density at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
         double densitySum = 0;
@@ -221,12 +242,12 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
         for (size_t pind = 0; pind < inputPos.size(); ++pind) {
             auto p = inputPos[pind].data;
             uvec3 b = uvec3(
-                binPosition(p.x, out.params.nBits),
-                binPosition(p.y, out.params.nBits),
-                binPosition(p.z, out.params.nBits)
+                binPosition(p.x, params.nBits),
+                binPosition(p.y, params.nBits),
+                binPosition(p.z, params.nBits)
             );
 
-            densitySum += cal_rho_ij(out.params.mass, length(p - p0), out.params.h);
+            densitySum += cal_rho_ij(params.mass, length(p - p0), params.h);
             count++;
         }
 
@@ -244,10 +265,23 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
     // This test manually scans through in a loop to find particles in or near a cell
     // And then manually calculate the densities
     // The validation computation does therefore not use the index, so it is a more independent check
+    SPHParams params {
+        4,
+        2048,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.005,
+        1.0 / (1 << 4),
+        0.02,
+        glm::dvec3(0.0, 0.0, 0.0)
+    };
 
-    auto simulated = simulate_inputs(2048);
-    auto nBitsPerAxis = 4;
-    SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
+    params.mass = params.h * params.h * params.h / params.nParticles;
+
+    auto simulated = simulate_inputs(params.nParticles);
+    auto nBitsPerAxis = params.nBits;
+    SPHData out = run_sph_example(simulated, params);
 
     auto outputPos = out.positions; // these are sorted
     auto outputVel = out.velocities; // these are sorted
@@ -263,16 +297,18 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         glm::dvec3 v0 = outputVel[p0idx].data;
         glm::dvec3 f0 = outputPressureForces[p0idx].data;
         REQUIRE(glm::length(f0) > 0);
-        double dt = out.params.dt;
-        glm::dvec3 expected_v1_prop = v0 + f0 * dt / out.params.mass;
+        double dt = params.dt;
+        glm::dvec3 expected_v1_prop = v0 + f0 * dt / params.mass;
         glm::dvec3 expected_x1_prop = p0 + expected_v1_prop * dt;
-        glm::dvec3 expected_v1 = adjust_boundary_vel(expected_x1_prop, expected_v1_prop, out.params.domainMin, out.params.domainMax, 0.75);
+        glm::dvec3 expected_v1 = adjust_boundary_vel(expected_x1_prop, expected_v1_prop, params.domainMin, params.domainMax, 0.75);
         glm::dvec3 expected_x1 = p0 + expected_v1 * dt;
         glm::dvec3 gpu_v1 = outputNewVel[p0idx].data;
         glm::dvec3 gpu_x1 = outputNewPos[p0idx].data;
         std::cerr << "Checking leapfrog at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
-        std::cerr << "Checking leapfrog at index " << p0idx <<  " newvel " << expected_v1.x << ", " << expected_v1.y << ", " << expected_v1.z << std::endl;
+        std::cerr << "Checking leapfrog at index " << p0idx <<  " expvel " << expected_v1.x << ", " << expected_v1.y << ", " << expected_v1.z << std::endl;
         std::cerr << "Checking leapfrog at index " << p0idx <<  " newvel " << gpu_v1.x << ", " << gpu_v1.y << ", " << gpu_v1.z << std::endl;
+        std::cerr << "Checking leapfrog at index " << p0idx <<  " exppos " << expected_x1.x << ", " << expected_x1.y << ", " << expected_x1.z << std::endl;
+        std::cerr << "Checking leapfrog at index " << p0idx <<  " newpos " << gpu_x1.x << ", " << gpu_x1.y << ", " << gpu_x1.z << std::endl;
         REQUIRE (glm::length(gpu_v1 - expected_v1) < 1e-6);
         REQUIRE (glm::length(gpu_x1 - expected_x1) < 1e-6);
         REQUIRE (glm::length(gpu_x1 - p0) > 1e-6);
@@ -287,7 +323,18 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
     // And then manually calculate the densities
     // The validation computation does therefore not use the index, so it is a more independent check
 
-    auto simulated = simulate_inputs(256);
+    SPHParams params {
+        4,
+        256,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.005,
+        0.1,
+        0.02,
+        glm::dvec3(0.0, 0.0, 0.0)
+    };
+    auto simulated = simulate_inputs(params.nParticles);
 
     // set simulated input velocities to downward
     for (size_t k = 0; k < simulated.velocities.size(); ++k) {
@@ -295,7 +342,7 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
     }
 
     auto nBitsPerAxis = 8;
-    SPHData out = run_sph_example(simulated, nBitsPerAxis, 1);
+    SPHData out = run_sph_example(simulated, params);
     auto outputPos = out.positions; // these are sorted
     auto outputVel = out.velocities; // these are sorted
     auto outputNewPos = out.newPositions;

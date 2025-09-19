@@ -8,7 +8,7 @@ struct dVec3Aln32 {
     alignas(32) glm::dvec3 data;
 };
 
-struct Step2Params {
+struct SPHParams {
     uint32_t nBits;
     uint32_t nParticles;
     alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
@@ -17,6 +17,7 @@ struct Step2Params {
     double dt;
     double h;
     double mass;
+    alignas(32) glm::dvec3 gravity;
 };
 
 
@@ -31,9 +32,8 @@ struct SPHData {
     std::vector<mynydd::CellInfo> cellInfos;
     std::vector<dVec3Aln32> newPositions;
     std::vector<dVec3Aln32> newVelocities;
-    Step2Params params;
 };
 
 SPHData simulate_inputs(uint32_t nParticles);
 
-SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis = 4, int dist = 0, double dt = 0.001);
+SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams);

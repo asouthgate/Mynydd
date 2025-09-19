@@ -34,7 +34,18 @@ int main(int argc, char** argv) {
     }
 
     auto simulated = simulate_inputs(nParticles);
-    auto outputs = run_sph_example(simulated, nBitsPerAxis);
+    SPHParams params {
+        nBitsPerAxis,
+        nParticles,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.005,
+        0.1,
+        0.02,
+        glm::dvec3(0.0, -9.81, 0.0)
+    };
+    auto outputs = run_sph_example(simulated, params);
 
     printSPHDataCSV(outputs);
 
