@@ -50,6 +50,7 @@ layout(push_constant) uniform Params {
     int d;
     double dt;
     double h;
+    double mass;
 } pc;
 
 #include "morton_kernels.comp.kern"
@@ -83,7 +84,7 @@ void main() {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
             double dist = length(input_positions[i].data - pos);
-            densitySum += cal_rho_ij(1.0, dist, pc.h);
+            densitySum += cal_rho_ij(pc.mass, dist, pc.h);
             count += 1;
         }
     }

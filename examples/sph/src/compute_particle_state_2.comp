@@ -56,13 +56,12 @@ layout(push_constant) uniform Params {
     int d;
     double dt;
     double h;
+    double mass;
 } pc;
 
 #include "morton_kernels.comp.kern"
 #include "kernels.comp.kern"
 #include "nbr_kernel.comp.kern"
-
-const double MASS = 1.0;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
@@ -94,13 +93,13 @@ void main() {
                 input_pressures[i],
                 input_densities[idx], 
                 input_densities[i],
-                MASS // mass
+                pc.mass // mass
             );
             pressure_force += contrib;
         }
     }
     pressure_forces[idx].data = pressure_force;
-    dvec3 newvel = input_velocities[idx].data + pressure_force * pc.dt / MASS;
+    dvec3 newvel = input_velocities[idx].data + pressure_force * pc.dt / pc.mass;
     output_velocities[idx].data = newvel;
     output_positions[idx].data = input_positions[idx].data + newvel * pc.dt;
 

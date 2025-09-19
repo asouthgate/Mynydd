@@ -26,7 +26,7 @@ SPHData simulate_inputs(uint32_t nParticles) {
 }
 
 
-SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dist, double dt) {
+SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int index_search_dist, double dt) {
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
@@ -130,14 +130,30 @@ SPHData run_sph_example(const SPHData& inputData, uint32_t nBitsPerAxis, int dis
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputVel, pingVelocityBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
 
+    double h;
+    if (index_search_dist == 0) {
+        std::cerr << "Using d = 0 (same cell only) for SPH search" << std::endl;
+        h = 0.5 / double(1 << nBitsPerAxis);
+    } else if (index_search_dist == 1) {
+        std::cerr << "Using d = 1 (neighbouring cells) for SPH search" << std::endl;
+        // h should be 1 because otherwise ball can fall outside of searched area (points are not always in middle of cells)
+        h = 1.0 / double(1 << nBitsPerAxis);
+    } else {
+        throw std::runtime_error("Only index_search_dist of 0 or 1 supported");
+    }
+
+    // normalize mass so that density is approx 1.0
+    double mass = 1.0 / nParticles;
+
     Step2Params step2Params = {
         nBitsPerAxis,
         nParticles,
         glm::dvec3(0.0),
         glm::dvec3(1.0),
-        dist,
+        index_search_dist,
         dt,
-        1.0 / double(1 << nBitsPerAxis)
+        h,
+        mass
     };
 
     computeDensities->setPushConstantsData(step2Params, 0);

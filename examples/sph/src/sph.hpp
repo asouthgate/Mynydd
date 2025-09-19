@@ -16,6 +16,7 @@ struct Step2Params {
     int dist;
     double dt;
     double h;
+    double mass;
 };
 
 

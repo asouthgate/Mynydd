@@ -156,7 +156,6 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
     
     size_t nCells = static_cast<uint32_t>(cellData.size());
     size_t printed = 0;
-    double h = 1.0 / (1 << nBitsPerAxis);
     std:: cerr << "Checking SPH output with" << nCells << " cells" << std::endl;
 
     for (uint32_t key = 0; key < nCells; ++key) {
@@ -177,7 +176,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
             REQUIRE(particle.data.x == outputPos[pind].data.x);
             REQUIRE(particle.data.y == outputPos[pind].data.y);
             REQUIRE(particle.data.z == outputPos[pind].data.z);
-            dens += cal_rho_ij(1.0, length(particle.data - outputPos[start].data), h);
+            dens += cal_rho_ij(out.params.mass, length(particle.data - outputPos[start].data), out.params.h);
         }
         // std:: cerr << "Cell " << key << " has " << (end - start) << " particles, computed density " << std::fixed << std::setprecision(6) << dens  
             // << " vs gpu density " << std::fixed << std::setprecision(6) << densities[start] << std::endl;
@@ -205,8 +204,6 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     auto outputNewPos = out.newPositions;
     auto outputNewVel = out.newVelocities;
 
-    double h = 1.0 / (1 << nBitsPerAxis);
-
     for (uint32_t p0idx : {0, 27, 35, 109, 111}) {
 
         // choose from output pos so we can match to validation output density
@@ -229,7 +226,7 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
                 binPosition(p.z, out.params.nBits)
             );
 
-            densitySum += cal_rho_ij(1.0, length(p - p0), h);
+            densitySum += cal_rho_ij(out.params.mass, length(p - p0), out.params.h);
             count++;
         }
 
@@ -266,8 +263,8 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         glm::dvec3 v0 = outputVel[p0idx].data;
         glm::dvec3 f0 = outputPressureForces[p0idx].data;
         REQUIRE(glm::length(f0) > 0);
-        double dt = 0.001;
-        glm::dvec3 expected_v1 = v0 + f0 * dt;
+        double dt = out.params.dt;
+        glm::dvec3 expected_v1 = v0 + f0 * dt / out.params.mass;
         glm::dvec3 expected_x1 = p0 + expected_v1 * dt;
         glm::dvec3 gpu_v1 = outputNewVel[p0idx].data;
         glm::dvec3 gpu_x1 = outputNewPos[p0idx].data;
