@@ -35,8 +35,8 @@ layout(set = 0, binding = 4) readonly buffer FlatCells {
 };
 
 // These are not actually necessary, just for debugging
-layout(set = 0, binding = 5) buffer PressureForces {
-    dVec3Wrapper pressure_forces[];
+layout(set = 0, binding = 5) buffer DebugForces {
+    dVec3Wrapper debug_forces[];
 };
 
 layout(set = 0, binding = 6) buffer OutputPositions {
@@ -57,6 +57,7 @@ layout(push_constant) uniform Params {
     double dt;
     double h;
     double mass;
+    dvec3 body_force;
 } pc;
 
 #include "morton_kernels.comp.kern"
@@ -98,19 +99,16 @@ void main() {
             pressure_force += contrib;
         }
     }
-    pressure_forces[idx].data = pressure_force;
+    debug_forces[idx].data = pressure_force + pc.body_force;
     dvec3 newvel = input_velocities[idx].data + pressure_force * pc.dt / pc.mass;
 
     // finally, deal with boundaries
     // where will it go?
+    
     dvec3 prop_pos = input_positions[idx].data + newvel * pc.dt;
-    // do whatever needs doing; if it goes into the boundary, reflect it, etc. lose some energy if desired
-    dvec3 boundary_adjusted_vel = adjust_boundary_vel(prop_pos, newvel, pc.domainMin, pc.domainMax, 0.75);
 
-
-    output_velocities[idx].data = boundary_adjusted_vel;
-
-    output_positions[idx].data = input_positions[idx].data + boundary_adjusted_vel * pc.dt;
-
-
+    BoundaryResult br = adjust_boundary_bounce(prop_pos, newvel, pc.domainMin, pc.domainMax, pc.dt, 0.75);
+    
+    output_velocities[idx].data = br.vel;
+    output_positions[idx].data = br.pos;
 }

@@ -25,8 +25,29 @@ SPHData simulate_inputs(uint32_t nParticles) {
     return {inputDensities, {}, {}, inputPos,  inputVel, {}};
 }
 
+void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHParams& params) {
+    for (const auto& p : posData) {
+        if (p.data.x < params.domainMin.x || p.data.x > params.domainMax.x ||
+            p.data.y < params.domainMin.y || p.data.y > params.domainMax.y ||
+            p.data.z < params.domainMin.z || p.data.z > params.domainMax.z) {
+            throw std::runtime_error("Particle position out of bounds");
+        }
+    }
+}
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& params) {
+void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHParams& params) {
+    double maxv = (1 << params.nBits) / params.dt;
+    for (const auto& p : velData) {
+        if (p.data.x > maxv ||
+            p.data.y > maxv ||
+            p.data.z > maxv ) {
+            std::cerr << "Error: particle velocity OOB " << p.data.x << " " << p.data.y << " " << p.data.z << std::endl;
+            throw std::runtime_error("Particle velocity out of bounds");
+        }
+    }
+}
+
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations) {
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
@@ -147,22 +168,57 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params) {
 
     computeDensities->setPushConstantsData(params, 0);
     leapFrogStep->setPushConstantsData(params, 0);
-    auto t0 = std::chrono::high_resolution_clock::now();
-    particleIndexPipeline.execute();
-    auto t1 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
-    auto t2 = std::chrono::high_resolution_clock::now();
-    particleIndexPipeline.debug_assert_bin_consistency();
-    auto t3 = std::chrono::high_resolution_clock::now();
-    mynydd::executeBatch(contextPtr, {leapFrogStep});
-    auto t4 = std::chrono::high_resolution_clock::now();
 
-    std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
-    std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
-    std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
-    std::cerr << "Density computation took " << elapsed2.count() << " ms" << std::endl;
-    std::chrono::duration<double, std::milli> elapsed3 = t4 - t3;
-    std::cerr << "Leapfrog took " << elapsed3.count() << " ms" << std::endl;
+    std::vector<double> index_step_times;
+    std::vector<double> density_times;
+    std::vector<double> leapfrog_times;
+
+    bool debug_enabled = true;
+
+    for (uint it = 0; it < iterations; ++it) {
+        auto t0 = std::chrono::high_resolution_clock::now();
+        particleIndexPipeline.execute();
+        auto t1 = std::chrono::high_resolution_clock::now();
+        mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        if (debug_enabled) {
+            std::cerr << "Validating after density, indexing iteration " << it << ":" << std::endl;
+            particleIndexPipeline.debug_assert_bin_consistency();
+            _validate_velocities_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pongVelocityBuffer, nParticles), params);
+            _validate_positions_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pongPosBuffer, nParticles), params);
+        }
+
+        auto t3 = std::chrono::high_resolution_clock::now();
+        mynydd::executeBatch(contextPtr, {leapFrogStep});
+        auto t4 = std::chrono::high_resolution_clock::now();
+
+        // Check that no positions are outside of the domain
+        if (debug_enabled) {
+            std::cerr << "Validating after leapfrog, indexing iteration " << it << ":" << std::endl;
+            _validate_velocities_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles), params);
+            _validate_positions_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), params);
+        }
+
+        std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
+        std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
+        // std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
+        // std::cerr << "Density computation took " << elapsed2.count() << " ms" << std::endl;
+        // std::cerr << "Leapfrog took " << elapsed3.count() << " ms" << std::endl;
+        std::chrono::duration<double, std::milli> elapsed3 = t4 - t3;
+
+        index_step_times.push_back(elapsed1.count());
+        density_times.push_back(elapsed2.count());
+        leapfrog_times.push_back(elapsed3.count());
+    }
+
+    double index_time_avg = std::accumulate(index_step_times.begin(), index_step_times.end(), 0.0) / index_step_times.size();
+    double density_time_avg = std::accumulate(density_times.begin(), density_times.end(), 0.0) / density_times.size();
+    double leapfrog_time_avg = std::accumulate(leapfrog_times.begin(), leapfrog_times.end(), 0.0) / leapfrog_times.size();
+
+    std:: cerr << "Average particle index time over " << iterations << " iterations: " << index_time_avg << " ms" << std::endl;
+    std:: cerr << "Average density computation time over " << iterations << " iterations: " << density_time_avg << " ms" << std::endl;
+    std:: cerr << "Average leapfrog time over " << iterations << " iterations: " << leapfrog_time_avg << " ms" << std::endl;
 
     return {
         mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles),

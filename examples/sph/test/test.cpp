@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <glm/fwd.hpp>
 #include <random>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
@@ -300,8 +301,9 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         double dt = params.dt;
         glm::dvec3 expected_v1_prop = v0 + f0 * dt / params.mass;
         glm::dvec3 expected_x1_prop = p0 + expected_v1_prop * dt;
-        glm::dvec3 expected_v1 = adjust_boundary_vel(expected_x1_prop, expected_v1_prop, params.domainMin, params.domainMax, 0.75);
-        glm::dvec3 expected_x1 = p0 + expected_v1 * dt;
+        BoundaryResult br = adjust_boundary_bounce(expected_x1_prop, expected_v1_prop, params.domainMin, params.domainMax, params.dt, 0.75);
+        glm::dvec3 expected_v1 = br.vel;
+        glm::dvec3 expected_x1 = br.pos;
         glm::dvec3 gpu_v1 = outputNewVel[p0idx].data;
         glm::dvec3 gpu_x1 = outputNewPos[p0idx].data;
         std::cerr << "Checking leapfrog at index " << p0idx <<  " position " << p0.x << ", " << p0.y << ", " << p0.z << std::endl;
@@ -330,7 +332,7 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
         glm::dvec3(1.0),
         1,
         0.005,
-        0.1,
+        1.0 / (1 << 4),
         0.02,
         glm::dvec3(0.0, 0.0, 0.0)
     };
@@ -362,4 +364,91 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
         std::cerr << "Density is " << outputDensities[p0idx] << std::endl;
         REQUIRE (gpu_x1.y < p0.y); // should be lower down
     }
+}
+
+
+
+TEST_CASE("Test that gravity sucks everything downward (stably)", "[sph]") {
+    // This test manually scans through in a loop to find particles in or near a cell
+    // And then manually calculate the densities
+    // The validation computation does therefore not use the index, so it is a more independent check
+
+    SPHParams params {
+        4,
+        256,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.005,
+        1.0 / (1 << 4),
+        0.02,
+        glm::dvec3(0.0, -10.0, 0.0)
+    };
+    auto simulated = simulate_inputs(params.nParticles);
+
+    // set simulated input velocities to downward
+    for (size_t k = 0; k < simulated.velocities.size(); ++k) {
+        simulated.velocities[k].data = glm::dvec3(0.0, 0.0, 0.0);
+    }
+
+    // Get average position at the start
+    glm::dvec3 avg_start(0.0);
+    for (const auto& p : simulated.positions) {
+        avg_start += p.data;
+    }
+    avg_start /= (double) simulated.positions.size();
+
+        // First check that every input particle is within bounds
+    for (size_t k = 0; k < simulated.positions.size(); ++k) {
+        auto p = simulated.positions[k].data;
+        REQUIRE(p.x >= params.domainMin.x);
+        REQUIRE(p.x <= params.domainMax.x);
+        REQUIRE(p.y >= params.domainMin.y);
+        REQUIRE(p.y <= params.domainMax.y);
+        REQUIRE(p.z >= params.domainMin.z);
+        REQUIRE(p.z <= params.domainMax.z);
+    }
+
+
+    auto nBitsPerAxis = 8;
+    SPHData out = run_sph_example(simulated, params, 100);
+    auto outputPos = out.positions; // these are sorted
+    auto outputVel = out.velocities; // these are sorted
+    auto outputNewPos = out.newPositions;
+    auto outputNewVel = out.newVelocities;
+    auto outputPressureForces = out.pressureForces;
+    auto outputPressures = out.pressures;
+    auto outputDensities = out.densities;
+
+    // First check that every particle is within bounds
+    for (size_t k = 0; k < outputNewPos.size(); ++k) {
+        auto p = outputNewPos[k].data;
+        REQUIRE(p.x >= params.domainMin.x);
+        REQUIRE(p.x <= params.domainMax.x);
+        REQUIRE(p.y >= params.domainMin.y);
+        REQUIRE(p.y <= params.domainMax.y);
+        REQUIRE(p.z >= params.domainMin.z);
+        REQUIRE(p.z <= params.domainMax.z);
+    }
+
+    // Now, after 100 steps, we should have 3 facts:
+    // - average position is lower down
+    // - average density is higher than to start (not currently able to check since we don't keep trajectory yet)
+    // - average velocity is near zero
+
+    glm::dvec3 avg_end(0.0);
+    glm::dvec3 avg_vel(0.0);
+    for (size_t k = 0; k < outputNewPos.size(); ++k) {
+        avg_end += outputNewPos[k].data;
+        avg_vel += outputNewVel[k].data;
+    }
+
+    avg_vel /= (double) outputNewPos.size();
+    avg_end /= (double) outputNewPos.size();
+
+    std::cerr << "Average start position " << avg_start.x << ", " << avg_start.y << ", " << avg_start.z << std::endl;
+    std::cerr << "Average end position " << avg_end.x << ", " << avg_end.y << ", " << avg_end.z << std::endl;
+    std::cerr << "Average end velocity " << avg_vel.x << ", " << avg_vel.y << ", " << avg_vel.z << std::endl;
+    REQUIRE (avg_end.y < avg_start.y); // should be lower down
+    REQUIRE (glm::length(avg_vel) < 1e-2); // should be near zero at equilibrium
 }

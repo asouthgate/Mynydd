@@ -36,4 +36,4 @@ struct SPHData {
 
 SPHData simulate_inputs(uint32_t nParticles);
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams);
+SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams, uint iterations=1);

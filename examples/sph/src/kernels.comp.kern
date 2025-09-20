@@ -52,6 +52,10 @@ double cal_pressure_wcsph(double rho, double rho0, double c2, int gamma) {
     return bweak * (prod - 1.0f);
 }
 
+double cal_pressure_wc_simple(double rho, double rho0, double c2) {
+    return c2 * (rho - rho0);
+}
+
 double cal_rho_ij(double mass, double dist_ij, double h) {
     // formula is mass * kernel, mass = 1.0
     return mass * debrun_spiky_kernel(dist_ij, h);
@@ -78,4 +82,46 @@ dvec3 adjust_boundary_vel(dvec3 prop_pos, dvec3 new_vel, dvec3 bmin, dvec3 bmax,
     adj_vel.z *=  prop_pos.z > bmax.z ? -1.0 : 1.0;
 
     return adj_vel;
+}
+
+struct BoundaryResult {
+    dvec3 pos;
+    dvec3 vel;
+};
+
+BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bmax, double dt, double damping) {
+    dvec3 new_pos = pos;
+    dvec3 new_vel = vel;
+
+    // Axis-wise collision
+    for (int axis = 0; axis < 3; ++axis) {
+        double prop = new_pos[axis] + new_vel[axis] * dt;
+
+        if (prop > bmax[axis] && new_vel[axis] > 0.0) {
+            double t_hit = (bmax[axis] - new_pos[axis]) / new_vel[axis];
+            new_pos[axis] = bmax[axis];                    // move to wall
+            new_vel[axis] *= -damping;                     // reflect
+            new_pos[axis] += new_vel[axis] * (dt - t_hit); // remaining step
+        }
+        else if (prop < bmin[axis] && new_vel[axis] < 0.0) {
+            double t_hit = (bmin[axis] - new_pos[axis]) / new_vel[axis];
+            new_pos[axis] = bmin[axis];
+            new_vel[axis] *= -damping;
+            new_pos[axis] += new_vel[axis] * (dt - t_hit);
+        }
+        else {
+            new_pos[axis] = prop; // no collision
+        }
+    }
+
+    // Optional: final clamp to ensure strictly inside
+    for (int axis = 0; axis < 3; ++axis) {
+        if (new_pos[axis] < bmin[axis]) new_pos[axis] = bmin[axis];
+        if (new_pos[axis] > bmax[axis]) new_pos[axis] = bmax[axis];
+    }
+
+    BoundaryResult br;
+    br.pos = new_pos;
+    br.vel = new_vel;
+    return br;
 }

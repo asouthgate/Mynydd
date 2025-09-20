@@ -51,6 +51,7 @@ layout(push_constant) uniform Params {
     double dt;
     double h;
     double mass;
+    dvec3 body_force;
 } pc;
 
 #include "morton_kernels.comp.kern"
@@ -91,5 +92,5 @@ void main() {
 
     densities[idx] = densitySum;
     double rho0 = 1.0;
-    pressures[idx] = cal_pressure_wcsph(densitySum, rho0, 0.02, 7);
+    pressures[idx] = cal_pressure_wc_simple(densitySum, rho0, 0.02);
 }

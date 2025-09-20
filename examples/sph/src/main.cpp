@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
     }
 
     auto simulated = simulate_inputs(nParticles);
+    double h = 1.0 / (1 << nBitsPerAxis);
     SPHParams params {
         nBitsPerAxis,
         nParticles,
@@ -41,8 +42,8 @@ int main(int argc, char** argv) {
         glm::dvec3(1.0),
         1,
         0.005,
-        0.1,
-        0.02,
+        h,
+        h * h * h / nParticles,
         glm::dvec3(0.0, -9.81, 0.0)
     };
     auto outputs = run_sph_example(simulated, params);
