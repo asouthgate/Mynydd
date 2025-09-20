@@ -19,7 +19,7 @@ SPHData simulate_inputs(uint32_t nParticles) {
     std::uniform_real_distribution<double> dist(0.0, 1.0);
     for (size_t ak = 0; ak < nParticles; ++ak) {
         inputPos[ak].data = glm::dvec3(dist(rng), dist(rng), dist(rng));
-        inputDensities[ak] = dist(rng);
+        inputDensities[ak] = 1.0;
         inputVel[ak].data = glm::dvec3(0.0, 0.0, 0.0);
     }
     return {inputDensities, {}, {}, inputPos,  inputVel, {}};
@@ -33,6 +33,22 @@ void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHPar
             throw std::runtime_error("Particle position out of bounds");
         }
     }
+}
+
+void _debug_print_state(std::vector<dVec3Aln32> vel, std::vector<dVec3Aln32> pos, const SPHParams& params, uint iteration) {
+    double kinetic_energy = 0.0;
+    glm::dvec3 avg(0.0);
+    for (size_t k = 0; k < vel.size(); ++k) {
+        avg += vel[k].data;
+        double vmag = glm::length(vel[k].data);
+        kinetic_energy += 0.5 * params.mass * vmag * vmag;
+    }
+    avg /= (double) vel.size();
+    std::cerr << "it=" << iteration << ", v_avg=" << "(" << avg.x << " " << avg.y << " " << avg.z << ")" <<
+            ", kinetic_energy=" << kinetic_energy << 
+            ", v0=(" << vel[0].data.x << " " << vel[0].data.x << " " << vel[0].data.x << ")" <<
+            ", x0=(" << pos[0].data.x << " " << pos[0].data.x << " " << pos[0].data.x << ")" << 
+            std::endl;
 }
 
 void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHParams& params) {
@@ -163,9 +179,6 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         throw std::runtime_error("Only index_search_dist of 0 or 1 supported");
     }
 
-    // normalize mass so that density is approx 1.0
-    double mass = h * h * h / nParticles;
-
     computeDensities->setPushConstantsData(params, 0);
     leapFrogStep->setPushConstantsData(params, 0);
 
@@ -183,7 +196,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         auto t2 = std::chrono::high_resolution_clock::now();
 
         if (debug_enabled) {
-            std::cerr << "Validating after density, indexing iteration " << it << ":" << std::endl;
+            // std::cerr << "Validating after density, indexing iteration " << it << ":" << std::endl;
             particleIndexPipeline.debug_assert_bin_consistency();
             _validate_velocities_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pongVelocityBuffer, nParticles), params);
             _validate_positions_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pongPosBuffer, nParticles), params);
@@ -195,16 +208,19 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
 
         // Check that no positions are outside of the domain
         if (debug_enabled) {
-            std::cerr << "Validating after leapfrog, indexing iteration " << it << ":" << std::endl;
-            _validate_velocities_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles), params);
-            _validate_positions_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), params);
+            // std::cerr << "Validating after leapfrog, indexing iteration " << it << ":" << std::endl;
+
+            auto velocities = mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles);
+            auto positions = mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles);
+            _validate_velocities_in_bounds(velocities, params);
+            _validate_positions_in_bounds(positions, params);
+
+            // now report average positions and velocities
+            _debug_print_state(velocities, positions, params, it);
         }
 
         std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
         std::chrono::duration<double, std::milli> elapsed2 = t2 - t1;
-        // std::cerr << "Particle indexing computation took " << elapsed1.count() << " ms" << std::endl;
-        // std::cerr << "Density computation took " << elapsed2.count() << " ms" << std::endl;
-        // std::cerr << "Leapfrog took " << elapsed3.count() << " ms" << std::endl;
         std::chrono::duration<double, std::milli> elapsed3 = t4 - t3;
 
         index_step_times.push_back(elapsed1.count());

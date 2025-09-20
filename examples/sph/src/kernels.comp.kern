@@ -19,7 +19,7 @@ double debrun_spiky_kernel(double r, double h) {
 }
 
 double debrun_spiky_kernel_dwdr(double r, double h) {
-    double coeff = get_debrun_coeff_3D(h) / h;
+    double coeff = get_debrun_coeff_3D(h);
     double hmr = h-r;
     double hmr_pow2 = hmr * hmr;
     double val = -3.0 * coeff * hmr_pow2;
@@ -28,7 +28,7 @@ double debrun_spiky_kernel_dwdr(double r, double h) {
 }
 
 double debrun_spiky_kernel_lap(double r, double h) {
-    double mask = step(0.0, r) * step(r, h); // 1.0 if 0 <= r <= h, else 0.0
+    double mask = r < h ? 1.0 : 0.0;
     double coeff = D6 * get_debrun_coeff_3D(h);
     double term1 = coeff * (h - r);          // W''(r)
     double term2 = - coeff * (h - r) * (h - r) / r;  // (2/r) * W'(r)
@@ -70,20 +70,6 @@ dvec3 cal_pressure_force_ij(dvec3 gradw, double pi, double pj, double rhoi, doub
     return -pforce_coefficient * gradw;
 }
 
-dvec3 adjust_boundary_vel(dvec3 prop_pos, dvec3 new_vel, dvec3 bmin, dvec3 bmax, double damping) {
-    dvec3 adj_vel = new_vel;
-
-    adj_vel.x *=  prop_pos.x <= bmin.x ? -1.0 : 1.0;
-    adj_vel.y *=  prop_pos.y <= bmin.y ? -1.0 : 1.0;
-    adj_vel.z *=  prop_pos.z <= bmin.z ? -1.0 : 1.0;
-
-    adj_vel.x *=  prop_pos.x > bmax.x ? -1.0 : 1.0;
-    adj_vel.y *=  prop_pos.y > bmax.y ? -1.0 : 1.0;
-    adj_vel.z *=  prop_pos.z > bmax.z ? -1.0 : 1.0;
-
-    return adj_vel;
-}
-
 struct BoundaryResult {
     dvec3 pos;
     dvec3 vel;
@@ -97,17 +83,11 @@ BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bm
     for (int axis = 0; axis < 3; ++axis) {
         double prop = new_pos[axis] + new_vel[axis] * dt;
 
-        if (prop > bmax[axis] && new_vel[axis] > 0.0) {
+        if ((prop > bmax[axis] && new_vel[axis] > 0.0) || (prop < bmin[axis] && new_vel[axis] < 0.0)) {
             double t_hit = (bmax[axis] - new_pos[axis]) / new_vel[axis];
-            new_pos[axis] = bmax[axis];                    // move to wall
+            new_pos[axis] = pos[axis] + vel[axis] * t_hit;
             new_vel[axis] *= -damping;                     // reflect
             new_pos[axis] += new_vel[axis] * (dt - t_hit); // remaining step
-        }
-        else if (prop < bmin[axis] && new_vel[axis] < 0.0) {
-            double t_hit = (bmin[axis] - new_pos[axis]) / new_vel[axis];
-            new_pos[axis] = bmin[axis];
-            new_vel[axis] *= -damping;
-            new_pos[axis] += new_vel[axis] * (dt - t_hit);
         }
         else {
             new_pos[axis] = prop; // no collision

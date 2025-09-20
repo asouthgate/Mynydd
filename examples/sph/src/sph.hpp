@@ -18,6 +18,7 @@ struct SPHParams {
     double h;
     double mass;
     alignas(32) glm::dvec3 gravity;
+    double rho0;
 };
 
 
