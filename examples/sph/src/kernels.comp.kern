@@ -67,7 +67,7 @@ double cal_pressure_force_coefficient(double pi, double pj, double rhoi, double 
 
 dvec3 cal_pressure_force_ij(dvec3 gradw, double pi, double pj, double rhoi, double rhoj, double mj) {
     double pforce_coefficient = cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
-    return -pforce_coefficient * gradw;
+    return - pforce_coefficient * gradw;
 }
 
 struct BoundaryResult {
@@ -78,13 +78,19 @@ struct BoundaryResult {
 BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bmax, double dt, double damping) {
     dvec3 new_pos = pos;
     dvec3 new_vel = vel;
+    BoundaryResult br;
 
     // Axis-wise collision
     for (int axis = 0; axis < 3; ++axis) {
         double prop = new_pos[axis] + new_vel[axis] * dt;
 
-        if ((prop > bmax[axis] && new_vel[axis] > 0.0) || (prop < bmin[axis] && new_vel[axis] < 0.0)) {
+        if (prop > bmax[axis] && new_vel[axis] > 0.0) {
             double t_hit = (bmax[axis] - new_pos[axis]) / new_vel[axis];
+            new_pos[axis] = pos[axis] + vel[axis] * t_hit;
+            new_vel[axis] *= -damping;                     // reflect
+            new_pos[axis] += new_vel[axis] * (dt - t_hit); // remaining step
+        } else if (prop < bmin[axis] && new_vel[axis] < 0.0) {
+            double t_hit = (bmin[axis] - new_pos[axis]) / new_vel[axis];
             new_pos[axis] = pos[axis] + vel[axis] * t_hit;
             new_vel[axis] *= -damping;                     // reflect
             new_pos[axis] += new_vel[axis] * (dt - t_hit); // remaining step
@@ -100,7 +106,6 @@ BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bm
         if (new_pos[axis] > bmax[axis]) new_pos[axis] = bmax[axis];
     }
 
-    BoundaryResult br;
     br.pos = new_pos;
     br.vel = new_vel;
     return br;

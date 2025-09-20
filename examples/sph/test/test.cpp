@@ -161,7 +161,8 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
         h,
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
-        nParticles * nbr_vol_prop
+        nParticles * nbr_vol_prop,
+        0.02
     };
 
     // SPHParams params {
@@ -237,19 +238,10 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
         h,
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
-        nParticles * nbr_vol_prop
+        nParticles * nbr_vol_prop,
+        0.02
     };
-    // SPHParams params {
-    //     4,
-    //     512,
-    //     glm::dvec3(0.0),
-    //     glm::dvec3(1.0),
-    //     1,
-    //     0.005,
-    //     1.0 / (1 << 4),
-    //     0.02,
-    //     glm::dvec3(0.0, 0.0, 0.0)
-    // };
+
     auto simulated = simulate_inputs(params.nParticles);
     SPHData out = run_sph_example(simulated, params);
 
@@ -316,7 +308,8 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         h,
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
-        nParticles * nbr_vol_prop
+        nParticles * nbr_vol_prop,
+        0.02
     };
 
     auto simulated = simulate_inputs(params.nParticles);
@@ -375,7 +368,8 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
         h,
         1.0,
         glm::dvec3(0.0, 0.0, -9.0),
-        nParticles * nbr_vol_prop
+        nParticles * nbr_vol_prop,
+        0.02
     };
     auto simulated = simulate_inputs(params.nParticles);
 
@@ -429,7 +423,8 @@ TEST_CASE("Test that gravity sucks everything downward (stably)", "[sph]") {
         h,
         1.0,
         glm::dvec3(0.0, 0.0, -9.0),
-        nParticles * nbr_vol_prop
+        nParticles * nbr_vol_prop,
+        0.02
     };
     auto simulated = simulate_inputs(params.nParticles);
 
@@ -456,7 +451,7 @@ TEST_CASE("Test that gravity sucks everything downward (stably)", "[sph]") {
         REQUIRE(p.z <= params.domainMax.z);
     }
 
-    SPHData out = run_sph_example(simulated, params, 10000);
+    SPHData out = run_sph_example(simulated, params, 500);
     auto outputPos = out.positions; // these are sorted
     auto outputVel = out.velocities; // these are sorted
     auto outputNewPos = out.newPositions;

@@ -44,10 +44,19 @@ void _debug_print_state(std::vector<dVec3Aln32> vel, std::vector<dVec3Aln32> pos
         kinetic_energy += 0.5 * params.mass * vmag * vmag;
     }
     avg /= (double) vel.size();
-    std::cerr << "it=" << iteration << ", v_avg=" << "(" << avg.x << " " << avg.y << " " << avg.z << ")" <<
+
+    glm::dvec3 avg_pos(0.0);
+    for (size_t k = 0; k < pos.size(); ++k) {
+        avg_pos += pos[k].data;
+    }
+    avg_pos /= (double) pos.size();
+
+    std::cerr << "it=" << iteration << 
+            ", v_avg=" << "(" << avg.x << " " << avg.y << " " << avg.z << ")" <<
+            ", x_avg=" << "(" << avg_pos.x << " " << avg_pos.y << " " << avg_pos.z << ")" <<
             ", kinetic_energy=" << kinetic_energy << 
-            ", v0=(" << vel[0].data.x << " " << vel[0].data.x << " " << vel[0].data.x << ")" <<
-            ", x0=(" << pos[0].data.x << " " << pos[0].data.x << " " << pos[0].data.x << ")" << 
+            ", v0=(" << vel[0].data.x << " " << vel[0].data.y << " " << vel[0].data.z << ")" <<
+            ", x0=(" << pos[0].data.x << " " << pos[0].data.y << " " << pos[0].data.z << ")" << 
             std::endl;
 }
 

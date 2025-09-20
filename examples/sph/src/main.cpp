@@ -24,6 +24,8 @@ int main(int argc, char** argv) {
     uint32_t nBitsPerAxis = 4;
     uint32_t niterations = 100;
     double dt = 0.001;
+    double rho0_mod = 1.0;
+    double c2 = 0.02;
     if (argc == 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
     } else if (argc == 3) {
@@ -41,26 +43,35 @@ int main(int argc, char** argv) {
         niterations = static_cast<uint32_t>(std::atoi(argv[3]));
         dt = std::atof(argv[4]);
     }
-    else if (argc > 5) {
+    else if (argc == 6) {
+        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
+        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
+        niterations = static_cast<uint32_t>(std::atoi(argv[3]));
+        dt = std::atof(argv[4]);
+        rho0_mod = std::atof(argv[5]);
+    }
+    else if (argc == 7) {
+        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
+        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
+        niterations = static_cast<uint32_t>(std::atoi(argv[3]));
+        dt = std::atof(argv[4]);
+        rho0_mod = std::atof(argv[5]);
+        c2 = std::atof(argv[6]);
+    }
+    else if (argc > 7) {
         std::cerr << "Usage: nParticles" << std::endl;
         return EXIT_FAILURE;
     }
 
     auto simulated = simulate_inputs(nParticles);
     double h = 1.0 / (1 << nBitsPerAxis);
-    // SPHParams params {
-    //     nBitsPerAxis,
-    //     nParticles,
-    //     glm::dvec3(0.0),
-    //     glm::dvec3(1.0),
-    //     1,
-    //     dt,
-    //     h,
-    //     1.0,
-    //     glm::dvec3(0.0, 0.0, -9.0)
-    // };
 
     double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
+    double rho0 = nParticles * nbr_vol_prop * rho0_mod;
+    
+    std::cerr << "Running SPH with " << nParticles << " particles, " << nBitsPerAxis << " bits per axis, "
+                << niterations << " iterations, dt=" << dt << ", rho0=" << rho0 << ", c2=" << c2 << std::endl;
+
     SPHParams params {
         nBitsPerAxis,
         nParticles,
@@ -71,7 +82,8 @@ int main(int argc, char** argv) {
         h,
         1.0,
         glm::dvec3(0.0, 0.0, -9.0),
-        nParticles * nbr_vol_prop
+        rho0,
+        c2
     };
 
 
