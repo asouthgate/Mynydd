@@ -122,7 +122,7 @@ std::string _get_hd5_filename() {
     return oss.str();
 }
 
-void _debug_print_state(std::vector<dVec3Aln32> vel, std::vector<dVec3Aln32> pos, const SPHParams& params, uint iteration) {
+void _debug_print_state(std::vector<dVec3Aln32> vel, std::vector<dVec3Aln32> pos, std::vector<double> densities, const SPHParams& params, uint iteration) {
     double kinetic_energy = 0.0;
     glm::dvec3 avg(0.0);
     for (size_t k = 0; k < vel.size(); ++k) {
@@ -138,9 +138,16 @@ void _debug_print_state(std::vector<dVec3Aln32> vel, std::vector<dVec3Aln32> pos
     }
     avg_pos /= (double) pos.size();
 
+    double avg_density = 0.0;
+    for (size_t k = 0; k < densities.size(); ++k) {
+        avg_density += densities[k];
+    }
+    avg_density /= (double) densities.size();
+
     std::cerr << "it=" << iteration << 
             ", v_avg=" << "(" << avg.x << " " << avg.y << " " << avg.z << ")" <<
             ", x_avg=" << "(" << avg_pos.x << " " << avg_pos.y << " " << avg_pos.z << ")" <<
+            ", rho_avg=" << avg_density <<
             ", kinetic_energy=" << kinetic_energy << 
             ", v0=(" << vel[0].data.x << " " << vel[0].data.y << " " << vel[0].data.z << ")" <<
             ", x0=(" << pos[0].data.x << " " << pos[0].data.y << " " << pos[0].data.z << ")" << 
@@ -310,11 +317,12 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
 
             auto velocities = mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles);
             auto positions = mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles);
+            auto densities = mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles);
             _validate_velocities_in_bounds(velocities, params);
             _validate_positions_in_bounds(positions, params);
 
             // now report average positions and velocities
-            _debug_print_state(velocities, positions, params, it);
+            _debug_print_state(velocities, positions, densities, params, it);
         }
 
         if (write_hdf5 && (it % hdf5_cadence == 0 || it == iterations - 1)) {

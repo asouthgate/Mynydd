@@ -67,7 +67,7 @@ double cal_pressure_force_coefficient(double pi, double pj, double rhoi, double 
 
 dvec3 cal_pressure_force_ij(dvec3 gradw, double pi, double pj, double rhoi, double rhoj, double mj) {
     double pforce_coefficient = cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
-    return - pforce_coefficient * gradw;
+    return pforce_coefficient * gradw;
 }
 
 struct BoundaryResult {
