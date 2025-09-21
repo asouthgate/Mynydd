@@ -1,11 +1,25 @@
 #include <chrono>
 #include <cstdint>
+#include <H5Cpp.h>
+#include <iomanip>
 #include <random>
 #include <glm/glm.hpp>
 #include <mynydd/mynydd.hpp>
 #include <mynydd/pipelines/particle_index.hpp>
+#include <sstream>
+#include <string>
 #include <vector>
 #include <vulkan/vulkan_core.h>
+#include <filesystem> // C++17
+namespace fs = std::filesystem;
+#include <hdf5.h>
+#include <filesystem>
+#include <stdexcept>
+
+
+#include <iostream>
+
+
 
 #include "sph.hpp"
 
@@ -33,6 +47,79 @@ void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHPar
             throw std::runtime_error("Particle position out of bounds");
         }
     }
+}
+
+void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& vec,
+                          const std::string& basepath,
+                          const std::string& dataset_name,
+                          uint64_t iter)
+{
+
+    std::filesystem::path dir(basepath);
+    if (!std::filesystem::exists(dir)) {
+        std::filesystem::create_directories(dir);
+        std::cout << "Created directory: " << dir << "\n";
+    }
+
+    const hsize_t n = vec.size();
+    const hsize_t dims[2] = { n, 3 };
+    std::vector<double> buf(n*3);
+    for (size_t i=0;i<n;++i){
+        buf[i*3+0] = vec[i].data[0];
+        buf[i*3+1] = vec[i].data[1];
+        buf[i*3+2] = vec[i].data[2];
+    }
+
+    std::string tmp = basepath + "/" + basepath + ".tmp." + std::to_string(iter) + ".h5";
+    std::string finalname = basepath + "/" + basepath + "." + std::to_string(iter) + ".h5";
+
+    {
+        H5::H5File file(tmp, H5F_ACC_TRUNC);
+        H5::DataSpace space(2, dims);
+        H5::DataSet ds = file.createDataSet(dataset_name, H5::PredType::NATIVE_DOUBLE, space);
+        ds.write(buf.data(), H5::PredType::NATIVE_DOUBLE);
+        file.flush(H5F_SCOPE_GLOBAL); // close/flush
+    }
+
+    std::filesystem::rename(tmp, finalname); // atomic on same FS
+}
+
+
+std::string _get_hd5_filename() {
+    // Get current time as system_clock::time_point
+    auto now = std::chrono::system_clock::now();
+
+    // Convert to time_t (calendar time)
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+
+    // Convert to local time
+    std::tm local_tm;
+#ifdef _WIN32
+    localtime_s(&local_tm, &now_time);  // thread-safe on Windows
+#else
+    localtime_r(&now_time, &local_tm);  // thread-safe on Linux/macOS
+#endif
+
+    // Format timestamp
+    std::ostringstream oss;
+    oss << std::put_time(&local_tm, "sph_%Y%m%d_%H%M%S");
+
+    // Generate 4-character random alphanumeric tag
+    const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    std::mt19937 rng(static_cast<unsigned int>(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::uniform_int_distribution<> dist(0, sizeof(charset) - 2);
+
+    std::string tag;
+    for (int i = 0; i < 4; ++i) {
+        tag += charset[dist(rng)];
+    }
+
+    oss << "_" << tag;
+
+    return oss.str();
 }
 
 void _debug_print_state(std::vector<dVec3Aln32> vel, std::vector<dVec3Aln32> pos, const SPHParams& params, uint iteration) {
@@ -76,7 +163,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
-
+    auto fname = _get_hd5_filename();
     auto inputPos = inputData.positions;
     auto inputVel = inputData.velocities;
     auto inputDensities = inputData.densities;
@@ -196,6 +283,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
     std::vector<double> leapfrog_times;
 
     bool debug_enabled = true;
+    bool write_hdf5 = true;
 
     for (uint it = 0; it < iterations; ++it) {
         auto t0 = std::chrono::high_resolution_clock::now();
@@ -226,6 +314,10 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
 
             // now report average positions and velocities
             _debug_print_state(velocities, positions, params, it);
+        }
+
+        if (write_hdf5) {
+            write_dvec3_to_hdf5(mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), fname, "positions", it);
         }
 
         std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;

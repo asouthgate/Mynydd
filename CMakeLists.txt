@@ -67,7 +67,7 @@ add_executable(tests
     ${SHADER_SPV_FILES}
 )
 
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
 
 add_dependencies(tests compile_shaders)
 
@@ -116,7 +116,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     add_executable(${EXAMPLE}_example ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
 
     target_include_directories(${EXAMPLE}_example PRIVATE ${INCLUDE_DIR})
-    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd)
+    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
 
     add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
 
@@ -127,7 +127,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     if(EXISTS "${EXAMPLE_PATH}/test/test.cpp")
         add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test/test.cpp ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
         target_include_directories(${EXAMPLE}_test PRIVATE ${INCLUDE_DIR})
-        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
+        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
         add_dependencies(${EXAMPLE}_test compile_${EXAMPLE}_shaders)
 
         add_test(NAME ${EXAMPLE}_tests COMMAND ${EXAMPLE}_test "[${EXAMPLE}]")
