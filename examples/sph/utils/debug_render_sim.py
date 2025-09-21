@@ -58,6 +58,7 @@ def update(event):
 
         data = f[dataset_name][...]   # shape (n_particles, n_dims)
         positions = np.array(data, dtype=np.float32)
+        np.random.shuffle(positions)
 
     scatter.set_data(positions, face_color="orange", size=5, edge_color=None)
 
