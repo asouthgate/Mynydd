@@ -5,6 +5,7 @@ project(nanovulkan)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Vulkan REQUIRED)
+find_package(HDF5 REQUIRED COMPONENTS C CXX)
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
@@ -16,8 +17,8 @@ add_library(mynydd SHARED
     ${SOURCE_DIR}/pipelines/radix_sort.cpp
 )
 
-target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
-target_link_libraries(mynydd PRIVATE Vulkan::Vulkan)
+target_include_directories(mynydd PUBLIC ${INCLUDE_DIR} ${HDF5_INCLUDE_DIRS})
+target_link_libraries(mynydd PRIVATE Vulkan::Vulkan ${HDF5_LIBRARIES})
 
 # tests
 
