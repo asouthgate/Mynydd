@@ -9,7 +9,7 @@ from vispy import app, scene
 
 prefix = sys.argv[1]
 dataset_name = "positions"
-dt = 0.01
+dt = 0.1
 
 canvas = scene.SceneCanvas(keys='interactive', bgcolor='black', show=True)
 view = canvas.central_widget.add_view()

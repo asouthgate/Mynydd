@@ -284,6 +284,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
 
     bool debug_enabled = true;
     bool write_hdf5 = true;
+    uint hdf5_cadence = 10; // write every n iterations
 
     for (uint it = 0; it < iterations; ++it) {
         auto t0 = std::chrono::high_resolution_clock::now();
@@ -316,7 +317,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
             _debug_print_state(velocities, positions, params, it);
         }
 
-        if (write_hdf5) {
+        if (write_hdf5 && (it % hdf5_cadence == 0 || it == iterations - 1)) {
             write_dvec3_to_hdf5(mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), fname, "positions", it);
         }
 
