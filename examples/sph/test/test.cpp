@@ -238,8 +238,8 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
         h,
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
-        nParticles * nbr_vol_prop,
-        0.02
+        nParticles * 44.0,
+        0.001
     };
 
     auto simulated = simulate_inputs(params.nParticles);
@@ -308,7 +308,7 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         h,
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
-        nParticles * nbr_vol_prop,
+        nParticles * 44.0,
         0.02
     };
 
@@ -368,7 +368,7 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
         h,
         1.0,
         glm::dvec3(0.0, 0.0, -9.0),
-        nParticles * nbr_vol_prop,
+        nParticles * 44.0,
         0.02
     };
     auto simulated = simulate_inputs(params.nParticles);

@@ -93,5 +93,5 @@ void main() {
     }
 
     densities[idx] = densitySum;
-    pressures[idx] = cal_pressure_wc_simple(densitySum, pc.rho0, pc.c2);
+    pressures[idx] = cal_pressure_wcsph(densitySum, pc.rho0, pc.c2, 7);
 }

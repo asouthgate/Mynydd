@@ -168,6 +168,18 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
 
 SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations) {
 
+    std::cerr << "Beginning simulation with params " <<
+        " nBits=" << params.nBits <<
+        " nParticles=" << params.nParticles <<
+        " dist=" << params.dist <<
+        " dt=" << params.dt <<
+        " h=" << params.h <<
+        " mass=" << params.mass <<
+        " gravity=(" << params.gravity.x << "," << params.gravity.y << "," << params.gravity.z << ")" <<
+        " rho0=" << params.rho0 <<
+        " c2=" << params.c2 <<
+        std::endl;
+
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
     auto fname = _get_hd5_filename();
@@ -318,11 +330,13 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
             auto velocities = mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles);
             auto positions = mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles);
             auto densities = mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles);
+            
+            // now report average positions and velocities
+            _debug_print_state(velocities, positions, densities, params, it);
+
             _validate_velocities_in_bounds(velocities, params);
             _validate_positions_in_bounds(positions, params);
 
-            // now report average positions and velocities
-            _debug_print_state(velocities, positions, densities, params, it);
         }
 
         if (write_hdf5 && (it % hdf5_cadence == 0 || it == iterations - 1)) {
