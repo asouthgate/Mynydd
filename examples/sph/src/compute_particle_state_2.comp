@@ -60,6 +60,7 @@ layout(push_constant) uniform Params {
     dvec3 body_force;
     double rho0;
     double c2;
+    double mu;
 } pc;
 
 #include "morton_kernels.comp.kern"
@@ -83,6 +84,7 @@ void main() {
     gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
 
     dvec3 pressure_force = dvec3(0.0, 0.0, 0.0);
+    dvec3 viscous_force = dvec3(0.0, 0.0, 0.0);
     // now consume neighbors
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
@@ -100,9 +102,17 @@ void main() {
                 pc.mass // mass
             );
             pressure_force -= contrib;
+            dvec3 viscous_contrib = viscosityForce(
+                pos, input_positions[i].data,
+                input_velocities[idx].data, input_velocities[i].data,
+                pc.mu, pc.mass,
+                input_densities[idx], input_densities[i],
+                pc.h
+            );
+            viscous_force += viscous_contrib;
         }
     }
-    dvec3 ftot = pressure_force + pc.body_force;
+    dvec3 ftot = pressure_force + pc.body_force + viscous_force;
     debug_forces[idx].data = ftot;
     dvec3 newvel = input_velocities[idx].data + ftot * pc.dt / pc.mass;
 

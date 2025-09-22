@@ -26,40 +26,17 @@ int main(int argc, char** argv) {
     double dt = 0.001;
     double rho0_mod = 1.0;
     double c2 = 0.02;
-    if (argc == 2) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-    } else if (argc == 3) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
-    }
-    else if (argc == 4) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
-        niterations = static_cast<uint32_t>(std::atoi(argv[3]));
-    }
-    else if (argc == 5) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
-        niterations = static_cast<uint32_t>(std::atoi(argv[3]));
-        dt = std::atof(argv[4]);
-    }
-    else if (argc == 6) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
-        niterations = static_cast<uint32_t>(std::atoi(argv[3]));
-        dt = std::atof(argv[4]);
-        rho0_mod = std::atof(argv[5]);
-    }
-    else if (argc == 7) {
+    double mu = 0.01;
+    if (argc > 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
         nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
         niterations = static_cast<uint32_t>(std::atoi(argv[3]));
         dt = std::atof(argv[4]);
         rho0_mod = std::atof(argv[5]);
         c2 = std::atof(argv[6]);
-    }
-    else if (argc > 7) {
-        std::cerr << "Usage: nParticles" << std::endl;
+        mu = std::atof(argv[7]);
+    } else if (argc > 7) {
+        std::cerr << "Usage: nParticles nBits niterations dt rho0_mod c2 mu" << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -83,7 +60,8 @@ int main(int argc, char** argv) {
         1.0,
         glm::dvec3(0.0, 0.0, -9.0),
         rho0,
-        c2
+        c2,
+        mu
     };
 
 

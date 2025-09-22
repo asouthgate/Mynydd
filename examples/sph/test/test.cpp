@@ -162,20 +162,10 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
         nParticles * nbr_vol_prop,
-        0.02
+        0.02,
+        0.0,
     };
 
-    // SPHParams params {
-    //     4,
-    //     4096 * 16,
-    //     glm::dvec3(0.0),
-    //     glm::dvec3(1.0),
-    //     1,
-    //     0.005,
-    //     1.0 / (1 << 4),
-    //     0.02,
-    //     glm::dvec3(0.0, 0.0, 0.0)
-    // };
     auto simulated = simulate_inputs(params.nBits);
     SPHData out = run_sph_example(simulated, params);
 
@@ -239,7 +229,8 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
         nParticles * 44.0,
-        0.001
+        0.001,
+        0.0
     };
 
     auto simulated = simulate_inputs(params.nParticles);
@@ -309,7 +300,8 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
         1.0,
         glm::dvec3(0.0, 0.0, 0.0),
         nParticles * 44.0,
-        0.02
+        0.02,
+        0.0
     };
 
     auto simulated = simulate_inputs(params.nParticles);
@@ -369,7 +361,8 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
         1.0,
         glm::dvec3(0.0, 0.0, -9.0),
         nParticles * 44.0,
-        0.02
+        0.02,
+        0.0
     };
     auto simulated = simulate_inputs(params.nParticles);
 

@@ -20,6 +20,7 @@ struct SPHParams {
     alignas(32) glm::dvec3 gravity;
     double rho0;
     double c2;
+    double mu;
 };
 
 

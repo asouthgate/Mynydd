@@ -110,3 +110,27 @@ BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bm
     br.vel = new_vel;
     return br;
 }
+
+double viscosity_kernel_lap(double r, double h) {
+    if (r >= h) return 0.0;
+    double hp6 = h * h * h * h * h * h;
+    return (45.0 / (PI * hp6)) * (h - r);
+}
+
+dvec3 viscosityForce(
+    dvec3 pos_i, dvec3 pos_j,
+    dvec3 vel_i, dvec3 vel_j,
+    double mu, double mass_j,
+    double rho_i, double rho_j,
+    double h
+) {
+    dvec3 r = pos_i - pos_j;
+    double rLen = length(r);
+
+    double laplacian = viscosity_kernel_lap(rLen, h);
+
+    // Symmetric density average
+    double rho_avg = 0.5 * (rho_i + rho_j);
+
+    return mu * mass_j * (vel_j - vel_i) / rho_avg * laplacian;
+}
