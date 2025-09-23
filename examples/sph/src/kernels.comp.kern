@@ -42,6 +42,14 @@ dvec3 debrun_spiky_kernel_grad(dvec3 dv, double h) {
     return dv * dwdror;
 }
 
+
+double poly6_kernel(double r, double h) {
+    if (r < 0.0 || r > h) return 0.0;
+    double hr = (h*h - r*r);
+    double ph9 = h * h * h * h * h * h * h * h * h;
+    return (315.0 / (64.0 * PI * ph9)) * hr * hr * hr;
+}
+
 double cal_pressure_wcsph(double rho, double rho0, double c2, int gamma) {
     // bweak is a constant for this call
     double bweak = c2 * rho0 / double(gamma);
@@ -58,7 +66,7 @@ double cal_pressure_wc_simple(double rho, double rho0, double c2) {
 
 double cal_rho_ij(double mass, double dist_ij, double h) {
     // formula is mass * kernel, mass = 1.0
-    return mass * debrun_spiky_kernel(dist_ij, h);
+    return mass * poly6_kernel(dist_ij, h);
 }
 
 double cal_pressure_force_coefficient(double pi, double pj, double rhoi, double rhoj, double mj) {

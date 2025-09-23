@@ -50,6 +50,48 @@ TEST_CASE("test_spiky_kernel", "[sph]") {
     REQUIRE(sum == Catch::Approx(1.0).margin(1e-2));
 }
 
+TEST_CASE("test_spiky_kernel_discrete_sum_4096", "[sph]") {
+    
+    const int nParticles = 4096 * 3;
+    double h = 0.1;
+    const double mass = 1.0;
+    std::cerr << "Expected nmber of nbrs is" << (4.0/3.0) * M_PI * h * h * h * double(nParticles) << std::endl;
+
+    // Random distribution in [0,1]^3
+    std::mt19937 rng(12345);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    std::vector<dvec3> positions(nParticles);
+    for (int i = 0; i < nParticles; ++i) {
+        positions[i] = dvec3(dist(rng), dist(rng), dist(rng));
+    }
+
+    // Sum kernel contributions for each particle
+    std::vector<double> densities(nParticles, 0.0);
+    for (int i = 0; i < nParticles; ++i) {
+        double rho_i = 0.0;
+        for (int j = 0; j < nParticles; ++j) {
+            // if (i == j) continue;
+            double r = glm::length(positions[i] - positions[j]);
+            if (r < h) {
+                rho_i += mass * poly6_kernel(r, h);
+            }
+        }
+        densities[i] = rho_i;
+    }
+
+    // Compute average "neighbor sum" (discrete approximation of integral)
+    double avg_density = 0.0;
+    for (double d : densities) avg_density += d;
+    avg_density /= nParticles;
+
+    std::cout << "Average discrete density: " << avg_density << std::endl;
+
+    // Expected number of neighbors: N * (4/3 * pi * h^3)
+    double exp_density_bulk = nParticles * mass; // uniform density
+    std::cout << "Expected density bulk: " << exp_density_bulk << std::endl;
+    REQUIRE(avg_density == Catch::Approx(exp_density_bulk).margin(0.1 * exp_density_bulk));
+}
+
 TEST_CASE("test_kernel_dwdr", "[sph]") {
      double h = 1.329;
      CHECK(std::fabs(debrun_spiky_kernel_dwdr(0.0, h)) > 1.0); // doesn't disappear at origin
@@ -193,6 +235,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
 
         double dens = 0.0;
         for (uint32_t pind = start; pind < end; ++pind) {
+
             uint32_t unsorted_ind = indexData[pind];
             auto particle = inputPos[unsorted_ind];
             

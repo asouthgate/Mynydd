@@ -27,6 +27,7 @@ int main(int argc, char** argv) {
     double rho0_mod = 1.0;
     double c2 = 0.02;
     double mu = 0.01;
+    double fgrav = -9.81;
     if (argc > 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
         nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
@@ -35,17 +36,20 @@ int main(int argc, char** argv) {
         rho0_mod = std::atof(argv[5]);
         c2 = std::atof(argv[6]);
         mu = std::atof(argv[7]);
+        fgrav = std::atof(argv[8]);
     } else if (argc > 7) {
-        std::cerr << "Usage: nParticles nBits niterations dt rho0_mod c2 mu" << std::endl;
+        std::cerr << "Usage: nParticles nBits niterations dt rho0_mod c2 mu fgrav" << std::endl;
         return EXIT_FAILURE;
     }
 
     auto simulated = simulate_inputs(nParticles);
     double h = 1.0 / (1 << nBitsPerAxis);
 
-    double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
-    double rho0 = nParticles * nbr_vol_prop * rho0_mod;
+    // double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
+    // double rho0 = nParticles * nbr_vol_prop * rho0_mod;
     
+    double rho0 = nParticles * rho0_mod;
+
     std::cerr << "Running SPH with " << nParticles << " particles, " << nBitsPerAxis << " bits per axis, "
                 << niterations << " iterations, dt=" << dt << ", rho0=" << rho0 << ", c2=" << c2 << std::endl;
 
@@ -58,14 +62,13 @@ int main(int argc, char** argv) {
         dt,
         h,
         1.0,
-        glm::dvec3(0.0, 0.0, -9.0),
+        glm::dvec3(0.0, 0.0, fgrav),
         rho0,
         c2,
         mu
     };
 
-
-    auto outputs = run_sph_example(simulated, params, niterations);
+    auto outputs = run_sph_example(simulated, params, niterations, "main_example_output");
 
     printSPHDataCSV(outputs);
 

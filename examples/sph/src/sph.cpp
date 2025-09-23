@@ -49,9 +49,9 @@ void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHPar
     }
 }
 
-void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& vec,
+void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
+                         const std::vector<uint32_t>& morton_keys,
                           const std::string& basepath,
-                          const std::string& dataset_name,
                           uint64_t iter)
 {
 
@@ -61,14 +61,16 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& vec,
         std::cout << "Created directory: " << dir << "\n";
     }
 
-    const hsize_t n = vec.size();
+    const hsize_t n = pos.size();
     const hsize_t dims[2] = { n, 3 };
     std::vector<double> buf(n*3);
     for (size_t i=0;i<n;++i){
-        buf[i*3+0] = vec[i].data[0];
-        buf[i*3+1] = vec[i].data[1];
-        buf[i*3+2] = vec[i].data[2];
+        buf[i*3+0] = pos[i].data[0];
+        buf[i*3+1] = pos[i].data[1];
+        buf[i*3+2] = pos[i].data[2];
     }
+
+    const hsize_t dims_keys[1] = { n };
 
     std::string tmp = basepath + "/" + basepath + ".tmp." + std::to_string(iter) + ".h5";
     std::string finalname = basepath + "/" + basepath + "." + std::to_string(iter) + ".h5";
@@ -76,9 +78,17 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& vec,
     {
         H5::H5File file(tmp, H5F_ACC_TRUNC);
         H5::DataSpace space(2, dims);
-        H5::DataSet ds = file.createDataSet(dataset_name, H5::PredType::NATIVE_DOUBLE, space);
+        H5::DataSet ds = file.createDataSet("positions", H5::PredType::NATIVE_DOUBLE, space);
         ds.write(buf.data(), H5::PredType::NATIVE_DOUBLE);
+
+        H5::DataSpace space_keys(1, dims_keys);
+        H5::DataSet ds_keys = file.createDataSet("morton_keys", H5::PredType::NATIVE_UINT32, space_keys);
+        ds_keys.write(morton_keys.data(), H5::PredType::NATIVE_UINT32);
+
+        
         file.flush(H5F_SCOPE_GLOBAL); // close/flush
+
+        
     }
 
     std::filesystem::rename(tmp, finalname); // atomic on same FS
@@ -166,7 +176,7 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
     }
 }
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations) {
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations, std::string fname) {
 
     std::cerr << "Beginning simulation with params " <<
         " nBits=" << params.nBits <<
@@ -180,9 +190,13 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         " c2=" << params.c2 <<
         std::endl;
 
+    std::cerr << "Expected nmber of nbrs is" << (4.0/3.0)*M_PI*params.h*params.h*params.h*double(params.nParticles) << std::endl;
+
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
-    auto fname = _get_hd5_filename();
+    if (fname == "") {
+        fname = _get_hd5_filename();
+    }
     auto inputPos = inputData.positions;
     auto inputVel = inputData.velocities;
     auto inputDensities = inputData.densities;
@@ -340,7 +354,11 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         }
 
         if (write_hdf5 && (it % hdf5_cadence == 0 || it == iterations - 1)) {
-            write_dvec3_to_hdf5(mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), fname, "positions", it);
+            write_dvec3_to_hdf5(
+                mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), 
+                mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
+                fname, it
+            );
         }
 
         std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;

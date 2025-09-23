@@ -39,4 +39,4 @@ struct SPHData {
 
 SPHData simulate_inputs(uint32_t nParticles);
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams, uint iterations=1);
+SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams, uint iterations=1, std::string fname="");
