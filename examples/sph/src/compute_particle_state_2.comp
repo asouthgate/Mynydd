@@ -90,9 +90,9 @@ void main() {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
             if (i == idx) continue;
-            dvec3 dv = input_positions[i].data - pos;
+            dvec3 dv = pos - input_positions[i].data;
             double dist = length(dv);
-            dvec3 gradw = debrun_spiky_kernel_grad(dv, pc.h);
+            dvec3 gradw = wendland_kernel_grad(dv, pc.h);
             dvec3 contrib = cal_pressure_force_ij(
                 gradw,
                 input_pressures[idx],
@@ -101,7 +101,7 @@ void main() {
                 input_densities[i],
                 pc.mass // mass
             );
-            pressure_force -= contrib;
+            pressure_force += contrib;
             dvec3 viscous_contrib = viscosityForce(
                 pos, input_positions[i].data,
                 input_velocities[idx].data, input_velocities[i].data,

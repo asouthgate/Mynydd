@@ -86,12 +86,12 @@ void main() {
     for (uint c = 0u; c < cellCount; ++c) {
         CellInfo cell = neighborCells[c];
         for (uint i = cell.left; i < cell.right; ++i) {
-            double dist = length(input_positions[i].data - pos);
+            double dist = length(pos - input_positions[i].data);
             densitySum += cal_rho_ij(pc.mass, dist, pc.h);
             count += 1;
         }
     }
 
     densities[idx] = densitySum;
-    pressures[idx] = cal_pressure_wcsph(densitySum, pc.rho0, pc.c2, 7);
+    pressures[idx] = cal_pressure_wcsph(densitySum, pc.rho0, pc.c2, 5);
 }

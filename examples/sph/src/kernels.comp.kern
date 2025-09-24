@@ -42,12 +42,40 @@ dvec3 debrun_spiky_kernel_grad(dvec3 dv, double h) {
     return dv * dwdror;
 }
 
-
 double poly6_kernel(double r, double h) {
     if (r < 0.0 || r > h) return 0.0;
     double hr = (h*h - r*r);
     double ph9 = h * h * h * h * h * h * h * h * h;
     return (315.0 / (64.0 * PI * ph9)) * hr * hr * hr;
+}
+
+// Wendland C2 kernel (3D)
+double wendland_kernel(double r, double h) {
+    if (r < 0.0 || r > h) return 0.0;
+    double q = r / h;
+    double factor = (1.0 - q);
+    double coeff = 21.0 / (2.0 * PI * h * h * h);
+    return coeff * factor * factor * factor * factor * (1.0 + 4.0 * q);
+}
+
+// Gradient of Wendland kernel (3D)
+dvec3 wendland_kernel_grad(dvec3 dv, double h) {
+    double r = length(dv);
+    if (r <= 0.0 || r > h) return dvec3(0.0);
+    double q = r / h;
+    double coeff = 21.0 / (2.0 * PI * h * h * h);
+    double onemq = 1.0 - q;
+    double dwdr = coeff * (-20.0 / (h * h)) * q * onemq * onemq * onemq;
+    return dv * (dwdr / r); // normalize by r
+}
+
+// Laplacian of Wendland kernel (3D)
+double wendland_kernel_lap(double r, double h) {
+    if (r < 0.0 || r > h) return 0.0;
+    double q = r / h;
+    double coeff = 21.0 / (2.0 * PI * h * h * h);
+    double onemq = 1.0 - q;
+    return coeff * (-20.0 / (h * h)) * onemq * onemq * (1.0 - 4.0 * q);
 }
 
 double cal_pressure_wcsph(double rho, double rho0, double c2, int gamma) {
@@ -66,7 +94,7 @@ double cal_pressure_wc_simple(double rho, double rho0, double c2) {
 
 double cal_rho_ij(double mass, double dist_ij, double h) {
     // formula is mass * kernel, mass = 1.0
-    return mass * poly6_kernel(dist_ij, h);
+    return mass * wendland_kernel(dist_ij, h);
 }
 
 double cal_pressure_force_coefficient(double pi, double pj, double rhoi, double rhoj, double mj) {
@@ -74,7 +102,7 @@ double cal_pressure_force_coefficient(double pi, double pj, double rhoi, double 
 }
 
 dvec3 cal_pressure_force_ij(dvec3 gradw, double pi, double pj, double rhoi, double rhoj, double mj) {
-    double pforce_coefficient = cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
+    double pforce_coefficient = - cal_pressure_force_coefficient(pi, pj, rhoi, rhoj, mj);
     return pforce_coefficient * gradw;
 }
 
@@ -95,12 +123,12 @@ BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bm
         if (prop > bmax[axis] && new_vel[axis] > 0.0) {
             double t_hit = (bmax[axis] - new_pos[axis]) / new_vel[axis];
             new_pos[axis] = pos[axis] + vel[axis] * t_hit;
-            new_vel[axis] *= -damping;                     // reflect
+            new_vel[axis] *= -1.0;                     // reflect
             new_pos[axis] += new_vel[axis] * (dt - t_hit); // remaining step
         } else if (prop < bmin[axis] && new_vel[axis] < 0.0) {
             double t_hit = (bmin[axis] - new_pos[axis]) / new_vel[axis];
             new_pos[axis] = pos[axis] + vel[axis] * t_hit;
-            new_vel[axis] *= -damping;                     // reflect
+            new_vel[axis] *= -1.0;                     // reflect
             new_pos[axis] += new_vel[axis] * (dt - t_hit); // remaining step
         }
         else {
@@ -135,7 +163,7 @@ dvec3 viscosityForce(
     dvec3 r = pos_i - pos_j;
     double rLen = length(r);
 
-    double laplacian = viscosity_kernel_lap(rLen, h);
+    double laplacian = wendland_kernel_lap(rLen, h);
 
     // Symmetric density average
     double rho_avg = 0.5 * (rho_i + rho_j);
