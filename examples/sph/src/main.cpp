@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    auto simulated = simulate_inputs(nParticles);
+    auto simulated = simulate_inputs_uniform(nParticles);
     double h = 1.0 / (1 << nBitsPerAxis);
 
     // double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
