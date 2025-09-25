@@ -62,13 +62,15 @@ SPHData simulate_inputs_uniform(uint32_t nParticles, double jitter) {
 
     return {inputDensities, {}, {}, inputPos, inputVel, {}};
 }
-SPHData simulate_inputs(uint32_t nParticles) {
+
+
+SPHData simulate_inputs(uint32_t nParticles, double min, double max) {
     // Generate some input data to start with
     std::vector<dVec3Aln32> inputPos(nParticles);
     std::vector<dVec3Aln32> inputVel(nParticles);
     std::vector<double> inputDensities(nParticles);
     std::mt19937 rng(12345);
-    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    std::uniform_real_distribution<double> dist(min, max);
     for (size_t ak = 0; ak < nParticles; ++ak) {
         inputPos[ak].data = glm::dvec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = 1.0;
