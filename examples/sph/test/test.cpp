@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <functional>
 #include <glm/fwd.hpp>
 #include <random>
 #include <cmath>  // For M_PI
@@ -15,6 +16,31 @@
 #include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
 
+double integrate_kernel(std::function<double(double, double)> kernel, double h, int d = 25, double scale = 1.5) {
+    double sum = 0.0;
+    double maxd = static_cast<double>(d);
+
+    for (int i = -d; i < d; ++i) {
+        for (int j = -d; j < d; ++j) {
+            for (int k = -d; k < d; ++k) {
+                glm::dvec3 pos(
+                    static_cast<double>(i) * scale / maxd,
+                    static_cast<double>(j) * scale / maxd,
+                    static_cast<double>(k) * scale / maxd
+                );
+
+                double dist = glm::length(pos);
+                double dx = scale / maxd;
+                double vol = dx * dx * dx;
+
+                sum += kernel(dist, h) * vol;
+            }
+        }
+    }
+
+    return sum;
+}
+
 TEST_CASE("test_spiky_kernel_coeff_3D", "[sph]") {
     double h = 0.789;
     CHECK(get_debrun_coeff_3D(h) == Catch::Approx(19.791529914316335).margin(1e-7));
@@ -28,32 +54,22 @@ TEST_CASE("test_spiky_kernel", "[sph]") {
     REQUIRE(debrun_spiky_kernel(1.30, h) >= 0.0);
     REQUIRE(debrun_spiky_kernel(0.1, h) >= 0.0);
 
-    double sum = 0;
-    int d = 25;
-    double maxd = (double) d;
-    double scale = 1.5;
-    // Test that it approximately integrates to 1 by computing a grid
-    for (int i = -d; i < d; ++i) {
-        for (int j = -d; j < d; ++j) {
-            for (int k =  -d; k < d; ++k) {
-                dvec3 pos = dvec3((double) i * scale / maxd, (double) j * scale / maxd, (double) k * scale / maxd);
-                REQUIRE(pos.x <= scale);
-                REQUIRE(pos.x >= -scale);
-                double dist = glm::length(pos);
-                REQUIRE(dist <= std::sqrt(3.0) * scale);
-                double dx = scale / maxd;
-                double vol = dx * dx * dx;
-                sum += debrun_spiky_kernel(dist, h) * vol;
-            }
-        }
-    }
+    double sum = integrate_kernel(debrun_spiky_kernel, h);
     REQUIRE(sum == Catch::Approx(1.0).margin(1e-2));
 }
 
-TEST_CASE("test_spiky_kernel_discrete_sum_4096", "[sph]") {
+TEST_CASE("test_wendland_kernel", "[sph]") {
+    double h = 1.329;
+    double r = 0.39881;
+    double sum = integrate_kernel(wendland_kernel, h);
+    REQUIRE(sum == Catch::Approx(1.0).margin(1e-2));
+}
+
+
+TEST_CASE("test wendland kernel density sum", "[sph]") {
     
-    const int nParticles = 4096 * 3;
-    double h = 0.1;
+    const int nParticles = 4096 * 2;
+    double h = 0.2;
     const double mass = 1.0;
     std::cerr << "Expected nmber of nbrs is" << (4.0/3.0) * M_PI * h * h * h * double(nParticles) << std::endl;
 
@@ -70,10 +86,9 @@ TEST_CASE("test_spiky_kernel_discrete_sum_4096", "[sph]") {
     for (int i = 0; i < nParticles; ++i) {
         double rho_i = 0.0;
         for (int j = 0; j < nParticles; ++j) {
-            // if (i == j) continue;
             double r = glm::length(positions[i] - positions[j]);
             if (r < h) {
-                rho_i += mass * poly6_kernel(r, h);
+                rho_i += mass * wendland_kernel(r, h);
             }
         }
         densities[i] = rho_i;
@@ -439,92 +454,77 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
 
 
 
-// TEST_CASE("Test that gravity sucks everything downward (stably)", "[sph]") {
-//     // This test manually scans through in a loop to find particles in or near a cell
-//     // And then manually calculate the densities
-//     // The validation computation does therefore not use the index, so it is a more independent check
+TEST_CASE("Test that we reach stable equilibrium for simple set of params (no gravity)", "[sph]") {
+    uint32_t nParticles = 256;
+    uint32_t nBits = 2;
+    double h = 1.0 / (1 << nBits);
+    SPHParams params {
+        nBits,
+        nParticles,
+        glm::dvec3(0.0),
+        glm::dvec3(1.0),
+        1,
+        0.003,
+        h,
+        1.0,
+        glm::dvec3(0.0, 0.0, 0.0),
+        double(nParticles),
+        0.01,
+        0.01
+    };
+    auto simulated = simulate_inputs(params.nParticles);
 
+    // Get average position at the start
+    glm::dvec3 avg_start(0.0);
+    for (const auto& p : simulated.positions) {
+        avg_start += p.data;
+    }
+    avg_start /= (double) simulated.positions.size();
 
-//     uint32_t nParticles = 256;
-//     uint32_t nBits = 4;
-//     double h = 1.0 / (1 << nBits);
-//     double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
-//     SPHParams params {
-//         nBits,
-//         nParticles,
-//         glm::dvec3(0.0),
-//         glm::dvec3(1.0),
-//         1,
-//         0.001,
-//         h,
-//         1.0,
-//         glm::dvec3(0.0, 0.0, -9.0),
-//         nParticles * nbr_vol_prop,
-//         0.02
-//     };
-//     auto simulated = simulate_inputs(params.nParticles);
+    // First check that every input particle is within bounds
+    for (size_t k = 0; k < simulated.positions.size(); ++k) {
+        auto p = simulated.positions[k].data;
+        REQUIRE(p.x >= params.domainMin.x);
+        REQUIRE(p.x <= params.domainMax.x);
+        REQUIRE(p.y >= params.domainMin.y);
+        REQUIRE(p.y <= params.domainMax.y);
+        REQUIRE(p.z >= params.domainMin.z);
+        REQUIRE(p.z <= params.domainMax.z);
+    }
 
-//     // set simulated input velocities to downward
-//     for (size_t k = 0; k < simulated.velocities.size(); ++k) {
-//         simulated.velocities[k].data = glm::dvec3(0.0, 0.0, 0.0);
-//     }
+    SPHData out = run_sph_example(simulated, params, 500);
+    auto outputPos = out.positions; // these are sorted
+    auto outputVel = out.velocities; // these are sorted
+    auto outputNewPos = out.newPositions;
+    auto outputNewVel = out.newVelocities;
+    auto outputPressureForces = out.pressureForces;
+    auto outputPressures = out.pressures;
+    auto outputDensities = out.densities;
 
-//     // Get average position at the start
-//     glm::dvec3 avg_start(0.0);
-//     for (const auto& p : simulated.positions) {
-//         avg_start += p.data;
-//     }
-//     avg_start /= (double) simulated.positions.size();
+    // First check that every particle is within bounds
+    for (size_t k = 0; k < outputNewPos.size(); ++k) {
+        auto p = outputNewPos[k].data;
+        REQUIRE(p.x >= params.domainMin.x);
+        REQUIRE(p.x <= params.domainMax.x);
+        REQUIRE(p.y >= params.domainMin.y);
+        REQUIRE(p.y <= params.domainMax.y);
+        REQUIRE(p.z >= params.domainMin.z);
+        REQUIRE(p.z <= params.domainMax.z);
+    }
 
-//         // First check that every input particle is within bounds
-//     for (size_t k = 0; k < simulated.positions.size(); ++k) {
-//         auto p = simulated.positions[k].data;
-//         REQUIRE(p.x >= params.domainMin.x);
-//         REQUIRE(p.x <= params.domainMax.x);
-//         REQUIRE(p.y >= params.domainMin.y);
-//         REQUIRE(p.y <= params.domainMax.y);
-//         REQUIRE(p.z >= params.domainMin.z);
-//         REQUIRE(p.z <= params.domainMax.z);
-//     }
+    // Now, after 100 steps, we should have 3 facts:
+    // - average position is lower down
+    // - average density is higher than to start (not currently able to check since we don't keep trajectory yet)
+    // - average velocity is near zero
 
-//     SPHData out = run_sph_example(simulated, params, 500);
-//     auto outputPos = out.positions; // these are sorted
-//     auto outputVel = out.velocities; // these are sorted
-//     auto outputNewPos = out.newPositions;
-//     auto outputNewVel = out.newVelocities;
-//     auto outputPressureForces = out.pressureForces;
-//     auto outputPressures = out.pressures;
-//     auto outputDensities = out.densities;
+    glm::dvec3 avg_vel(0.0);
+    for (size_t k = 0; k < outputNewPos.size(); ++k) {
+        avg_vel += outputNewVel[k].data;
+    }
 
-//     // First check that every particle is within bounds
-//     for (size_t k = 0; k < outputNewPos.size(); ++k) {
-//         auto p = outputNewPos[k].data;
-//         REQUIRE(p.x >= params.domainMin.x);
-//         REQUIRE(p.x <= params.domainMax.x);
-//         REQUIRE(p.y >= params.domainMin.y);
-//         REQUIRE(p.y <= params.domainMax.y);
-//         REQUIRE(p.z >= params.domainMin.z);
-//         REQUIRE(p.z <= params.domainMax.z);
-//     }
+    avg_vel /= (double) outputNewPos.size();
 
-//     // Now, after 100 steps, we should have 3 facts:
-//     // - average position is lower down
-//     // - average density is higher than to start (not currently able to check since we don't keep trajectory yet)
-//     // - average velocity is near zero
-
-//     glm::dvec3 avg_end(0.0);
-//     glm::dvec3 avg_vel(0.0);
-//     for (size_t k = 0; k < outputNewPos.size(); ++k) {
-//         avg_end += outputNewPos[k].data;
-//         avg_vel += outputNewVel[k].data;
-//     }
-
-//     avg_vel /= (double) outputNewPos.size();
-//     avg_end /= (double) outputNewPos.size();
-
-//     std::cerr << "Average start position " << avg_start.x << ", " << avg_start.y << ", " << avg_start.z << std::endl;
-//     std::cerr << "Average end position " << avg_end.x << ", " << avg_end.y << ", " << avg_end.z << std::endl;
-//     std::cerr << "Average end velocity " << avg_vel.x << ", " << avg_vel.y << ", " << avg_vel.z << std::endl;
-//     REQUIRE (avg_end.y < avg_start.y); // should be lower down
-//     REQUIRE (glm::length(avg_vel) < 1e-2); // should be near zero at equilibrium
-// }
+    std::cerr << "Average start position " << avg_start.x << ", " << avg_start.y << ", " << avg_start.z << std::endl;
+    std::cerr << "Average end velocity " << avg_vel.x << ", " << avg_vel.y << ", " << avg_vel.z << std::endl;
+    REQUIRE (glm::length(avg_vel) < 1e-2); // should be near zero at equilibrium
+}

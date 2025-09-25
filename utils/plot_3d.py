@@ -13,6 +13,9 @@ z = data["z"]
 morton = data["morton_key"]
 density = data["density"]
 pressure = data["pressure"]
+print(pressure.min(), pressure.max())
+pressure_norm = (pressure - pressure.min()) / (pressure.max() - pressure.min())
+print(pressure_norm)
 fpx = data["fpx"]
 fpy = data["fpy"]
 fpz = data["fpz"]
@@ -66,8 +69,8 @@ plt.setp(plt.getp(cbar2.ax.axes, 'yticklabels'), color="white")
 # Bottom-left: Pressure plot (viridis)
 # -----------------------------
 ax3 = fig.add_subplot(2, 2, 3, projection='3d', facecolor="none")
-norm_pressure = plt.Normalize(vmin=pressure.min(), vmax=pressure.max())
-sc3 = ax3.scatter(x, y, z, c=pressure, cmap=cm.viridis, norm=norm_pressure,
+norm_pressure = plt.Normalize(vmin=0, vmax=1)
+sc3 = ax3.scatter(x, y, z, c=pressure_norm, cmap=cm.viridis, norm=norm_pressure,
                   marker='o', s=5, alpha=0.8)
 ax3.set_xlabel("X", color="white")
 ax3.set_ylabel("Y", color="white")
