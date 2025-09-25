@@ -22,8 +22,46 @@ namespace fs = std::filesystem;
 
 
 #include "sph.hpp"
+#include <algorithm>
 
+SPHData simulate_inputs_uniform(uint32_t nParticles, double jitter) {
+    std::vector<dVec3Aln32> inputPos(nParticles);
+    std::vector<dVec3Aln32> inputVel(nParticles);
+    std::vector<double> inputDensities(nParticles, 1.0);
 
+    std::mt19937 rng(12345);
+    std::uniform_real_distribution<double> dist(-jitter, jitter);
+
+    // Compute number of points along each axis
+    uint32_t nPerAxis = std::ceil(std::cbrt(nParticles));
+    double spacing = 1.0 / nPerAxis;
+
+    for (uint32_t idx = 0; idx < nParticles; ++idx) {
+        uint32_t ix = idx % nPerAxis;
+        uint32_t iy = (idx / nPerAxis) % nPerAxis;
+        uint32_t iz = idx / (nPerAxis * nPerAxis);
+
+        // Base position
+        double x = ix * spacing;
+        double y = iy * spacing;
+        double z = iz * spacing;
+
+        // Add jitter
+        x += dist(rng);
+        y += dist(rng);
+        z += dist(rng);
+
+        // Clamp to [0,1]
+        x = std::clamp(x, 0.0, 1.0);
+        y = std::clamp(y, 0.0, 1.0);
+        z = std::clamp(z, 0.0, 1.0);
+
+        inputPos[idx].data = glm::dvec3(x, y, z);
+        inputVel[idx].data = glm::dvec3(0.0);
+    }
+
+    return {inputDensities, {}, {}, inputPos, inputVel, {}};
+}
 SPHData simulate_inputs(uint32_t nParticles) {
     // Generate some input data to start with
     std::vector<dVec3Aln32> inputPos(nParticles);
