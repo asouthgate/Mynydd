@@ -20,14 +20,15 @@ void printSPHDataCSV(const SPHData& data) {
 
 int main(int argc, char** argv) {
 
-    uint32_t nParticles = 4096 * 16;
+    uint32_t nParticles = 4096 * 4;
     uint32_t nBitsPerAxis = 4;
-    uint32_t niterations = 100;
-    double dt = 0.001;
-    double rho0_mod = 1.0;
-    double c2 = 0.02;
-    double mu = 0.01;
-    double fgrav = -9.81;
+    uint32_t niterations = 10000;
+    double dt = 0.003;
+    double rho0_mod = 15.625;
+    double c2 = 0.01;
+    double mu = 0.001;
+    double fgrav = -1.0;
+
     if (argc > 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
         nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
@@ -42,7 +43,7 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    auto simulated = simulate_inputs(nParticles, 0.4, 0.6);
+    auto simulated = simulate_inputs(nParticles, 0.3, 0.7);
     double h = 1.0 / (1 << nBitsPerAxis);
 
     // double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;

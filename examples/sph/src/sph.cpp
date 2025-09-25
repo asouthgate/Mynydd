@@ -216,7 +216,7 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
     }
 }
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations, std::string fname) {
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations, std::string fname, bool debug_mode) {
 
     std::cerr << "Beginning simulation with params " <<
         " nBits=" << params.nBits <<
@@ -230,7 +230,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         " c2=" << params.c2 <<
         std::endl;
 
-    std::cerr << "Expected nmber of nbrs is" << (4.0/3.0)*M_PI*params.h*params.h*params.h*double(params.nParticles) << std::endl;
+    std::cerr << "Expected nmber of nbrs is" << (4.0/3.0)*M_PI*params.h*params.h*params.h*double(params.nParticles) * params.rho0 / double(params.nParticles) << std::endl;
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
@@ -355,7 +355,6 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
     std::vector<double> density_times;
     std::vector<double> leapfrog_times;
 
-    bool debug_enabled = true;
     bool write_hdf5 = true;
     uint hdf5_cadence = 10; // write every n iterations
 
@@ -366,7 +365,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
         auto t2 = std::chrono::high_resolution_clock::now();
 
-        if (debug_enabled) {
+        if (debug_mode) {
             // std::cerr << "Validating after density, indexing iteration " << it << ":" << std::endl;
             particleIndexPipeline.debug_assert_bin_consistency();
             _validate_velocities_in_bounds(mynydd::fetchData<dVec3Aln32>(contextPtr, pongVelocityBuffer, nParticles), params);
@@ -378,7 +377,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         auto t4 = std::chrono::high_resolution_clock::now();
 
         // Check that no positions are outside of the domain
-        if (debug_enabled) {
+        if (debug_mode) {
             // std::cerr << "Validating after leapfrog, indexing iteration " << it << ":" << std::endl;
 
             auto velocities = mynydd::fetchData<dVec3Aln32>(contextPtr, pingVelocityBuffer, nParticles);
@@ -408,6 +407,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         index_step_times.push_back(elapsed1.count());
         density_times.push_back(elapsed2.count());
         leapfrog_times.push_back(elapsed3.count());
+        std::cout << "\r" << it << ": index=" << elapsed1.count() << "ms density=" << elapsed2.count() << "ms leapfrog=" << elapsed3.count() << "ms" << std::flush;
     }
 
     double index_time_avg = std::accumulate(index_step_times.begin(), index_step_times.end(), 0.0) / index_step_times.size();
