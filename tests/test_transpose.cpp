@@ -18,7 +18,7 @@ TEST_CASE("Transpose shader correctly transposes arbitrary matrix", "[transpose]
     auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, m * n * sizeof(uint32_t), false);
     auto outputBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, n * m * sizeof(uint32_t), true);
+        contextPtr, n * m * sizeof(uint32_t), false);
 
     // Create uniform buffer for Params
     struct Params {

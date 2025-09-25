@@ -1,0 +1,97 @@
+#version 450
+layout(local_size_x = 256) in;
+
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_ARB_gpu_shader_fp64 : enable
+
+struct dVec3Wrapper {
+    dvec3 data;
+};
+
+struct CellInfo {
+    uint left;
+    uint right;
+};
+
+// TODO: unused for now, will be used
+layout(set = 0, binding = 0) readonly buffer InputMasses {
+    double input_masses[];
+};
+
+layout(set = 0, binding = 1) readonly buffer InputPositions {
+    dVec3Wrapper input_positions[];
+};
+
+layout(set = 0, binding = 2) readonly buffer SortedKeys {
+    uint keys[];
+};
+
+layout(set = 0, binding = 3) readonly buffer FlatCells {
+    CellInfo flat_cells[];
+};
+
+layout(set = 0, binding = 4) readonly buffer Cells {
+    CellInfo cells[];
+};
+
+layout(set = 0, binding = 5) buffer Densities {
+    double densities[];
+};
+
+layout(set = 0, binding = 6) buffer Pressures {
+    double pressures[];
+};
+
+layout(push_constant) uniform Params {
+    uint nBits;
+    uint nParticles;
+    dvec3 domainMin;
+    dvec3 domainMax;
+    int d;
+    double dt;
+    double h;
+    double mass;
+    dvec3 body_force;
+    double rho0;
+    double c2;
+} pc;
+
+#include "morton_kernels.comp.kern"
+#include "kernels.comp.kern"
+#include "nbr_kernel.comp.kern"
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint key = keys[idx];
+
+    dvec3 pos = input_positions[idx].data;
+    uvec3 ijk = xyz2ijk(pos, pc.nBits);
+    uint flat_key = ijk2ak(ijk, pc.nBits);
+
+    //CellInfo cell = cells[key];
+    CellInfo cell = flat_cells[flat_key];
+
+    double densitySum = 0.0;
+    //uint count = cell.right - cell.left;
+    uint count = 0;
+
+    int d = pc.d;
+    uint maxg = 1 << pc.nBits;
+
+    CellInfo neighborCells[MAX_CELLS];
+    uint cellCount;
+    gather_neighbor_cells(ijk, d, maxg, neighborCells, cellCount);
+
+    // now consume neighbors
+    for (uint c = 0u; c < cellCount; ++c) {
+        CellInfo cell = neighborCells[c];
+        for (uint i = cell.left; i < cell.right; ++i) {
+            double dist = length(pos - input_positions[i].data);
+            densitySum += cal_rho_ij(pc.mass, dist, pc.h);
+            count += 1;
+        }
+    }
+
+    densities[idx] = densitySum;
+    pressures[idx] = cal_pressure_wcsph(densitySum, pc.rho0, pc.c2, 5);
+}

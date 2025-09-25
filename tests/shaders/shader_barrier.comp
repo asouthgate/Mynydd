@@ -6,14 +6,14 @@
 layout(local_size_x = 64) in;
 
 layout(set = 0, binding = 0) buffer Data {
-    double values[];
+    float values[];
 };
 
 layout(set = 0, binding = 1) buffer outputData {
-    double outvalues[];
+    float outvalues[];
 };
 
-shared double stage1[64]; // per-workgroup shared memory
+shared float stage1[64]; // per-workgroup shared memory
 
 void main() {
     uint lid   = gl_LocalInvocationID.x;   // local index in workgroup
@@ -27,7 +27,7 @@ void main() {
     barrier();
 
     // Stage 2: add neighbor's result (i+1) — will be wrong at boundaries
-    double neighbor = 0.0;
+    float neighbor = 0.0;
     if (lid + 1 < 64) { // same workgroup
         neighbor = stage1[lid + 1];
     }

@@ -21,8 +21,8 @@ namespace mynydd {
     struct MortonParams {
         uint32_t nBits;
         uint32_t nParticles;
-        alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
-        alignas(16) glm::vec3 domainMax;
+        alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
+        alignas(32) glm::dvec3 domainMax;
     };
 
     struct CellInfo {
@@ -44,8 +44,8 @@ namespace mynydd {
                 uint32_t nBitsPerAxis,
                 uint32_t itemsPerGroup, 
                 uint32_t nDataPoints,
-                glm::vec3 domainMin = glm::vec3(0.0f),
-                glm::vec3 domainMax = glm::vec3(1.0f)
+                glm::dvec3 domainMin = glm::dvec3(0.0),
+                glm::dvec3 domainMax = glm::dvec3(1.0)
             ) : contextPtr(contextPtr),
                 nBitsPerAxis(nBitsPerAxis),
                 inputBuffer(inputBuffer),
@@ -74,16 +74,16 @@ namespace mynydd {
                 );
                 m_outputIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
                     contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
-
-                indexUniformBuffer = std::make_shared<mynydd::Buffer>(
-                        contextPtr, sizeof(IndexParams), true);
+                m_outputFlatIndexCellRangeBuffer = std::make_shared<mynydd::Buffer>(
+                    contextPtr, getNCells() * sizeof(mynydd::CellInfo), false);
 
                 sortedKeys2IndexStep = std::make_shared<mynydd::PipelineStep>(
                     contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
                     std::vector<std::shared_ptr<mynydd::Buffer>>{
                         m_radixSortPipeline.getSortedMortonKeysBuffer(), 
-                        m_outputIndexCellRangeBuffer, 
-                        indexUniformBuffer
+                        m_outputIndexCellRangeBuffer,
+                        m_outputFlatIndexCellRangeBuffer,
+                        mortonUniformBuffer
                     },
                     (nDataPoints + 63) / 64
                 );
@@ -94,10 +94,10 @@ namespace mynydd {
             }
             ~ParticleIndexPipeline() {}; // member variables are RAII
 
-            uint32_t pos2bin(float p, uint32_t nBits) {
-                // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * float((1u << nbits) - 1u) + 0.5);
-                float normPos = glm::clamp(p, 0.0f, 1.0f);
-                float b = normPos * static_cast<float>((1u << nBits) - 1u) + 0.5f;
+            uint32_t pos2bin(double p, uint32_t nBits) {
+                // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * double((1u << nbits) - 1u) + 0.5);
+                double normPos = glm::clamp(p, 0.0, 1.0);
+                double b = normPos * static_cast<double>((1u << nBits) - 1u) + 0.5;
                 return static_cast<uint32_t>(b);
             }
 
@@ -108,17 +108,20 @@ namespace mynydd {
                     domainMin,
                     domainMax
                 };
-                IndexParams indexParams{
-                    nDataPoints
-                };
 
                 mynydd::uploadUniformData<MortonParams>(contextPtr, mortonParams, mortonUniformBuffer);
-                mynydd::uploadUniformData<IndexParams>(contextPtr, indexParams, indexUniformBuffer);
 
                 mynydd::executeBatch(contextPtr, {mortonStep});
 
                 m_radixSortPipeline.execute();
                 // the index needs to be zeroed every time
+
+                VkCommandBufferBeginInfo beginInfo{};
+                beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
+                    throw std::runtime_error("Failed to begin command buffer for batch execution.");
+                }
+
                 vkCmdFillBuffer(
                     contextPtr->commandBuffer,
                     m_outputIndexCellRangeBuffer->getBuffer(),
@@ -126,7 +129,28 @@ namespace mynydd {
                     VK_WHOLE_SIZE,
                     0
                 );
-                mynydd::executeBatch(contextPtr, {sortedKeys2IndexStep});
+
+                VkBufferMemoryBarrier barrier{};
+                barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;        // writes from vkCmdFillBuffer
+                barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT; // compute shader reads/writes
+                barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.buffer = m_outputIndexCellRangeBuffer->getBuffer();
+                barrier.offset = 0;
+                barrier.size = VK_WHOLE_SIZE;
+
+                vkCmdPipelineBarrier(
+                    contextPtr->commandBuffer,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,           // after the fill
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,     // before compute
+                    0,
+                    0, nullptr,
+                    1, &barrier,
+                    0, nullptr
+                );
+
+                mynydd::executeBatch(contextPtr, {sortedKeys2IndexStep}, false);
 
             }
 
@@ -159,23 +183,33 @@ namespace mynydd {
                     std::vector<uint32_t> bink;
                     for (uint32_t pind = start; pind < end; ++pind) {
                         auto particle = inputData[indexData[pind]];
-                        uint32_t pi = pos2bin(particle.position.x, nBitsPerAxis);
-                        uint32_t pj = pos2bin(particle.position.y, nBitsPerAxis);
-                        uint32_t pk = pos2bin(particle.position.z, nBitsPerAxis);
-
+                        uint32_t pi = pos2bin(particle.data.x, nBitsPerAxis);
+                        uint32_t pj = pos2bin(particle.data.y, nBitsPerAxis);
+                        uint32_t pk = pos2bin(particle.data.z, nBitsPerAxis);
                         bini.push_back(pi);
                         binj.push_back(pj);
                         bink.push_back(pk);
                     }
+
                     // All in a bin should have the same pak value
-                    for (auto pi : bini) assert(pi == bini[0]);
-                    for (auto pj : binj) assert(pj == binj[0]); 
-                    for (auto pk : bink) assert(pk == bink[0]);
+                    for (auto pi : bini) {
+                        assert(pi == bini[0]);
+                    }
+                    for (auto pj : binj) {
+                        assert(pj == binj[0]);
+                    }
+                    for (auto pk : bink) {
+                        assert(pk == bink[0]);
+                    }
                 }
             }
 
             std::shared_ptr<mynydd::Buffer> getOutputIndexCellRangeBuffer() const {
                 return m_outputIndexCellRangeBuffer;
+            }
+
+            std::shared_ptr<mynydd::Buffer> getFlatOutputIndexCellRangeBuffer() const {
+                return m_outputFlatIndexCellRangeBuffer;
             }
 
             std::shared_ptr<mynydd::Buffer> getSortedIndicesBuffer() {
@@ -188,8 +222,8 @@ namespace mynydd {
 
             uint32_t itemsPerGroup = 256; // Hardcoded temporarily
             uint32_t nDataPoints;
-            glm::vec3 domainMin = glm::vec3(0.0f);
-            glm::vec3 domainMax = glm::vec3(1.0f);
+            glm::dvec3 domainMin = glm::dvec3(0.0);
+            glm::dvec3 domainMax = glm::dvec3(1.0);
             uint32_t nBitsPerAxis;
 
             // TODO: don't necessarily need this to be shared ptr
@@ -198,6 +232,7 @@ namespace mynydd {
         private:
 
             std::shared_ptr<mynydd::Buffer> m_outputIndexCellRangeBuffer;  // sized number of cells
+            std::shared_ptr<mynydd::Buffer> m_outputFlatIndexCellRangeBuffer;  // sized number of cells
 
             RadixSortPipeline m_radixSortPipeline;
 

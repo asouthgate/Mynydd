@@ -1,8 +1,8 @@
-// Normalize a float position (0..1) to an int bin
-int binPosition(float normPos, int nbits) {
-    return int(clamp(normPos, 0.0, 1.0) * float((1 << nbits) - 1) + 0.5);
+int binPosition(double normPos, int nbits) {
+    int dim = 1 << nbits;
+    double clamped = min(max(normPos, 0.0), 1.0 - 1e-12);
+    return int(floor(clamped * double(dim)));
 }
-
 
 // Split bits by inserting zeros between them (2D Morton helper)
 int part1By1(int x) {
@@ -17,7 +17,7 @@ int part1By1(int x) {
 // Split bits for 3D Morton helper
 int part1By2(int x) {
     x &= 0x000003ff;                  // 10 bits
-    x = (x | (x << 16)) & 0x030000FF;
+    x = (x | (x << 16)) & 0xFF0000FF;
     x = (x | (x << 8))  & 0x0300F00F;
     x = (x | (x << 4))  & 0x030C30C3;
     x = (x | (x << 2))  & 0x09249249;
@@ -45,23 +45,23 @@ int morton3D_loop(int x, int y, int z, int nbits) {
 }
 
 // Complete binning + interleaving for 2D
-int encodeMorton2D(float normX, float normY, int nbits) {
+int encodeMorton2D(double normX, double normY, int nbits) {
     int bx = binPosition(normX, nbits);
     int by = binPosition(normY, nbits);
     return morton2D(bx, by);
 }
 
 // Complete binning + interleaving for 3D
-int encodeMorton3D(float normX, float normY, float normZ, int nbits) {
+int encodeMorton3D(double normX, double normY, double normZ, int nbits) {
     int bx = binPosition(normX, nbits);
     int by = binPosition(normY, nbits);
     int bz = binPosition(normZ, nbits);
     return morton3D(bx, by, bz);
 }
 
-// Normalize a float position (0..1) to a uint bin
-uint binPosition(float normPos, uint nbits) {
-    return uint(clamp(normPos, 0.0, 1.0) * float((1u << nbits) - 1u) + 0.5);
+// Normalize a double position (0..1) to a uint bin
+uint binPosition(double normPos, uint nbits) {
+    return uint(clamp(normPos, 0.0, 1.0) * double((1u << nbits) - 1u) + 0.5);
 }
 
 // Split bits by inserting zeros between them (2D Morton helper)
@@ -77,7 +77,7 @@ uint part1By1(uint x) {
 // Split bits for 3D Morton helper
 uint part1By2(uint x) {
     x &= 0x000003FFu;                  // 10 bits
-    x = (x | (x << 16)) & 0x030000FFu;
+    x = (x | (x << 16)) & 0xFF0000FFu;
     x = (x | (x << 8))  & 0x0300F00Fu;
     x = (x | (x << 4))  & 0x030C30C3u;
     x = (x | (x << 2))  & 0x09249249u;
@@ -106,16 +106,50 @@ uint morton3D_loop(uint x, uint y, uint z, uint nbits) {
 }
 
 // Complete binning + interleaving for 2D
-uint encodeMorton2D(float normX, float normY, uint nbits) {
+uint encodeMorton2D(double normX, double normY, uint nbits) {
     uint bx = binPosition(normX, nbits);
     uint by = binPosition(normY, nbits);
     return morton2D(bx, by);
 }
 
 // Complete binning + interleaving for 3D
-uint encodeMorton3D(float normX, float normY, float normZ, uint nbits) {
+uint encodeMorton3D(double normX, double normY, double normZ, uint nbits) {
     uint bx = binPosition(normX, nbits);
     uint by = binPosition(normY, nbits);
     uint bz = binPosition(normZ, nbits);
     return morton3D(bx, by, bz);
+}
+
+// Compact every 3rd bit starting from LSB
+uint compact1By2(uint x) {
+    x &= 0x09249249u;                    // mask out only Morton-relevant bits
+    x = (x ^ (x >> 2))  & 0x030C30C3u;
+    x = (x ^ (x >> 4))  & 0x0300F00Fu;
+    x = (x ^ (x >> 8))  & 0xFF0000FFu;
+    x = (x ^ (x >> 16)) & 0x000003FFu;   // result fits in 10 bits
+    return x;
+}
+
+// Decode a 3D Morton code into (x,y,z) with up to nbits bits per axis
+uvec3 decodeMorton3D(uint code, uint nbits) {
+    uvec3 full = uvec3(
+        compact1By2(code >> 0),
+        compact1By2(code >> 1),
+        compact1By2(code >> 2)
+    );
+    uint mask = (1u << nbits) - 1u;  // keep only the requested number of bits
+    return full & uvec3(mask);
+}
+
+uint ijk2ak(uvec3 ijk, uint nBits) {
+    uint dim = 1 << nBits;
+    return ijk.x + dim * (ijk.y + dim * ijk.z);
+}
+
+uvec3 xyz2ijk(dvec3 xyz, uint nBits) {
+    return uvec3(
+        binPosition(xyz.x, nBits), 
+        binPosition(xyz.y, nBits), 
+        binPosition(xyz.z, nBits)
+    );
 }

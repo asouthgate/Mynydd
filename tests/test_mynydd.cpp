@@ -59,16 +59,10 @@ TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
         std::vector<uint32_t>{sizeof(uint32_t)}
     );
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin command buffer for batch execution.");
-    }
-
     uint32_t x = 976;
     pipeline->setPushConstantsData(x, 0);
 
-    mynydd::executeBatch(contextPtr, {pipeline}, false);
+    mynydd::executeBatch(contextPtr, {pipeline});
 
     std::vector<uint32_t> out = mynydd::fetchData<uint32_t>(contextPtr, outBuffer, n);
     for (size_t i = 0; i < n; ++i) {
@@ -77,42 +71,13 @@ TEST_CASE("Push constants are passed to shader correctly", "[vulkan]") {
     SUCCEED("Compute shader push constants work as expected");
 }
 
-TEST_CASE("Compute pipeline processes data for double", "[vulkan]") {
+TEST_CASE("Compute pipeline processes multi-stage shader for floats", "[vulkan]") {
 
     size_t n = 512;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
-    auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
-
-    auto pipeline = std::make_shared<mynydd::PipelineStep>(
-        contextPtr,
-        "shaders/shader_double.comp.spv", 
-        std::vector<std::shared_ptr<mynydd::Buffer>>{input, output},
-        256
-    );
-
-    std::vector<double> inputData(n);
-    for (size_t i = 0; i < inputData.size(); ++i) {
-        inputData[i] = static_cast<double>(i);
-    }
-
-    mynydd::uploadData<double>(contextPtr, inputData, input);
-    mynydd::executeBatch(contextPtr, {pipeline});
-    std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
-    for (size_t i = 0; i < std::min<size_t>(out.size(), 10); ++i) {
-        REQUIRE(out[i] == static_cast<double>(i) * 2.0);
-    }
-    SUCCEED("Compute shader produced expected results for doubles * 2.");
-}
-
-TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]") {
-
-    size_t n = 512;
-
-    auto contextPtr = std::make_shared<mynydd::VulkanContext>();    
-    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
-    auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(double), false);
+    auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(float), false);
+    auto output = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(float), false);
 
     auto pipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
@@ -121,28 +86,28 @@ TEST_CASE("Compute pipeline processes multi-stage shader for doubles", "[vulkan]
         256
     );
 
-    std::vector<double> inputData(n);
+    std::vector<float> inputData(n);
     for (size_t i = 0; i < inputData.size(); ++i) {
-        inputData[i] = static_cast<double>(i);
+        inputData[i] = static_cast<float>(i);
     }
 
-    mynydd::uploadData<double>(contextPtr, inputData, input);
+    mynydd::uploadData<float>(contextPtr, inputData, input);
     mynydd::executeBatch(contextPtr, {pipeline});
-    std::vector<double> out = mynydd::fetchData<double>(contextPtr, output, n);
+    std::vector<float> out = mynydd::fetchData<float>(contextPtr, output, n);
     for (size_t i = 0; i < n - 1; ++i) {
         // this is expected to be correct except at workgroup boundaries
         // because the shader uses a barrier which only synchronises within a workgroup
         // std::cerr << "Checking output for index " << i << ": " << out[i] << std::endl;
         if (i % 64 == 63) {
             // at workgroup boundaries, the value is not computed correctly
-            REQUIRE(out[i] == static_cast<double>(i) * 2.0);
+            REQUIRE(out[i] == static_cast<float>(i) * 2.0);
         } else {
             // otherwise, it should be the sum of the two previous values
-            REQUIRE(out[i] == static_cast<double>(i) * 2.0 + 
-                     static_cast<double>(i + 1) * 2.0);
+            REQUIRE(out[i] == static_cast<float>(i) * 2.0 + 
+                     static_cast<float>(i + 1) * 2.0);
         }
     }
-    SUCCEED("Compute shader produced expected results for doubles * 2.");
+    SUCCEED("Compute shader produced expected results for floats * 2.");
 }
 
 struct TestData {

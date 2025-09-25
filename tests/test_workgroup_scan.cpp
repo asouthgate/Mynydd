@@ -16,7 +16,7 @@ TEST_CASE("Test that workgroup scan works on the single work group case", "[vulk
     auto histBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, groupCount * numBins * sizeof(uint32_t), false);
     auto prefixBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, numBins * groupCount * sizeof(uint32_t), true);
+        contextPtr, numBins * groupCount * sizeof(uint32_t), false);
 
     struct PrefixParams { uint32_t groupCount; uint32_t numBins; };
     PrefixParams pparams{ groupCount, numBins };
@@ -72,9 +72,9 @@ TEST_CASE("Transpose + per-row prefix compute correct per-workgroup prefix sums"
     auto histBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, groupCount * numBins * sizeof(uint32_t), false);
     auto transposedBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, numBins * groupCount * sizeof(uint32_t), true);
+        contextPtr, numBins * groupCount * sizeof(uint32_t), false);
     auto prefixBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, numBins * groupCount * sizeof(uint32_t), true);
+        contextPtr, numBins * groupCount * sizeof(uint32_t), false);
 
     // Uniform buffers for transpose and prefix shaders
     struct TransposeParams { uint32_t height; uint32_t width; }; // width=numBins, height=groupCount

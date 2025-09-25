@@ -11,7 +11,6 @@
 #include <mynydd/mynydd.hpp>
 
 #include "test_morton_helpers.hpp"
-#include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
 
 
@@ -49,12 +48,22 @@ TEST_CASE("Morton kernels produce expected results in 3D", "[morton]") {
 
 }
 
+TEST_CASE("Require that Morton decode works as expected", "[morton]") {
+    uint32_t enc = morton3D(0, 6, 7);
+    REQUIRE(enc == 436);
+    glm::uvec3 dec = decodeMorton3D(enc, 10);
+    REQUIRE(dec.x == 0);
+    REQUIRE(dec.y == 6);
+    REQUIRE(dec.z == 7);
+
+}
+
 
 TEST_CASE("Binning works as expected for Morton curves", "[morton]") {
     // Test some known values again
     uint32_t nbits = 3;
-    float binsize = 1.0 / pow(2, nbits);
-    float eps = 0.000001;
+    double binsize = 1.0 / pow(2, nbits);
+    double eps = 0.000001;
     REQUIRE(binPosition(0.0, nbits) == 0);
     REQUIRE(binPosition(eps, nbits) == 0);
     REQUIRE(binPosition(binsize + eps, nbits) == 1);
@@ -68,7 +77,7 @@ TEST_CASE("Binning works as expected for Morton curves", "[morton]") {
 TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
     const uint32_t nBits = 4;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
-    std::vector<Particle> particles = getMortonTestGridRegularParticleData(nBits);
+    std::vector<dVec3Aln32> particles = getMortonTestGridRegularParticleData(nBits);
     runMortonTest(contextPtr, nBits, particles);
     // TODO:
 }
@@ -77,8 +86,8 @@ TEST_CASE("3D Morton shader produces unique, monotone keys", "[morton]") {
 struct MortonParams {
     uint32_t nBits;
     uint32_t nParticles;
-    alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
-    alignas(16) glm::vec3 domainMax;
+    alignas(32) glm::dvec3 domainMin; // alignas required for silly alignment issues
+    alignas(32) glm::dvec3 domainMax;
 };
 
 
@@ -87,17 +96,17 @@ TEST_CASE("Regression test against vec3/vec4 bit alignment problem; test that la
     uint32_t nParticles = 4096;
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto inputBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
     auto outputBufferTest = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(uint32_t), false);
 
     // Upload data
-    std::vector<Particle> inputData(nParticles);
+    std::vector<dVec3Aln32> inputData(nParticles);
     std::mt19937 rng(12345); // Fixed seed for reproducibility
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    std::uniform_real_distribution<double> dist(0.0f, 1.0f);
     for (auto& v : inputData) {
-        v.position = glm::vec3(dist(rng), dist(rng), dist(rng));
+        v.data = glm::dvec3(dist(rng), dist(rng), dist(rng));
     }
 
     auto mortonUniformBuffer = std::make_shared<mynydd::Buffer>(
@@ -114,13 +123,13 @@ TEST_CASE("Regression test against vec3/vec4 bit alignment problem; test that la
     struct Params {
         uint32_t nBits;
         uint32_t nParticles;
-        alignas(16) glm::vec3 domainMin; // alignas required for silly alignment issues
-        alignas(16) glm::vec3 domainMax;
-    } mortonParams{10, nParticles, glm::vec3(0.0f), glm::vec3(1.0)};
+        alignas(16) glm::dvec3 domainMin; // alignas required for silly alignment issues
+        alignas(16) glm::dvec3 domainMax;
+    } mortonParams{10, nParticles, glm::dvec3(0.0f), glm::dvec3(1.0)};
 
-    auto mortonInput = mynydd::fetchData<Particle>(contextPtr, inputBuffer, nParticles);
+    auto mortonInput = mynydd::fetchData<dVec3Aln32>(contextPtr, inputBuffer, nParticles);
 
-    mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, inputData, inputBuffer);
     mynydd::uploadUniformData<Params>(contextPtr, mortonParams, mortonUniformBuffer);
 
     mynydd::executeBatch(contextPtr, {mortonStep});

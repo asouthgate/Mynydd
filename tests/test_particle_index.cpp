@@ -15,10 +15,13 @@
 #include "test_morton_helpers.hpp"
 #include "test_utils.hpp"
 
-uint32_t pos2bin(float p, uint32_t nBits) {
-    // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * float((1u << nbits) - 1u) + 0.5);
-    float normPos = glm::clamp(p, 0.0f, 1.0f);
-    float b = normPos * static_cast<float>((1u << nBits) - 1u) + 0.5f;
+// #include "../src/pipelines/shaders/morton_kernels.comp.kern"
+// #include <mynydd/shader_interop.hpp>
+
+uint32_t pos2bin(double p, uint32_t nBits) {
+    // repeat shader logic: uint(clamp(normPos, 0.0, 1.0) * double((1u << nbits) - 1u) + 0.5);
+    double normPos = glm::clamp(p, 0.0, 1.0);
+    double b = normPos * static_cast<double>((1u << nBits) - 1u) + 0.5;
     return static_cast<uint32_t>(b);
 }
 
@@ -31,29 +34,27 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto inputBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(Particle), false);
-
-    auto outputBufferTest = 
-        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(uint32_t), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
     // Upload data
-    std::vector<Particle> inputData(nParticles);
+    std::vector<dVec3Aln32> inputData(nParticles);
     std::mt19937 rng(12345); // Fixed seed for reproducibility
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
     for (auto& v : inputData) {
-        v.position = glm::vec3(dist(rng), dist(rng), dist(rng));
+        v.data = glm::dvec3(dist(rng), dist(rng), dist(rng));
     }
 
-    mynydd::uploadData<Particle>(contextPtr, inputData, inputBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, inputData, inputBuffer);
 
-    mynydd::ParticleIndexPipeline<Particle> particleIndexPipeline(
+    uint nBits = 4;
+    mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
         contextPtr,
         inputBuffer,
-        4, // nBitsPerAxis
+        nBits, // nBitsPerAxis
         256, // itemsPerGroup
         nParticles, // nDataPoints
-        glm::vec3(0.0f), // domainMin
-        glm::vec3(1.0f)  // domainMax
+        glm::dvec3(0.0), // domainMin
+        glm::dvec3(1.0)  // domainMax
     );
 
     // Execute the pipeline
@@ -62,6 +63,10 @@ TEST_CASE("Particle index works correctly", "[index]") {
     auto cellData = mynydd::fetchData<mynydd::CellInfo>(
         contextPtr, particleIndexPipeline.getOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
     );
+    auto flatCellData = mynydd::fetchData<mynydd::CellInfo>(
+        contextPtr, particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(), particleIndexPipeline.getNCells()
+    );
+
 
     auto indexData = mynydd::fetchData<uint32_t>(
         contextPtr, particleIndexPipeline.getSortedIndicesBuffer(), nParticles
@@ -82,8 +87,23 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
         uint32_t ak_morton = morton3D(i, j, k);
 
+        uvec3 demorton = decodeMorton3D(ak_morton, nBits);       
+        REQUIRE(demorton.x == i);
+        REQUIRE(demorton.y == j);
+        REQUIRE(demorton.z == k); 
+
+        uint32_t ak_flat = ijk2ak(demorton, nBits);
+
+        //REQUIRE(ak_flat == ak);
+
         uint32_t start = cellData[ak_morton].left;
         uint32_t end = cellData[ak_morton].right;
+
+        uint32_t flat_start = flatCellData[ak_flat].left;
+        uint32_t flat_end = flatCellData[ak_flat].right;
+
+        REQUIRE(start == flat_start);
+        REQUIRE(end == flat_end);
 
         binsum += (end - start);
 
@@ -96,9 +116,9 @@ TEST_CASE("Particle index works correctly", "[index]") {
         for (uint32_t pind = start; pind < end; ++pind) {
             auto particle = inputData[indexData[pind]];
 ;
-            float pi = pos2bin(particle.position.x, particleIndexPipeline.nBitsPerAxis);
-            float pj = pos2bin(particle.position.y, particleIndexPipeline.nBitsPerAxis);
-            float pk = pos2bin(particle.position.z, particleIndexPipeline.nBitsPerAxis);
+            double pi = pos2bin(particle.data.x, particleIndexPipeline.nBitsPerAxis);
+            double pj = pos2bin(particle.data.y, particleIndexPipeline.nBitsPerAxis);
+            double pk = pos2bin(particle.data.z, particleIndexPipeline.nBitsPerAxis);
 
             REQUIRE(pi == i);
             REQUIRE(pj == j);

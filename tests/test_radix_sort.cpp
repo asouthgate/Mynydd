@@ -88,7 +88,7 @@ TEST_CASE("Radix histogram compute shader correctly generates bin counts", "[sor
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
 
     auto input = std::make_shared<mynydd::Buffer>(contextPtr, n * sizeof(uint32_t), false);
-    auto output = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), true);
+    auto output = std::make_shared<mynydd::Buffer>(contextPtr, groupCount * numBins * sizeof(uint32_t), false);
     auto uniform = std::make_shared<mynydd::Buffer>(contextPtr, sizeof(mynydd::RadixParams), true);
 
     auto pipeline = std::make_shared<mynydd::PipelineStep>(
@@ -157,7 +157,7 @@ TEST_CASE("Histogram summation shader correctly sums partial histograms", "[sort
     auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, partialHistograms.size() * sizeof(uint32_t), false);
     auto outputBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, numBins * sizeof(uint32_t), true);
+        contextPtr, numBins * sizeof(uint32_t), false);
 
     // Uniform struct matching shader uniform block
     struct SumParams {
@@ -419,7 +419,7 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
     auto inputBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, nKeys * sizeof(uint32_t), false);
     auto outputBuffer = std::make_shared<mynydd::Buffer>(
-        contextPtr, nKeys * sizeof(CellInfo), true);
+        contextPtr, nKeys * sizeof(CellInfo), false);
     auto uniformBuffer = std::make_shared<mynydd::Buffer>(
         contextPtr, sizeof(IndexParams), true);
 
@@ -431,7 +431,7 @@ std::vector<CellInfo> runSortedKeys2IndexTest(
     auto pipeline = std::make_shared<mynydd::PipelineStep>(
         contextPtr, "shaders/build_index_from_sorted_keys.comp.spv",
         std::vector<std::shared_ptr<mynydd::Buffer>>{
-            inputBuffer, outputBuffer, uniformBuffer
+            inputBuffer, outputBuffer, outputBuffer, uniformBuffer
         },
         groupCount
     );

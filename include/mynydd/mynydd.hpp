@@ -20,6 +20,7 @@ namespace mynydd {
     */
     struct VulkanContext {
         VkInstance instance;
+        VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
         VkPhysicalDevice physicalDevice;
         VkDevice device; // logical device used for interface
         VkQueue computeQueue; // compute queue used for commands
@@ -27,7 +28,7 @@ namespace mynydd {
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
 
-        VulkanContext();
+        VulkanContext(bool validationn=true);
 
         ~VulkanContext() {
             if (commandBuffer != VK_NULL_HANDLE) {
@@ -39,6 +40,15 @@ namespace mynydd {
             if (device != VK_NULL_HANDLE) {
                 vkDestroyDevice(device, nullptr);
             }
+
+            if (debugMessenger != VK_NULL_HANDLE) {
+                auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)
+                    vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+                if (func) {
+                    func(instance, debugMessenger, nullptr);
+                }
+            }
+
             if (instance != VK_NULL_HANDLE) {
                 vkDestroyInstance(instance, nullptr);
             }
@@ -101,7 +111,7 @@ namespace mynydd {
             ); 
             ~PipelineStep();
             std::shared_ptr<VulkanPipelineResources> getPipelineResourcesPtr() const {
-                return std::make_shared<VulkanPipelineResources>(pipelineResources);
+                return pipelineResources;
             }
             std::shared_ptr<VulkanDynamicResources> getDynamicResourcesPtr() const {
                 return dynamicResourcesPtr;
@@ -137,7 +147,7 @@ namespace mynydd {
         private:
             std::shared_ptr<VulkanContext> contextPtr; // shared because we can have multiple pipelines per context
             std::shared_ptr<VulkanDynamicResources> dynamicResourcesPtr; // shared because we can have multiple pipelines per data
-            VulkanPipelineResources pipelineResources;
+            std::shared_ptr<VulkanPipelineResources> pipelineResources;
 
             PushConstantData m_pushConstantData{0, 0, std::vector<std::byte>{}};
     };

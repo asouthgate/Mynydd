@@ -5,6 +5,7 @@ project(nanovulkan)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Vulkan REQUIRED)
+find_package(HDF5 REQUIRED COMPONENTS C CXX)
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
@@ -16,8 +17,8 @@ add_library(mynydd SHARED
     ${SOURCE_DIR}/pipelines/radix_sort.cpp
 )
 
-target_include_directories(mynydd PUBLIC ${INCLUDE_DIR})
-target_link_libraries(mynydd PRIVATE Vulkan::Vulkan)
+target_include_directories(mynydd PUBLIC ${INCLUDE_DIR} ${HDF5_INCLUDE_DIRS})
+target_link_libraries(mynydd PRIVATE Vulkan::Vulkan ${HDF5_LIBRARIES})
 
 # tests
 
@@ -66,7 +67,7 @@ add_executable(tests
     ${SHADER_SPV_FILES}
 )
 
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
 
 add_dependencies(tests compile_shaders)
 
@@ -99,7 +100,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
 
         add_custom_command(
             OUTPUT ${SPIRV_OUT}
-            COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT}
+            COMMAND glslangValidator -V ${SHADER} -o ${SPIRV_OUT} -I${SRC_SHADER_DIR}
             DEPENDS ${SHADER}
             COMMENT "Compiling ${EXAMPLE}/${SHADER_NAME} to SPIR-V"
             VERBATIM
@@ -115,7 +116,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     add_executable(${EXAMPLE}_example ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
 
     target_include_directories(${EXAMPLE}_example PRIVATE ${INCLUDE_DIR})
-    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd)
+    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
 
     add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
 
@@ -126,7 +127,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     if(EXISTS "${EXAMPLE_PATH}/test/test.cpp")
         add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test/test.cpp ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
         target_include_directories(${EXAMPLE}_test PRIVATE ${INCLUDE_DIR})
-        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd)
+        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
         add_dependencies(${EXAMPLE}_test compile_${EXAMPLE}_shaders)
 
         add_test(NAME ${EXAMPLE}_tests COMMAND ${EXAMPLE}_test "[${EXAMPLE}]")

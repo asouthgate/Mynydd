@@ -127,18 +127,11 @@ namespace mynydd {
     void RadixSortPipeline::execute_init() {
         // First, initialize the range index buffer
 
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        if (vkBeginCommandBuffer(contextPtr->commandBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to begin command buffer for batch execution.");
-        }
-
         initRangePipeline->setPushConstantsData(nInputElements, 0);
 
         mynydd::executeBatch(
             contextPtr,
-            {initRangePipeline},
-            false
+            {initRangePipeline}
         );
 
     }

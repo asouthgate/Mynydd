@@ -1,6 +1,12 @@
 #version 450
 layout(local_size_x = 256) in;
 
+
+#extension GL_GOOGLE_include_directive : enable
+
+#include "morton_kernels.comp.kern"
+
+
 struct CellInfo {
     uint left;
     uint right;
@@ -16,25 +22,41 @@ layout(set = 0, binding = 1) buffer Cells {
     CellInfo cells[];
 };
 
-layout(set = 0, binding = 2) uniform Params {
-    uint numKeys;
+// Output: per-cell start index and count
+layout(set = 0, binding = 2) buffer FlateCells {
+    CellInfo flatCells[];
+};
+
+
+layout(set = 0, binding = 3) uniform Params {
+    uint nBits;
+    uint nParticles;
+    dvec3 domainMin;
+    dvec3 domainMax;
 } pc;
+
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= pc.numKeys) return;
+    if (i >= pc.nParticles) return;
     uint key = keys[i];
+
+    uvec3 ijk = decodeMorton3D(key, pc.nBits);
+
+    uint flat_ak = ijk2ak(ijk, pc.nBits);
 
     // Left boundary: first particle in cell
     if (i == 0 || key != keys[i - 1]) {
         cells[key].left = i;
+        flatCells[flat_ak].left = i;
     }
 
     barrier();
 
     // Right boundary: last particle in cell
-    if (i == pc.numKeys - 1 || key != keys[i + 1]) {
+    if (i == pc.nParticles - 1 || key != keys[i + 1]) {
         cells[key].right = i + 1;
+        flatCells[flat_ak].right = i + 1;
     }
 
 }

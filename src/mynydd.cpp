@@ -15,6 +15,107 @@ using namespace mynydd;
 
 namespace mynydd {
 
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT              messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT*  pCallbackData,
+        void*                                        pUserData) {
+
+        const char* severity = (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)   ? "ERROR" :
+                            (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) ? "WARN"  :
+                            (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)    ? "INFO"  : "VERBOSE";
+
+        std::cerr << "[VULKAN VALIDATION][" << severity << "] " << pCallbackData->pMessage << std::endl;
+        return VK_FALSE;
+    }
+
+    // Helper to create debug messenger (requires VK_EXT_debug_utils)
+    VkDebugUtilsMessengerEXT createDebugMessenger(VkInstance instance) {
+        VkDebugUtilsMessengerCreateInfoEXT dbgCreateInfo{};
+        dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        dbgCreateInfo.messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+        dbgCreateInfo.messageType =
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        dbgCreateInfo.pfnUserCallback = debugCallback;
+        dbgCreateInfo.pUserData = nullptr;
+
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+        VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
+        if (func) {
+            func(instance, &dbgCreateInfo, nullptr, &messenger);
+        }
+        return messenger;
+    }
+
+    VkInstance createInstanceWithValidation() {
+        // 1) desired layers & extensions
+        const char* layerNames[] = { "VK_LAYER_KHRONOS_validation" };
+
+        std::vector<const char*> enabledExtensions;
+        enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "NanoVulkan";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
+        appInfo.pEngineName = "Custom";
+        appInfo.engineVersion = VK_MAKE_VERSION(1,0,0);
+        appInfo.apiVersion = VK_API_VERSION_1_1;
+
+        // Optional: enable synchronization validation explicitly
+        VkValidationFeatureEnableEXT enables[] = {
+            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+        };
+        VkValidationFeaturesEXT validationFeatures{};
+        validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+        validationFeatures.enabledValidationFeatureCount = 1;
+        validationFeatures.pEnabledValidationFeatures = enables;
+
+        VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+        createInfo.enabledLayerCount = 1;
+        createInfo.ppEnabledLayerNames = layerNames;
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
+        createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+
+        // Chain validation features
+        createInfo.pNext = &validationFeatures;
+
+        uint32_t layerCount = 0;
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+        std::vector<VkLayerProperties> layers(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
+
+        // std::cerr << "Available layers:" << std::endl;
+        // for (auto& l : layers) {
+        //     std::cerr << "  " << l.layerName << std::endl;
+        // }
+
+        uint32_t extCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> exts(extCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, exts.data());
+
+        // std::cerr << "Available extensions:" << std::endl;
+        // for (auto& e : exts) {
+        //     std::cerr << "  " << e.extensionName << std::endl;
+        // }
+
+        VkInstance instance;
+        VkResult r = vkCreateInstance(&createInfo, nullptr, &instance);
+        if (r != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create instance with validation");
+        }
+
+        return instance;
+    }
+
     /**
     * Create a Vulkan instance.
     *
@@ -63,16 +164,16 @@ namespace mynydd {
 
             for (uint32_t i = 0; i < queueFamilyCount; ++i) {
             // Print the number of queue families this GPU has
-            std::cerr << "Number of queue families: " << queueFamilyCount
-                        << std::endl;
-            // Print the properties of each queue family
-            std::cerr << "Queue family " << i << ": "
-                        << "Count: " << queueFamilies[i].queueCount
-                        << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
+            // std::cerr << "Number of queue families: " << queueFamilyCount
+            //             << std::endl;
+            // // Print the properties of each queue family
+            // std::cerr << "Queue family " << i << ": "
+            //             << "Count: " << queueFamilies[i].queueCount
+            //             << ", Flags: " << queueFamilies[i].queueFlags << std::endl;
             if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
                 VkPhysicalDeviceProperties props;
                 vkGetPhysicalDeviceProperties(device, &props);
-                std::cerr << "Selected device: " << props.deviceName << std::endl;
+                // std::cerr << "Selected device: " << props.deviceName << std::endl;
                 computeQueueFamilyIndex = i;
                 return device;
             }
@@ -98,6 +199,11 @@ namespace mynydd {
         deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         deviceCreateInfo.queueCreateInfoCount = 1;
         deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.shaderFloat64 = VK_TRUE;
+
+        deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
         VkDevice device;
         if (
@@ -205,7 +311,7 @@ namespace mynydd {
     VkDescriptorSetLayout createDescriptorSetLayout(
         VkDevice device,
         const std::vector<std::shared_ptr<Buffer>>& buffers
-) {
+    ) {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
         size_t bindingIndex = 0;
@@ -313,6 +419,7 @@ namespace mynydd {
     
     VkPipeline createComputePipeline(
         VkDevice device,
+        VkPhysicalDevice physicalDevice,
         VkShaderModule shaderModule,
         VkDescriptorSetLayout descriptorSetLayout,
         VkPipelineLayout &pipelineLayout,
@@ -324,25 +431,52 @@ namespace mynydd {
         layoutInfo.setLayoutCount = 1;
         layoutInfo.pSetLayouts = &descriptorSetLayout;
 
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(physicalDevice, &props);
+        uint32_t maxPushConstants = props.limits.maxPushConstantsSize;
+
         if (!pushConstantSizes.empty()) {
-            std::vector<VkPushConstantRange> ranges(pushConstantSizes.size());
+            std::vector<VkPushConstantRange> ranges;
+            ranges.reserve(pushConstantSizes.size());
+
+            uint32_t offset = 0;
             for (size_t j = 0; j < pushConstantSizes.size(); ++j) {
-                ranges[j].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-                ranges[j].offset = j == 0 ? 0 : ranges[j - 1].offset + ranges[j - 1].size;
-                ranges[j].size = pushConstantSizes[j];
+                uint32_t s = pushConstantSizes[j];
+
+                if (s == 0) {
+                    throw std::runtime_error("Push constant size must be > 0");
+                }
+                if ((s % 4) != 0) {
+                    throw std::runtime_error("Push constant size must be a multiple of 4");
+                }
+                if (offset + s > maxPushConstants) {
+                    throw std::runtime_error("Push constants exceed device maxPushConstantsSize");
+                }
+
+                VkPushConstantRange r{};
+                r.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+                r.offset = offset;
+                r.size = s;
+                ranges.push_back(r);
+
+                offset += s;
             }
 
-            layoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantSizes.size());
+            layoutInfo.pushConstantRangeCount = static_cast<uint32_t>(ranges.size());
             layoutInfo.pPushConstantRanges = ranges.data();
-        }
-        
-        if (
-            vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) !=
-            VK_SUCCESS
-        ) {
-            throw std::runtime_error("Failed to create pipeline layout");
-        }
 
+            // CreatePipelineLayout must be called while `ranges` is in scope
+            if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+                throw std::runtime_error("vkCreatePipelineLayout failed");
+            }
+        } else {
+            // no push constants
+            layoutInfo.pushConstantRangeCount = 0;
+            layoutInfo.pPushConstantRanges = nullptr;
+            if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+                throw std::runtime_error("vkCreatePipelineLayout failed");
+            }
+        }
         VkComputePipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         pipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -365,6 +499,9 @@ namespace mynydd {
             throw std::runtime_error("Failed to create compute pipeline");
         }
 
+        // std::cerr << "Using pipeline = " << 
+        //     pipeline << ", layout to bind = " << pipelineLayout << ", descriptorSet = " << descriptorSetLayout << std::endl;
+
         return pipeline;
     }
 
@@ -372,6 +509,7 @@ namespace mynydd {
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.queueFamilyIndex = queueFamilyIndex;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
         VkCommandPool commandPool;
         if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
@@ -408,11 +546,15 @@ namespace mynydd {
         VkPipelineLayout pipelineLayout;
         VkPipeline computePipeline = createComputePipeline(
             contextPtr->device, 
+            contextPtr->physicalDevice,
             shader,
             descriptorLayout,
             pipelineLayout,
             pushConstantSizes
         );
+
+        std::cerr << "Creating pipeline " << computePipeline << " for shader: " << shaderPath << std::endl;
+
 
         return {
             pipelineLayout,
@@ -421,8 +563,12 @@ namespace mynydd {
         };
     }
 
-    VulkanContext::VulkanContext() {
-        instance = createInstance();
+    VulkanContext::VulkanContext(bool validation) {
+        if (validation) {
+            instance = createInstanceWithValidation();
+        } else {
+            instance = createInstance();
+        }
         physicalDevice =
             pickPhysicalDevice(instance, computeQueueFamilyIndex);
 
@@ -439,6 +585,12 @@ namespace mynydd {
         commandBuffer = allocateCommandBuffer(
             device, commandPool
         );
+
+        if (validation) {
+            // Create debug messenger and keep handle in your VulkanContext
+            VkDebugUtilsMessengerEXT dbg = createDebugMessenger(instance);
+            debugMessenger = dbg;
+        }
     }
 
     VulkanDynamicResources::VulkanDynamicResources(
@@ -467,6 +619,9 @@ namespace mynydd {
             const auto& layout        = pipeline_step->getPipelineResourcesPtr()->pipelineLayout;
             const auto& descriptorSet = pipeline_step->getDynamicResourcesPtr()->descriptorSet;
 
+            // std::cerr << "Binding pipeline " << pipeline 
+            //         << " layout=" << layout 
+            //         << " descriptorSet=" << descriptorSet << std::endl;
             if (pipeline == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || descriptorSet == VK_NULL_HANDLE) {
                 throw std::runtime_error("Invalid pipeline or descriptor set for engine step.");
             }
@@ -530,20 +685,22 @@ namespace mynydd {
             buffers
         );
         assert(this->dynamicResourcesPtr->descriptorSetLayout != VK_NULL_HANDLE);
-        this->pipelineResources = create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes);
+        this->pipelineResources = std::make_shared<VulkanPipelineResources>(
+            create_pipeline_resources(contextPtr, shaderPath, this->dynamicResourcesPtr->descriptorSetLayout, pushConstantSizes)
+        );
     }
 
     PipelineStep::~PipelineStep() {
         try {
             if (this->contextPtr && this->contextPtr->device != VK_NULL_HANDLE &&
-                this->pipelineResources.pipeline != VK_NULL_HANDLE) {
+                this->pipelineResources->pipeline != VK_NULL_HANDLE) {
             } else {
-                std::cerr << "Invalid handles in vkDestroyPipeline\n";
+                // std::cerr << "Invalid handles in vkDestroyPipeline\n";
                 throw std::runtime_error("PipelineStep destructor failed");
             }
-            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources.pipeline, nullptr);
-            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources.pipelineLayout, nullptr);
-            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources.computeShaderModule, nullptr);
+            vkDestroyPipeline(this->contextPtr->device, this->pipelineResources->pipeline, nullptr);
+            vkDestroyPipelineLayout(this->contextPtr->device, this->pipelineResources->pipelineLayout, nullptr);
+            vkDestroyShaderModule(this->contextPtr->device, this->pipelineResources->computeShaderModule, nullptr);
         } catch (const std::exception &e) {
             std::cerr << "Error during PipelineStep destruction: " << e.what() << std::endl;
             throw std::runtime_error("PipelineStep destructor failed");
