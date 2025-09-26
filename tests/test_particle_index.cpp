@@ -25,12 +25,8 @@ uint32_t pos2bin(double p, uint32_t nBits) {
     return static_cast<uint32_t>(b);
 }
 
-TEST_CASE("Particle index works correctly", "[index]") {
-
-    // Create a Vulkan context
-    uint32_t nParticles = 1 << 20;
-
-    std::cerr << "Running particle index test with " << nParticles << " particles." << std::endl;
+void particle_index_test(uint32_t nParticles) {
+        std::cerr << "Running particle index test with " << nParticles << " particles." << std::endl;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
     auto inputBuffer = 
@@ -131,4 +127,14 @@ TEST_CASE("Particle index works correctly", "[index]") {
 
     std::cerr << "Particle index test: total particles in bins: " << binsum << std::endl;
     REQUIRE(binsum == nParticles);
+}
+
+TEST_CASE("Particle index works correctly", "[index]") {
+    uint32_t nParticles = 1 << 20;
+    particle_index_test(nParticles);
+}
+
+TEST_CASE("Particle index works correctly with non pow 2 nParticles", "[index]") {
+    uint32_t nParticles = 1000;
+    particle_index_test(nParticles);
 }
