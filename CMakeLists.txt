@@ -123,13 +123,20 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     # filter out main from cpp for test
     list(FILTER EXAMPLE_CPP_SRC_FILES EXCLUDE REGEX ".*/main\\.cpp$")
     
-    # === Example tests ===
-    if(EXISTS "${EXAMPLE_PATH}/test/test.cpp")
-        add_executable(${EXAMPLE}_test ${EXAMPLE_PATH}/test/test.cpp ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
-        target_include_directories(${EXAMPLE}_test PRIVATE ${INCLUDE_DIR})
-        target_link_libraries(${EXAMPLE}_test PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
-        add_dependencies(${EXAMPLE}_test compile_${EXAMPLE}_shaders)
+    file(GLOB TEST_SOURCES "${EXAMPLE_PATH}/test/test_*.cpp")
 
-        add_test(NAME ${EXAMPLE}_tests COMMAND ${EXAMPLE}_test "[${EXAMPLE}]")
-    endif()
+    foreach(TEST_SRC ${TEST_SOURCES})
+        get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+
+        add_executable(${EXAMPLE}_${TEST_NAME} 
+            ${TEST_SRC} 
+            ${EXAMPLE_CPP_SRC_FILES} 
+            ${EXAMPLE_SHADER_SPV_FILES}
+        )
+        target_include_directories(${EXAMPLE}_${TEST_NAME} PRIVATE ${INCLUDE_DIR})
+        target_link_libraries(${EXAMPLE}_${TEST_NAME} PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
+        add_dependencies(${EXAMPLE}_${TEST_NAME} compile_${EXAMPLE}_shaders)
+
+        add_test(NAME ${EXAMPLE}_${TEST_NAME} COMMAND ${EXAMPLE}_${TEST_NAME})
+    endforeach()
 endforeach()

@@ -11,7 +11,6 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 #include <filesystem> // C++17
-namespace fs = std::filesystem;
 #include <hdf5.h>
 #include <filesystem>
 #include <stdexcept>
