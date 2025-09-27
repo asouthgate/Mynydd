@@ -71,6 +71,6 @@ int main(int argc, char** argv) {
 
     auto outputs = run_sph_example(simulated, params, niterations, "main_example_output");
 
-    printSPHDataCSV(outputs);
+    // printSPHDataCSV(outputs);
 
 }

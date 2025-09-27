@@ -64,12 +64,12 @@ layout(push_constant) uniform Params {
     double rho0;
     double c2;
     double mu;
+    uint n_boundary_tris;
 } pc;
 
 #include "morton_kernels.comp.kern"
 #include "kernels.comp.kern"
 #include "nbr_kernel.comp.kern"
-#include "boundary_kernel.comp.kern"
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
@@ -128,9 +128,9 @@ void main() {
     br.vel = newvel;
     br.collision = false;
 
-    for (int i = 0; i < N_TRIS; ++i) {
+    for (int i = 0; i < pc.n_boundary_tris; ++i) {
         BoundaryResult tmp_br = bounce_against_triangle(
-            br.pos, br.vel, pc.dt, 0.99,
+            pos, br.vel, pc.dt, 0.99,
             mesh_vertices[i * 3].data, mesh_vertices[i * 3 + 1].data, mesh_vertices[i * 3 + 2].data
         );
         if (tmp_br.collision) {

@@ -21,6 +21,7 @@ struct SPHParams {
     double rho0;
     double c2;
     double mu;
+    uint32_t n_boundary_tris;
 };
 
 
