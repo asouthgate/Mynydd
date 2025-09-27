@@ -27,3 +27,5 @@ void packForGPU(
     std::vector<uint32_t>& flatTriIndices,
     std::vector<CellTriangles>& cellMeta
 );
+
+std::vector<glm::dvec3> get_test_boundary_mesh();

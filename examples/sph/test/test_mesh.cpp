@@ -1,14 +1,10 @@
-#include <cstdint>
-#include <functional>
 #include <glm/fwd.hpp>
-#include <random>
 #include <cmath>  // For M_PI
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include <cmath>
 #include <catch2/catch_approx.hpp>
-#include <iomanip> 
 
 #include <mynydd/shader_interop.hpp>
 #include "../src/mesh.hpp"

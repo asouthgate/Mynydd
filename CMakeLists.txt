@@ -124,9 +124,12 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     list(FILTER EXAMPLE_CPP_SRC_FILES EXCLUDE REGEX ".*/main\\.cpp$")
     
     file(GLOB TEST_SOURCES "${EXAMPLE_PATH}/test/test_*.cpp")
-
+    message(STATUS "GLOBBING example: ${EXAMPLE_PATH}/test/test_*.cpp")
     foreach(TEST_SRC ${TEST_SOURCES})
+
+        message(STATUS "TEST_SRC: ${TEST_SRC}")
         get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+        message(STATUS "TEST_NAME: ${TEST_NAME}")
 
         add_executable(${EXAMPLE}_${TEST_NAME} 
             ${TEST_SRC} 
@@ -138,5 +141,6 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
         add_dependencies(${EXAMPLE}_${TEST_NAME} compile_${EXAMPLE}_shaders)
 
         add_test(NAME ${EXAMPLE}_${TEST_NAME} COMMAND ${EXAMPLE}_${TEST_NAME})
+
     endforeach()
 endforeach()

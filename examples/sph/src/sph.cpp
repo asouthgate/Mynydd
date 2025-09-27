@@ -14,12 +14,9 @@
 #include <hdf5.h>
 #include <filesystem>
 #include <stdexcept>
-
-
 #include <iostream>
 
-
-
+#include "mesh.hpp"
 #include "sph.hpp"
 #include <algorithm>
 
@@ -215,33 +212,6 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
     }
 }
 
-// Unit cube triangles (6 faces × 2 triangles per face)
-std::vector<glm::dvec3> BOUNDARY_VERTICES = {
-    // -Z face
-    glm::dvec3(0,0,0), glm::dvec3(1,0,0), glm::dvec3(1,1,0),
-    glm::dvec3(0,0,0), glm::dvec3(1,1,0), glm::dvec3(0,1,0),
-
-    // +Z face
-    glm::dvec3(0,0,1), glm::dvec3(1,0,1), glm::dvec3(1,1,1),
-    glm::dvec3(0,0,1), glm::dvec3(1,1,1), glm::dvec3(0,1,1),
-
-    // -X face
-    glm::dvec3(0,0,0), glm::dvec3(0,0,1), glm::dvec3(0,1,1),
-    glm::dvec3(0,0,0), glm::dvec3(0,1,1), glm::dvec3(0,1,0),
-
-    // +X face
-    glm::dvec3(1,0,0), glm::dvec3(1,0,1), glm::dvec3(1,1,1),
-    glm::dvec3(1,0,0), glm::dvec3(1,1,1), glm::dvec3(1,1,0),
-
-    // -Y face
-    glm::dvec3(0,0,0), glm::dvec3(1,0,0), glm::dvec3(1,0,1),
-    glm::dvec3(0,0,0), glm::dvec3(1,0,1), glm::dvec3(0,0,1),
-
-    // +Y face
-    glm::dvec3(0,1,0), glm::dvec3(1,1,0), glm::dvec3(1,1,1),
-    glm::dvec3(0,1,0), glm::dvec3(1,1,1), glm::dvec3(0,1,1)
-};
-
 
 SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations, std::string fname, bool debug_mode) {
 
@@ -296,50 +266,13 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
 
-        // Small cube parameters
-    double cube_min_x = 0.9; // touching +X face of unit cube
-    double cube_max_x = 1.0;
-    double cube_min_y = 0.45;
-    double cube_max_y = 0.55; // edge length 0.1
-    double cube_min_z = 0.0;
-    double cube_max_z = 0.1; // edge length 0.1
+    std::vector<glm::dvec3> boundary_vertices = get_test_boundary_mesh();
 
-    BOUNDARY_VERTICES.insert(
-        BOUNDARY_VERTICES.end(),
-        {
-            // -X face
-            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z),
-            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z), glm::dvec3(cube_min_x, cube_min_y, cube_max_z),
-
-            // +X face
-            glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z),
-            glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z),
-
-            // -Y face
-            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z),
-            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z), glm::dvec3(cube_min_x, cube_min_y, cube_max_z),
-
-            // +Y face
-            glm::dvec3(cube_min_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z),
-            glm::dvec3(cube_min_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z),
-
-            // -Z face
-            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z),
-            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_min_z),
-
-            // +Z face
-            glm::dvec3(cube_min_x, cube_min_y, cube_max_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z),
-            glm::dvec3(cube_min_x, cube_min_y, cube_max_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z)
-        }
-    );
-
-
-    std::vector<dVec3Aln32> vertices(BOUNDARY_VERTICES.size());
-    for (size_t i = 0; i < BOUNDARY_VERTICES.size(); ++i) {
-        vertices[i].data = BOUNDARY_VERTICES[i];
+    std::vector<dVec3Aln32> vertices(boundary_vertices.size());
+    for (size_t i = 0; i < boundary_vertices.size(); ++i) {
+        vertices[i].data = boundary_vertices[i];
     }
-
-    params.n_boundary_tris = static_cast<uint32_t>(BOUNDARY_VERTICES.size() / 3);
+    params.n_boundary_tris = static_cast<uint32_t>(boundary_vertices.size() / 3);
     auto meshVerticesBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, vertices.size() * sizeof(dVec3Aln32), false);
 

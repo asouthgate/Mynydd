@@ -102,3 +102,75 @@ void packForGPU(
         cursor += static_cast<uint32_t>(tris.size());
     }
 }
+
+
+std::vector<glm::dvec3> get_test_boundary_mesh() {
+
+    // Unit cube triangles (6 faces × 2 triangles per face)
+    std::vector<glm::dvec3> boundary_vertices = {
+        // -Z face
+        glm::dvec3(0,0,0), glm::dvec3(1,0,0), glm::dvec3(1,1,0),
+        glm::dvec3(0,0,0), glm::dvec3(1,1,0), glm::dvec3(0,1,0),
+
+        // +Z face
+        glm::dvec3(0,0,1), glm::dvec3(1,0,1), glm::dvec3(1,1,1),
+        glm::dvec3(0,0,1), glm::dvec3(1,1,1), glm::dvec3(0,1,1),
+
+        // -X face
+        glm::dvec3(0,0,0), glm::dvec3(0,0,1), glm::dvec3(0,1,1),
+        glm::dvec3(0,0,0), glm::dvec3(0,1,1), glm::dvec3(0,1,0),
+
+        // +X face
+        glm::dvec3(1,0,0), glm::dvec3(1,0,1), glm::dvec3(1,1,1),
+        glm::dvec3(1,0,0), glm::dvec3(1,1,1), glm::dvec3(1,1,0),
+
+        // -Y face
+        glm::dvec3(0,0,0), glm::dvec3(1,0,0), glm::dvec3(1,0,1),
+        glm::dvec3(0,0,0), glm::dvec3(1,0,1), glm::dvec3(0,0,1),
+
+        // +Y face
+        glm::dvec3(0,1,0), glm::dvec3(1,1,0), glm::dvec3(1,1,1),
+        glm::dvec3(0,1,0), glm::dvec3(1,1,1), glm::dvec3(0,1,1)
+    };
+
+
+
+        // Small cube parameters
+    double cube_min_x = 0.9; // touching +X face of unit cube
+    double cube_max_x = 1.0;
+    double cube_min_y = 0.45;
+    double cube_max_y = 0.55; // edge length 0.1
+    double cube_min_z = 0.0;
+    double cube_max_z = 0.1; // edge length 0.1
+
+    boundary_vertices.insert(
+        boundary_vertices.end(),
+        {
+            // -X face
+            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z),
+            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z), glm::dvec3(cube_min_x, cube_min_y, cube_max_z),
+
+            // +X face
+            glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z),
+            glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z),
+
+            // -Y face
+            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z),
+            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z), glm::dvec3(cube_min_x, cube_min_y, cube_max_z),
+
+            // +Y face
+            glm::dvec3(cube_min_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z),
+            glm::dvec3(cube_min_x, cube_max_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z),
+
+            // -Z face
+            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z),
+            glm::dvec3(cube_min_x, cube_min_y, cube_min_z), glm::dvec3(cube_max_x, cube_max_y, cube_min_z), glm::dvec3(cube_min_x, cube_max_y, cube_min_z),
+
+            // +Z face
+            glm::dvec3(cube_min_x, cube_min_y, cube_max_z), glm::dvec3(cube_max_x, cube_min_y, cube_max_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z),
+            glm::dvec3(cube_min_x, cube_min_y, cube_max_z), glm::dvec3(cube_max_x, cube_max_y, cube_max_z), glm::dvec3(cube_min_x, cube_max_y, cube_max_z)
+        }
+    );
+
+    return boundary_vertices;
+}
