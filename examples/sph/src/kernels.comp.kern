@@ -259,7 +259,6 @@ BoundaryResult bounce_against_triangle(
     // Triangle normal
     dvec3 normal = normalize(cross(v1 - v0, v2 - v0));
     if (dot(vel, normal) > 0.0) normal = -normal;
-
     dvec3 refl = reflect(vel, normal) * restitution;
 
     result.pos = hitPoint + normal * 1e-6; // avoid sticking

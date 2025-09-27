@@ -55,7 +55,7 @@ BoundaryResult adjust_boundary_bounce_mesh(
     double restitution
 ) {
     BoundaryResult br;
-    br.pos = p0;
+    br.pos = p0 + vel * dt;
     br.vel = vel;
     br.collision = false;
 
