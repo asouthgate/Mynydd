@@ -15,6 +15,8 @@
 #include "../src/sph.hpp"
 #include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
+const double EPS_CHECK = 1e-6;
+
 
 double integrate_kernel(std::function<double(double, double)> kernel, double h, int d = 25, double scale = 1.5) {
     double sum = 0.0;
@@ -39,6 +41,27 @@ double integrate_kernel(std::function<double(double, double)> kernel, double h, 
     }
 
     return sum;
+}
+
+TEST_CASE("computeIntersectionParams: center hit", "[intersection]") {
+    glm::dvec3 v0(0.0, 0.0, 0.0);
+    glm::dvec3 v1(1.0, 0.0, 0.0);
+    glm::dvec3 v2(0.0, 1.0, 0.0);
+
+    glm::dvec3 p0(0.25, 0.25, -1.0);
+    glm::dvec3 p1(0.25, 0.25,  1.0);
+
+    glm::dvec4 params = computeIntersectionParams(v0, v1, v2, p0, p1);
+
+    REQUIRE_FALSE(isParallel(params));
+    REQUIRE_FALSE(isOutsideUV(params));
+    REQUIRE_FALSE(doesNotIntersect(params));
+
+    // expected (from Möller–Trumbore): u=0.25, v=0.25, t=0.5 (and determinant a = -2.0)
+    CHECK(params.x == Catch::Approx(0.25).margin(EPS_CHECK)); // u
+    CHECK(params.y == Catch::Approx(0.25).margin(EPS_CHECK)); // v
+    CHECK(params.z == Catch::Approx(0.5).margin(EPS_CHECK));  // t
+    CHECK(params.w == Catch::Approx(-2.0).margin(EPS_CHECK)); // det / a
 }
 
 TEST_CASE("test_spiky_kernel_coeff_3D", "[sph]") {

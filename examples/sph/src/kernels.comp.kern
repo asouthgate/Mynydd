@@ -170,3 +170,46 @@ dvec3 viscosityForce(
 
     return mu * mass_j * (vel_j - vel_i) / rho_avg * laplacian;
 }
+
+vec4 computeIntersectionParams(
+    dvec3 v0, dvec3 v1, dvec3 v2,
+    dvec3 p0, dvec3 p1
+) {
+    const double EPS = 1e-9;
+
+    dvec3 dir   = p1 - p0;    // segment direction
+    dvec3 edge1 = v1 - v0;    // tri edge v0→v1
+    dvec3 edge2 = v2 - v0;    // tri edge v0→v2
+
+    dvec3 h = cross(dir, edge2);
+    double a = dot(edge1, h);
+
+    // Parallel case: return sentinel values
+    if (abs(a) < EPS) return vec4(-1.0, -1.0, -1.0, a);
+
+    double f = 1.0 / a;
+    dvec3 s  = p0 - v0;
+    double u = f * dot(s, h);
+
+    dvec3 q = cross(s, edge1);
+    double v = f * dot(dir, q);
+
+    double t = f * dot(edge2, q);
+
+    return vec4(u, v, t, a);
+}
+
+bool isOutsideUV(vec4 params) {
+    double u = params.x;
+    double v = params.y;
+    return (u < 0.0 || v < 0.0 || (u + v) > 1.0);
+}
+
+bool doesNotIntersect(vec4 params) {
+    double t = params.z;
+    return (t < 0.0 || t > 1.0);
+}
+
+bool isParallel(vec4 params) {
+    return abs(params.w) < 1e-9;
+}
