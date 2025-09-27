@@ -205,7 +205,7 @@ bool isOutsideUV(vec4 params) {
     return (u < 0.0 || v < 0.0 || (u + v) > 1.0);
 }
 
-bool doesNotIntersect(vec4 params) {
+bool doesIntersect(vec4 params) {
     double t = params.z;
     return (t < 0.0 || t > 1.0);
 }

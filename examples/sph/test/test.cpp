@@ -55,7 +55,7 @@ TEST_CASE("computeIntersectionParams: center hit", "[intersection]") {
 
     REQUIRE_FALSE(isParallel(params));
     REQUIRE_FALSE(isOutsideUV(params));
-    REQUIRE_FALSE(doesNotIntersect(params));
+    REQUIRE(doesIntersect(params));
 
     // expected (from Möller–Trumbore): u=0.25, v=0.25, t=0.5 (and determinant a = -2.0)
     CHECK(params.x == Catch::Approx(0.25).margin(EPS_CHECK)); // u
@@ -63,6 +63,46 @@ TEST_CASE("computeIntersectionParams: center hit", "[intersection]") {
     CHECK(params.z == Catch::Approx(0.5).margin(EPS_CHECK));  // t
     CHECK(params.w == Catch::Approx(-2.0).margin(EPS_CHECK)); // det / a
 }
+
+TEST_CASE("computeIntersectionParams: miss outside UV", "[intersection]") {
+    glm::dvec3 v0(0.0, 0.0, 0.0);
+    glm::dvec3 v1(1.0, 0.0, 0.0);
+    glm::dvec3 v2(0.0, 1.0, 0.0);
+
+    glm::dvec3 p0(1.5, 1.5, -1.0);
+    glm::dvec3 p1(1.5, 1.5,  1.0);
+
+    glm::dvec4 params = computeIntersectionParams(v0, v1, v2, p0, p1);
+
+    REQUIRE_FALSE(isParallel(params));
+    REQUIRE(isOutsideUV(params));
+
+    // expected barycentrics u=v=1.5, t = 0.5, det = -2.0
+    CHECK(params.x == Catch::Approx(1.5).margin(EPS_CHECK));
+    CHECK(params.y == Catch::Approx(1.5).margin(EPS_CHECK));
+    CHECK(params.z == Catch::Approx(0.5).margin(EPS_CHECK));
+    CHECK(params.w == Catch::Approx(-2.0).margin(EPS_CHECK));
+}
+
+TEST_CASE("computeIntersectionParams: parallel segment", "[intersection]") {
+    glm::dvec3 v0(0.0, 0.0, 0.0);
+    glm::dvec3 v1(1.0, 0.0, 0.0);
+    glm::dvec3 v2(0.0, 1.0, 0.0);
+
+    // segment lies in triangle plane (z == 0), so parallel -> no proper intersection
+    glm::dvec3 p0(-1.0, 0.5, 0.0);
+    glm::dvec3 p1( 2.0, 0.5, 0.0);
+
+    glm::dvec4 params = computeIntersectionParams(v0, v1, v2, p0, p1);
+
+    REQUIRE(isParallel(params));
+    // For parallel case we return sentinel u,v,t = -1, and w = determinant (near 0)
+    CHECK(params.x == Catch::Approx(-1.0).margin(EPS_CHECK));
+    CHECK(params.y == Catch::Approx(-1.0).margin(EPS_CHECK));
+    CHECK(params.z == Catch::Approx(-1.0).margin(EPS_CHECK));
+    CHECK(std::abs(params.w) <= 1e-8); // determinant near zero
+}
+
 
 TEST_CASE("test_spiky_kernel_coeff_3D", "[sph]") {
     double h = 0.789;
