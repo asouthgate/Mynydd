@@ -27,29 +27,3 @@ void gather_neighbor_cells(
         }
     }
 }
-
-bool segmentIntersectsTriangleAndReflect(
-    dvec3 v0, dvec3 v1, dvec3 v2,
-    dvec3 p0, dvec3 p1,
-    dvec3 vel,
-    out dvec3 hitPoint,
-    out dvec3 reflectedVel
-) {
-    vec4 params = computeIntersectionParams(v0, v1, v2, p0, p1);
-
-    if (isParallel(params))      return false;
-    if (isOutsideUV(params))     return false;
-    if (!doesIntersect(params)) return false;
-
-    // Reconstruct intersection point
-    double t = params.z;
-    dvec3 dir = p1 - p0;
-    hitPoint  = p0 + dir * t;
-
-    // Triangle normal
-    dvec3 normal = normalize(cross(v1 - v0, v2 - v0));
-    if (dot(vel, normal) > 0.0) normal = -normal;
-
-    reflectedVel = reflect(vel, normal);
-    return true;
-}

@@ -66,6 +66,7 @@ layout(push_constant) uniform Params {
 #include "morton_kernels.comp.kern"
 #include "kernels.comp.kern"
 #include "nbr_kernel.comp.kern"
+#include "boundary_kernel.comp.kern"
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
@@ -119,7 +120,7 @@ void main() {
     // finally, deal with boundaries
     // where will it go?
     
-    BoundaryResult br = adjust_boundary_bounce(input_positions[idx].data, newvel, pc.domainMin, pc.domainMax, pc.dt, 0.99);
+    BoundaryResult br = adjust_boundary_bounce_mesh(input_positions[idx].data, newvel, pc.dt, 0.99);
     
     output_velocities[idx].data = br.vel;
     output_positions[idx].data = br.pos;
