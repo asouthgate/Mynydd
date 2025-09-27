@@ -216,6 +216,34 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
     }
 }
 
+// Unit cube triangles (6 faces × 2 triangles per face)
+std::vector<glm::dvec3> BOUNDARY_VERTICES = {
+    // -Z face
+    glm::dvec3(0,0,0), glm::dvec3(1,0,0), glm::dvec3(1,1,0),
+    glm::dvec3(0,0,0), glm::dvec3(1,1,0), glm::dvec3(0,1,0),
+
+    // +Z face
+    glm::dvec3(0,0,1), glm::dvec3(1,0,1), glm::dvec3(1,1,1),
+    glm::dvec3(0,0,1), glm::dvec3(1,1,1), glm::dvec3(0,1,1),
+
+    // -X face
+    glm::dvec3(0,0,0), glm::dvec3(0,0,1), glm::dvec3(0,1,1),
+    glm::dvec3(0,0,0), glm::dvec3(0,1,1), glm::dvec3(0,1,0),
+
+    // +X face
+    glm::dvec3(1,0,0), glm::dvec3(1,0,1), glm::dvec3(1,1,1),
+    glm::dvec3(1,0,0), glm::dvec3(1,1,1), glm::dvec3(1,1,0),
+
+    // -Y face
+    glm::dvec3(0,0,0), glm::dvec3(1,0,0), glm::dvec3(1,0,1),
+    glm::dvec3(0,0,0), glm::dvec3(1,0,1), glm::dvec3(0,0,1),
+
+    // +Y face
+    glm::dvec3(0,1,0), glm::dvec3(1,1,0), glm::dvec3(1,1,1),
+    glm::dvec3(0,1,0), glm::dvec3(1,1,1), glm::dvec3(0,1,1)
+};
+
+
 SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations, std::string fname, bool debug_mode) {
 
     std::cerr << "Beginning simulation with params " <<
@@ -267,6 +295,11 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(double), false);
     auto pressureForceBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
+
+
+    auto meshVerticesBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, BOUNDARY_VERTICES.size() * sizeof(glm::dvec3), false);
+
 
     mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
         contextPtr,
@@ -335,6 +368,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputVel, pingVelocityBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
+    mynydd::uploadData<glm::dvec3>(contextPtr, BOUNDARY_VERTICES, meshVerticesBuffer);
 
     double h;
     if (params.dist == 0) {
