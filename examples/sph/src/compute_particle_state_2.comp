@@ -47,8 +47,8 @@ layout(set = 0, binding = 7) buffer OutputVelocities {
     dVec3Wrapper output_velocities[];
 };
 
-layout(std430, binding = 8) buffer BoundaryMesh {
-    dvec3 vertices[]; // length = N_TRIS * 3
+layout(set = 0, binding = 8) buffer BoundaryMesh {
+    dVec3Wrapper mesh_vertices[]; // length = N_TRIS * 3
 };
 
 layout(push_constant) uniform Params {
@@ -131,7 +131,7 @@ void main() {
     for (int i = 0; i < N_TRIS; ++i) {
         BoundaryResult tmp_br = bounce_against_triangle(
             br.pos, br.vel, pc.dt, 0.99,
-            cubeTriA[i], cubeTriB[i], cubeTriC[i]
+            mesh_vertices[i * 3].data, mesh_vertices[i * 3 + 1].data, mesh_vertices[i * 3 + 2].data
         );
         if (tmp_br.collision) {
             br = tmp_br;

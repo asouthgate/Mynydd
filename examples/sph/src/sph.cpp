@@ -296,9 +296,12 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
     auto pressureForceBuffer = 
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
-
+    std::vector<dVec3Aln32> vertices(BOUNDARY_VERTICES.size());
+    for (size_t i = 0; i < BOUNDARY_VERTICES.size(); ++i) {
+        vertices[i].data = BOUNDARY_VERTICES[i];
+    }
     auto meshVerticesBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, BOUNDARY_VERTICES.size() * sizeof(glm::dvec3), false);
+        std::make_shared<mynydd::Buffer>(contextPtr, vertices.size() * sizeof(dVec3Aln32), false);
 
 
     mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
@@ -358,6 +361,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
             pressureForceBuffer,
             pingPosBuffer,
             pingVelocityBuffer,
+            meshVerticesBuffer
         },
         groupCount,
         1,
@@ -368,7 +372,8 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputVel, pingVelocityBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
-    mynydd::uploadData<glm::dvec3>(contextPtr, BOUNDARY_VERTICES, meshVerticesBuffer);
+    
+    mynydd::uploadData<dVec3Aln32>(contextPtr, vertices, meshVerticesBuffer);
 
     double h;
     if (params.dist == 0) {
