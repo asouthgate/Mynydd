@@ -20,7 +20,7 @@ void printSPHDataCSV(const SPHData& data) {
 
 int main(int argc, char** argv) {
 
-    uint32_t nParticles = 4096 * 4;
+    uint32_t nParticles = 5000;
     uint32_t nBitsPerAxis = 4;
     uint32_t niterations = 10000;
     double dt = 0.003;
