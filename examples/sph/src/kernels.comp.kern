@@ -4,6 +4,14 @@ const double D15 = 15.0;
 const double D6 = 6.0;
 const double MINDIST = 1e-6;
 
+
+struct BoundaryResult {
+    dvec3 pos;
+    dvec3 vel;
+    bool collision;
+};
+
+
 double get_debrun_coeff_3D(double h) {
     double hp6 = h * h * h * h * h * h;
     return D15 / (PI * hp6);
@@ -106,11 +114,6 @@ dvec3 cal_pressure_force_ij(dvec3 gradw, double pi, double pj, double rhoi, doub
     return pforce_coefficient * gradw;
 }
 
-struct BoundaryResult {
-    dvec3 pos;
-    dvec3 vel;
-};
-
 BoundaryResult adjust_boundary_bounce(dvec3 pos, dvec3 vel, dvec3 bmin, dvec3 bmax, double dt, double damping) {
     dvec3 new_pos = pos;
     dvec3 new_vel = vel;
@@ -171,6 +174,8 @@ dvec3 viscosityForce(
     return mu * mass_j * (vel_j - vel_i) / rho_avg * laplacian;
 }
 
+
+
 vec4 computeIntersectionParams(
     dvec3 v0, dvec3 v1, dvec3 v2,
     dvec3 p0, dvec3 p1
@@ -212,4 +217,43 @@ bool doesIntersect(vec4 params) {
 
 bool isParallel(vec4 params) {
     return abs(params.w) < 1e-9;
+}
+
+BoundaryResult bounce_against_triangle(
+    dvec3 p0,
+    dvec3 vel,
+    double dt,
+    double restitution,
+    dvec3 v0,
+    dvec3 v1,
+    dvec3 v2
+) {
+    BoundaryResult result;
+    result.collision = false;
+    dvec3 p1 = p0 + vel * dt;
+
+    result.pos = p1;
+    result.vel = vel; // default: no collision
+
+    vec4 params = computeIntersectionParams(v0, v1, v2, p0, p1);
+
+    if (isParallel(params)) return result;
+    if (isOutsideUV(params)) return result;
+    if (doesIntersect(params)) return result;
+
+    double t = params.z;
+    if (t < 0.0 || t > 1.0) return result; // not inside segment
+
+    dvec3 hitPoint = p0 + (p1 - p0) * t;
+
+    // Triangle normal
+    dvec3 normal = normalize(cross(v1 - v0, v2 - v0));
+    if (dot(vel, normal) > 0.0) normal = -normal;
+
+    dvec3 refl = reflect(vel, normal) * restitution;
+
+    result.pos = hitPoint + normal * 1e-6; // avoid sticking
+    result.vel = refl;
+    result.collision = true;
+    return result;
 }

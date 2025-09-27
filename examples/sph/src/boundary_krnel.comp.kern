@@ -1,0 +1,67 @@
+
+
+// --- Hardcoded unit cube mesh (0,0,0) to (1,1,1) ---
+// 12 triangles (6 faces × 2 tris)
+const int N_TRIS = 12;
+const dvec3 cubeTriA[N_TRIS] = dvec3[](
+    // -Z face
+    dvec3(0,0,0), dvec3(0,0,0),
+    // +Z face
+    dvec3(0,0,1), dvec3(0,0,1),
+    // -X face
+    dvec3(0,0,0), dvec3(0,0,0),
+    // +X face
+    dvec3(1,0,0), dvec3(1,0,0),
+    // -Y face
+    dvec3(0,0,0), dvec3(0,0,0),
+    // +Y face
+    dvec3(0,1,0), dvec3(0,1,0)
+);
+
+const dvec3 cubeTriB[N_TRIS] = dvec3[](
+    // -Z face
+    dvec3(1,0,0), dvec3(0,1,0),
+    // +Z face
+    dvec3(1,0,1), dvec3(0,1,1),
+    // -X face
+    dvec3(0,0,1), dvec3(0,1,0),
+    // +X face
+    dvec3(1,0,1), dvec3(1,1,0),
+    // -Y face
+    dvec3(1,0,0), dvec3(0,0,1),
+    // +Y face
+    dvec3(1,1,0), dvec3(0,1,1)
+);
+
+const dvec3 cubeTriC[N_TRIS] = dvec3[](
+    // -Z face
+    dvec3(1,1,0), dvec3(1,1,0),
+    // +Z face
+    dvec3(1,1,1), dvec3(1,1,1),
+    // -X face
+    dvec3(0,1,1), dvec3(0,1,1),
+    // +X face
+    dvec3(1,1,1), dvec3(1,1,1),
+    // -Y face
+    dvec3(1,0,1), dvec3(1,0,1),
+    // +Y face
+    dvec3(1,1,1), dvec3(1,1,1)
+);
+
+BoundaryResult adjust_boundary_bounce_mesh(
+    dvec3 p0,
+    dvec3 vel,
+    double dt,
+    double restitution
+) {
+    BoundaryResult br;
+
+    for (int i = 0; i < N_TRIS; ++i) {
+        br = bounce_against_triangle(
+            p0, vel, dt, restitution,
+            cubeTriA[i], cubeTriB[i], cubeTriC[i]
+        );
+    }
+
+    return br;
+}
