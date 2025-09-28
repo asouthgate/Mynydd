@@ -266,16 +266,26 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
         std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(dVec3Aln32), false);
 
 
+    // TODO: extract
+    // Prepare mesh data
     std::vector<glm::dvec3> boundary_vertices = get_test_boundary_mesh();
-
-    std::vector<dVec3Aln32> vertices(boundary_vertices.size());
+    std::vector<dVec3Aln32> packed_vertices(boundary_vertices.size());
     for (size_t i = 0; i < boundary_vertices.size(); ++i) {
-        vertices[i].data = boundary_vertices[i];
+        packed_vertices[i].data = boundary_vertices[i];
     }
     params.n_boundary_tris = static_cast<uint32_t>(boundary_vertices.size() / 3);
+    auto mesh_grid_dims = glm::ivec3(1 << params.nBits);
+    auto cellToTris = buildCellToTriangles(boundary_vertices, glm::dvec3(0.0), glm::dvec3(1.0), mesh_grid_dims);
+    accumulateNeighbors(cellToTris, mesh_grid_dims);
+    std::vector<uint32_t> flatTriIndices;
+    std::vector<CellTriangles> cellMeta;
+    packForGPU(cellToTris, flatTriIndices, cellMeta);
     auto meshVerticesBuffer = 
-        std::make_shared<mynydd::Buffer>(contextPtr, vertices.size() * sizeof(dVec3Aln32), false);
-
+        std::make_shared<mynydd::Buffer>(contextPtr, packed_vertices.size() * sizeof(dVec3Aln32), false);
+    auto meshTriIndicesBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, flatTriIndices.size() * sizeof(uint32_t), false);
+    auto meshCellMetaBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, cellMeta.size() * sizeof(CellTriangles), false);
 
     mynydd::ParticleIndexPipeline<dVec3Aln32> particleIndexPipeline(
         contextPtr,
@@ -334,7 +344,9 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
             pressureForceBuffer,
             pingPosBuffer,
             pingVelocityBuffer,
-            meshVerticesBuffer
+            meshVerticesBuffer,
+            meshTriIndicesBuffer,
+            meshCellMetaBuffer
         },
         groupCount,
         1,
@@ -345,7 +357,9 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputVel, pingVelocityBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
-    mynydd::uploadData<dVec3Aln32>(contextPtr, vertices, meshVerticesBuffer);
+    mynydd::uploadData<dVec3Aln32>(contextPtr, packed_vertices, meshVerticesBuffer);
+    mynydd::uploadData<uint32_t>(contextPtr, flatTriIndices, meshTriIndicesBuffer);
+    mynydd::uploadData<CellTriangles>(contextPtr, cellMeta, meshCellMetaBuffer);
 
     double h;
     if (params.dist == 0) {

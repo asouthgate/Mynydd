@@ -51,6 +51,15 @@ layout(set = 0, binding = 8) buffer BoundaryMesh {
     dVec3Wrapper mesh_vertices[]; // length = N_TRIS * 3
 };
 
+layout(set = 0, binding = 9) buffer BoundaryMeshIndex {
+    uint mesh_tri_indices[]; // contains (potentially repeated) indexes into the mesh, for cells with mesh inside
+};
+
+layout(set = 0, binding = 10) buffer BoundaryMeshCellInfo {
+    CellInfo mesh_cellinfos[]; // for each cell, contains left, right range in mesh_indices, which in turn points into mesh_vertices
+};
+
+
 layout(push_constant) uniform Params {
     uint nBits;
     uint nParticles;
@@ -123,15 +132,19 @@ void main() {
     // finally, deal with boundaries
     // where will it go?
 
+    CellInfo mesh_ci = mesh_cellinfos[flat_key];
     BoundaryResult br;
     br.pos = pos + newvel * pc.dt;
     br.vel = newvel;
     br.collision = false;
 
-    for (int i = 0; i < pc.n_boundary_tris; ++i) {
+    for (uint i = mesh_ci.left; i < mesh_ci.right; ++i) {
+
+        uint tri_idx = mesh_tri_indices[i];
+
         BoundaryResult tmp_br = bounce_against_triangle(
             pos, br.vel, pc.dt, 0.99,
-            mesh_vertices[i * 3].data, mesh_vertices[i * 3 + 1].data, mesh_vertices[i * 3 + 2].data
+            mesh_vertices[tri_idx * 3].data, mesh_vertices[tri_idx * 3 + 1].data, mesh_vertices[tri_idx * 3 + 2].data
         );
         if (tmp_br.collision) {
             br = tmp_br;
