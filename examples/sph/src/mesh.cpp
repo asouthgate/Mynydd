@@ -6,7 +6,7 @@
 
 std::vector<std::vector<uint32_t>> buildCellToTriangles(
     const std::vector<glm::dvec3>& vertices, // triangles packed in 3s
-    double h,
+    double h, // grid cell size
     const glm::dvec3& domainMin,
     glm::ivec3 gridDims
 ) {
@@ -133,9 +133,7 @@ std::vector<glm::dvec3> get_test_boundary_mesh() {
         glm::dvec3(0,1,0), glm::dvec3(1,1,1), glm::dvec3(0,1,1)
     };
 
-
-
-        // Small cube parameters
+    // Small cube parameters
     double cube_min_x = 0.9; // touching +X face of unit cube
     double cube_max_x = 1.0;
     double cube_min_y = 0.45;

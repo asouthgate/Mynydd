@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <glm/fwd.hpp>
+#include <iostream>
 #include <cmath>  // For M_PI
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
@@ -123,4 +125,75 @@ TEST_CASE("bounce_against_triangle: misses triangle", "[mesh]") {
     CHECK(br.vel.x == Catch::Approx(0.0).margin(1e-12));
     CHECK(br.vel.y == Catch::Approx(0.0).margin(1e-12));
     CHECK(br.vel.z == Catch::Approx(2.0).margin(1e-12));
+}
+
+// Helpers
+static inline uint32_t flatIndex(glm::ivec3 ijk, glm::ivec3 dims) {
+    return (ijk.z * dims.y + ijk.y) * dims.x + ijk.x;
+}
+
+TEST_CASE("Triangle indexing & accumulation", "[mesh]") {
+    // Make one triangle fully inside multiple cells
+    std::vector<glm::dvec3> verts = {
+        {0.1, 0.1, 0.1},
+        {1.9, 0.1, 0.1},
+        {0.1, 1.9, 0.1},
+
+        {0.1, 0.1, 6.9},
+        {1.9, 0.1, 7.9},
+        {0.1, 1.9, 7.9},
+    };
+
+    double h = 1.0;
+    glm::dvec3 domainMin(0.0);
+    glm::ivec3 dims(8, 8, 8); // 8 cells
+
+    auto cellToTris = buildCellToTriangles(verts, h, domainMin, dims);
+
+    uint32_t idx = flatIndex({0,0,0}, dims);
+    REQUIRE(cellToTris[flatIndex({0,0,0}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({1,0,0}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({0,1,0}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({2,0,0}, dims)].size() == 0);
+    REQUIRE(cellToTris[flatIndex({0,2,0}, dims)].size() == 0);
+
+    REQUIRE(cellToTris[flatIndex({0,0,7}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({1,0,7}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({0,1,7}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({2,0,7}, dims)].size() == 0);
+    REQUIRE(cellToTris[flatIndex({0,2,7}, dims)].size() == 0);
+    REQUIRE(cellToTris[flatIndex({0,1,6}, dims)].size() == 1);
+
+    accumulateNeighbors(cellToTris, dims);
+    REQUIRE(cellToTris[flatIndex({2,0,0}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({0,2,0}, dims)].size() == 1);
+    REQUIRE(cellToTris[flatIndex({3,0,0}, dims)].size() == 0);
+    REQUIRE(cellToTris[flatIndex({0,3,0}, dims)].size() == 0);
+
+}
+
+TEST_CASE("GPU packing consistency", "[mesh]") {
+    // Two triangles, two cells
+    std::vector<glm::dvec3> verts = {
+        {0.1,0.1,0.1}, {0.2,0.1,0.1}, {0.1,0.2,0.1},
+        {1.1,0.1,0.1}, {1.2,0.1,0.1}, {1.1,0.2,0.1}
+    };
+
+    double h = 1.0;
+    glm::dvec3 domainMin(0.0);
+    glm::ivec3 dims(3,1,1);
+
+    auto cellToTris = buildCellToTriangles(verts, h, domainMin, dims);
+    std::vector<uint32_t> flatTriIndices;
+    std::vector<CellTriangles> cellMeta;
+
+    packForGPU(cellToTris, flatTriIndices, cellMeta);
+
+    // Each cell's [left,right) slice should map back correctly
+    for (size_t i = 0; i < cellMeta.size(); ++i) {
+        auto meta = cellMeta[i];
+        for (uint32_t j = meta.left; j < meta.right; ++j) {
+            REQUIRE(j < flatTriIndices.size());
+        }
+    }
 }
