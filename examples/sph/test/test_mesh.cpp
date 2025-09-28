@@ -144,11 +144,11 @@ TEST_CASE("Triangle indexing & accumulation", "[mesh]") {
         {0.1, 1.9, 7.9},
     };
 
-    double h = 1.0;
+    glm::dvec3 domainMax(8.0);
     glm::dvec3 domainMin(0.0);
     glm::ivec3 dims(8, 8, 8); // 8 cells
 
-    auto cellToTris = buildCellToTriangles(verts, h, domainMin, dims);
+    auto cellToTris = buildCellToTriangles(verts, domainMin, domainMax, dims);
 
     uint32_t idx = flatIndex({0,0,0}, dims);
     REQUIRE(cellToTris[flatIndex({0,0,0}, dims)].size() == 1);
@@ -179,11 +179,11 @@ TEST_CASE("GPU packing consistency", "[mesh]") {
         {1.1,0.1,0.1}, {1.2,0.1,0.1}, {1.1,0.2,0.1}
     };
 
-    double h = 1.0;
+    glm::dvec3 domainMax(8.0);
     glm::dvec3 domainMin(0.0);
     glm::ivec3 dims(3,1,1);
 
-    auto cellToTris = buildCellToTriangles(verts, h, domainMin, dims);
+    auto cellToTris = buildCellToTriangles(verts, domainMin, domainMax, dims);
     std::vector<uint32_t> flatTriIndices;
     std::vector<CellTriangles> cellMeta;
 

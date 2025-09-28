@@ -6,12 +6,15 @@
 
 std::vector<std::vector<uint32_t>> buildCellToTriangles(
     const std::vector<glm::dvec3>& vertices, // triangles packed in 3s
-    double h, // grid cell size
     const glm::dvec3& domainMin,
+    const glm::dvec3& domainMax,
     glm::ivec3 gridDims
 ) {
     size_t nCells = static_cast<size_t>(gridDims.x) * gridDims.y * gridDims.z;
     std::vector<std::vector<uint32_t>> cellToTris(nCells);
+
+    // Compute per-dimension cell size (non-uniform possible)
+    glm::dvec3 h = (domainMax - domainMin) / glm::dvec3(gridDims);
 
     uint32_t nTris = static_cast<uint32_t>(vertices.size() / 3);
 
@@ -23,10 +26,14 @@ std::vector<std::vector<uint32_t>> buildCellToTriangles(
         glm::dvec3 triMin = glm::min(glm::min(v0, v1), v2);
         glm::dvec3 triMax = glm::max(glm::max(v0, v1), v2);
 
-        glm::ivec3 minCell = glm::clamp(glm::floor((triMin - domainMin) / h),
-                                        glm::dvec3(0), glm::dvec3(gridDims - 1));
-        glm::ivec3 maxCell = glm::clamp(glm::floor((triMax - domainMin) / h),
-                                        glm::dvec3(0), glm::dvec3(gridDims - 1));
+        glm::ivec3 minCell = glm::clamp(
+            glm::floor((triMin - domainMin) / h),
+            glm::dvec3(0), glm::dvec3(gridDims - 1)
+        );
+        glm::ivec3 maxCell = glm::clamp(
+            glm::floor((triMax - domainMin) / h),
+            glm::dvec3(0), glm::dvec3(gridDims - 1)
+        );
 
         for (int x = minCell.x; x <= maxCell.x; ++x) {
             for (int y = minCell.y; y <= maxCell.y; ++y) {

@@ -7,11 +7,10 @@ struct CellTriangles {
     uint32_t right; // exclusive
 };
 
-// build a mapping from cell to list of triangles that intersect
 std::vector<std::vector<uint32_t>> buildCellToTriangles(
     const std::vector<glm::dvec3>& vertices, // triangles packed in 3s
-    double h,
     const glm::dvec3& domainMin,
+    const glm::dvec3& domainMax,
     glm::ivec3 gridDims
 );
 
