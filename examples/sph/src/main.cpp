@@ -3,6 +3,7 @@
 #include <mynydd/mynydd.hpp>
 #include <mynydd/pipelines/particle_index.hpp>
 
+#include "mesh.hpp"
 #include "sph.hpp"
 
 void printSPHDataCSV(const SPHData& data) {
@@ -24,26 +25,30 @@ int main(int argc, char** argv) {
     uint32_t nBitsPerAxis = 4;
     uint32_t niterations = 10000;
     double dt = 0.003;
-    double rho0_mod = 15.625;
     double c2 = 0.01;
     double mu = 0.001;
     double fgrav = -1.0;
+    double propd2 = 0.2;
 
     if (argc > 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
         nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
         niterations = static_cast<uint32_t>(std::atoi(argv[3]));
         dt = std::atof(argv[4]);
-        rho0_mod = std::atof(argv[5]);
-        c2 = std::atof(argv[6]);
-        mu = std::atof(argv[7]);
-        fgrav = std::atof(argv[8]);
-    } else if (argc > 7) {
-        std::cerr << "Usage: nParticles nBits niterations dt rho0_mod c2 mu fgrav" << std::endl;
+        //rho0_mod = std::atof(argv[5]);
+        c2 = std::atof(argv[5]);
+        mu = std::atof(argv[6]);
+        fgrav = std::atof(argv[7]);
+        propd2 = std::atof(argv[8]);
+    } else if (argc > 8) {
+        std::cerr << "Usage: nParticles nBits niterations dt c2 mu fgrav dim_prop_0" << std::endl;
         return EXIT_FAILURE;
     }
 
-    auto simulated = simulate_inputs(nParticles, 0.3, 0.7);
+    double vol_prop = (propd2 * 2) * (propd2 * 2) * (propd2 * 2);
+    double rho0_mod = 1.0 / vol_prop;
+
+    auto simulated = simulate_inputs(nParticles, 0.5 - propd2, 0.5 + propd2);
     double h = 1.0 / (1 << nBitsPerAxis);
 
     // double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
@@ -53,6 +58,11 @@ int main(int argc, char** argv) {
 
     std::cerr << "Running SPH with " << nParticles << " particles, " << nBitsPerAxis << " bits per axis, "
                 << niterations << " iterations, dt=" << dt << ", rho0=" << rho0 << ", c2=" << c2 << std::endl;
+
+    std::cerr << "./sph_example " << nParticles << " " << nBitsPerAxis << " " << niterations << " "
+                << dt << " " << rho0_mod << " " << c2 << " " << mu << " " << fgrav 
+                << " " << propd2
+                << std::endl;
 
     SPHParams params {
         nBitsPerAxis,
@@ -69,7 +79,9 @@ int main(int argc, char** argv) {
         mu
     };
 
-    auto outputs = run_sph_example(simulated, params, niterations, "main_example_output");
+    auto mesh = loadObjAsTriangles("../examples/sph/assets/ico_sphere_2.obj");
+    normalizeToUnitCube(mesh);
+    auto outputs = run_sph_example(simulated, params, mesh, niterations, "main_example_output");
 
     // printSPHDataCSV(outputs);
 

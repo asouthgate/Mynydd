@@ -39,4 +39,4 @@ struct SPHData {
 
 SPHData simulate_inputs(uint32_t nParticles, double min = 0.0, double max = 1.0);
 SPHData simulate_inputs_uniform(uint32_t nParticles, double jitter = 0.01);
-SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams, uint iterations=1, std::string fname="", bool debug_mode=false);
+SPHData run_sph_example(const SPHData& inputData, SPHParams& inputParams, std::vector<glm::dvec3> boundary_vertices, uint iterations=1, std::string fname="", bool debug_mode=false);

@@ -12,6 +12,7 @@
 
 #include <mynydd/shader_interop.hpp>
 #include "../src/kernels.comp.kern"
+#include "../src/mesh.hpp"
 #include "../src/sph.hpp"
 #include "../src/pipelines/shaders/morton_kernels.comp.kern"
 
@@ -226,7 +227,7 @@ TEST_CASE("Test that pipeline produces correct density values for d = 0 for firs
     };
 
     auto simulated = simulate_inputs(params.nBits);
-    SPHData out = run_sph_example(simulated, params);
+    SPHData out = run_sph_example(simulated, params, get_test_boundary_mesh());
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -294,7 +295,7 @@ TEST_CASE("Test that pipeline produces correct density values for random cell wi
     };
 
     auto simulated = simulate_inputs(params.nParticles);
-    SPHData out = run_sph_example(simulated, params);
+    SPHData out = run_sph_example(simulated, params, get_test_boundary_mesh());
 
     auto inputPos = simulated.positions;
     auto inputDensities = simulated.densities;
@@ -366,7 +367,7 @@ TEST_CASE("Test that pipeline produces correct position, velocity values for ran
 
     auto simulated = simulate_inputs(params.nParticles);
     auto nBitsPerAxis = params.nBits;
-    SPHData out = run_sph_example(simulated, params);
+    SPHData out = run_sph_example(simulated, params, get_test_boundary_mesh());
 
     auto outputPos = out.positions; // these are sorted
     auto outputVel = out.velocities; // these are sorted
@@ -432,7 +433,7 @@ TEST_CASE("Test that sparse inputs with a starting downward velocity move downwa
     }
 
     auto nBitsPerAxis = 8;
-    SPHData out = run_sph_example(simulated, params);
+    SPHData out = run_sph_example(simulated, params, get_test_boundary_mesh());
     auto outputPos = out.positions; // these are sorted
     auto outputVel = out.velocities; // these are sorted
     auto outputNewPos = out.newPositions;
@@ -494,7 +495,7 @@ TEST_CASE("Test that we reach stable equilibrium for simple set of params (no gr
         REQUIRE(p.z <= params.domainMax.z);
     }
 
-    SPHData out = run_sph_example(simulated, params, 500);
+    SPHData out = run_sph_example(simulated, params, get_test_boundary_mesh(), 500);
     auto outputPos = out.positions; // these are sorted
     auto outputVel = out.velocities; // these are sorted
     auto outputNewPos = out.newPositions;

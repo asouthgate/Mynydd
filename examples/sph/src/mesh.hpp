@@ -1,6 +1,7 @@
 #include <vector>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <string>
 
 struct CellTriangles {
     uint32_t left;
@@ -28,3 +29,6 @@ void packForGPU(
 );
 
 std::vector<glm::dvec3> get_test_boundary_mesh();
+std::vector<glm::dvec3> loadObjAsTriangles(const std::string& filename);
+
+void normalizeToUnitCube(std::vector<glm::dvec3>& vertices);

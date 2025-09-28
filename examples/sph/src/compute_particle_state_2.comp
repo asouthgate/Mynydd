@@ -152,5 +152,6 @@ void main() {
     }
     
     output_velocities[idx].data = br.vel;
-    output_positions[idx].data = br.pos;
+    output_positions[idx].data =  clamp(br.pos, dvec3(0.0), dvec3(1.0));;
+    
 }

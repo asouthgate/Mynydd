@@ -213,7 +213,7 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
 }
 
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterations, std::string fname, bool debug_mode) {
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector<glm::dvec3> boundary_vertices, uint iterations, std::string fname, bool debug_mode) {
 
     std::cerr << "Beginning simulation with params " <<
         " nBits=" << params.nBits <<
@@ -268,7 +268,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, uint iterat
 
     // TODO: extract
     // Prepare mesh data
-    std::vector<glm::dvec3> boundary_vertices = get_test_boundary_mesh();
+    // std::vector<glm::dvec3> boundary_vertices = get_test_boundary_mesh();
     std::vector<dVec3Aln32> packed_vertices(boundary_vertices.size());
     for (size_t i = 0; i < boundary_vertices.size(); ++i) {
         packed_vertices[i].data = boundary_vertices[i];

@@ -2,7 +2,80 @@
 #include <cstdint>
 #include <algorithm>
 #include <glm/glm.hpp>
+#include <string>
+#include <fstream>
+#include <sstream>
 #include "mesh.hpp"
+
+
+void normalizeToUnitCube(std::vector<glm::dvec3>& vertices) {
+    if (vertices.empty()) return;
+
+    glm::dvec3 minV = vertices[0];
+    glm::dvec3 maxV = vertices[0];
+
+    // Find bounding box
+    for (const auto& v : vertices) {
+        minV = glm::min(minV, v);
+        maxV = glm::max(maxV, v);
+    }
+
+    glm::dvec3 size = maxV - minV;
+    double maxExtent = std::max({size.x, size.y, size.z});
+
+    if (maxExtent <= 0.0) return; // Degenerate mesh
+
+    // Normalize: shift to origin, scale to fit [0,1]
+    for (auto& v : vertices) {
+        v = (v - minV) / maxExtent;
+    }
+}
+
+
+std::vector<glm::dvec3> loadObjAsTriangles(const std::string& filename) {
+    std::ifstream in(filename);
+    if (!in) throw std::runtime_error("Failed to open file: " + filename);
+
+    std::vector<glm::dvec3> positions;
+    std::vector<glm::dvec3> triangles;
+
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue; // skip comments
+
+        std::istringstream iss(line);
+        std::string type;
+        iss >> type;
+
+        if (type == "v") {
+            double x, y, z;
+            iss >> x >> y >> z;
+            positions.emplace_back(x, y, z);
+        }
+        else if (type == "f") {
+            std::vector<int> indices;
+            std::string vert;
+            while (iss >> vert) {
+                std::istringstream viss(vert);
+                std::string idxStr;
+                std::getline(viss, idxStr, '/'); // only care about vertex index
+                indices.push_back(std::stoi(idxStr) - 1); // OBJ is 1-based
+            }
+
+            if (indices.size() < 3) continue;
+
+            // Triangulate polygon (fan method)
+            for (size_t i = 1; i + 1 < indices.size(); i++) {
+                triangles.push_back(positions[indices[0]]);
+                triangles.push_back(positions[indices[i]]);
+                triangles.push_back(positions[indices[i+1]]);
+            }
+        }
+    }
+
+    return triangles;
+}
+
 
 std::vector<std::vector<uint32_t>> buildCellToTriangles(
     const std::vector<glm::dvec3>& vertices, // triangles packed in 3s
