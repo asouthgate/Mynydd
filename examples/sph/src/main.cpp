@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 #include <mynydd/mynydd.hpp>
 #include <mynydd/pipelines/particle_index.hpp>
+#include <yaml-cpp/yaml.h>
 
 #include "mesh.hpp"
 #include "sph.hpp"
@@ -21,38 +22,26 @@ void printSPHDataCSV(const SPHData& data) {
 
 int main(int argc, char** argv) {
 
-    uint32_t nParticles = 5000;
-    uint32_t nBitsPerAxis = 4;
-    uint32_t niterations = 10000;
-    double dt = 0.003;
-    double c2 = 0.01;
-    double mu = 0.001;
-    double fgrav = -1.0;
 
-    double x0 = 0.0;
-    double x1 = 1.0;
-    double y0 = 0.0;
-    double y1 = 1.0;
-    double z0 = 0.8;
-    double z1 = 1.0;
+    auto config_fname = argv[1];
+    YAML::Node config = YAML::LoadFile(config_fname);
 
+    uint32_t nParticles = config["nParticles"].as<uint32_t>();
+    uint32_t nBitsPerAxis = config["nBitsPerAxis"].as<uint32_t>();
+    uint32_t niterations = config["niterations"].as<uint32_t>();
+    double dt = config["dt"].as<double>();
+    double c2 = config["c2"].as<double>();
+    double mu = config["mu"].as<double>();
+    double fgrav = config["fgrav"].as<double>();
 
-    if (argc > 2) {
-        nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
-        nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
-        niterations = static_cast<uint32_t>(std::atoi(argv[3]));
-        dt = std::atof(argv[4]);
-        c2 = std::atof(argv[5]);
-        mu = std::atof(argv[6]);
-        fgrav = std::atof(argv[7]);
-        x0 = std::atof(argv[8]);
-        x1 = std::atof(argv[9]);
-        y0 = std::atof(argv[10]);
-        y1 = std::atof(argv[11]);
-        z0 = std::atof(argv[12]);
-        z1 = std::atof(argv[13]);
+    double x0 = config["x0"].as<double>();
+    double x1 = config["x1"].as<double>();
+    double y0 = config["y0"].as<double>();
+    double y1 = config["y1"].as<double>();
+    double z0 = config["z0"].as<double>();
+    double z1 = config["z1"].as<double>();
 
-    }
+    std::string mesh_path = config["mesh_path"].as<std::string>();
 
     double vol_prop = (fabs(x1 - x0) * fabs(y1 - y0) * fabs(z1 - z0));
     double rho0_mod = 1.0 / vol_prop;
@@ -87,7 +76,7 @@ int main(int argc, char** argv) {
         mu
     };
 
-    auto mesh = loadObjAsTriangles("../examples/sph/assets/example_mesh.obj");
+    auto mesh = loadObjAsTriangles(mesh_path);
     normalizeToUnitCube(mesh);
     auto outputs = run_sph_example(simulated, params, mesh, niterations, "main_example_output");
 

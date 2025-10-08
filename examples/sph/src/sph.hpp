@@ -8,6 +8,27 @@ struct dVec3Aln32 {
     alignas(32) glm::dvec3 data;
 };
 
+template <typename T>
+struct RasterResult {
+    std::vector<T> values;
+};
+
+template <typename T>
+RasterResult<T> computeGridMean(
+    const std::vector<dVec3Aln32>& pos,
+    const std::vector<T>& data,
+    double gridMin = 0.0,
+    double gridMax = 1.0,
+    std::size_t resolution = 10);
+
+template <typename T>
+void write_raster_to_hdf5(const std::vector<T>& raster,
+                          double gridMin,
+                          double gridMax,
+                          std::size_t resolution,
+                          const std::string& basepath,
+                          uint64_t iter);
+
 struct SPHParams {
     uint32_t nBits;
     uint32_t nParticles;

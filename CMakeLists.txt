@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Vulkan REQUIRED)
 find_package(HDF5 REQUIRED COMPONENTS C CXX)
+find_package(yaml-cpp REQUIRED)
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
@@ -116,7 +117,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
     add_executable(${EXAMPLE}_example ${EXAMPLE_CPP_SRC_FILES} ${EXAMPLE_SHADER_SPV_FILES})
 
     target_include_directories(${EXAMPLE}_example PRIVATE ${INCLUDE_DIR})
-    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
+    target_link_libraries(${EXAMPLE}_example PRIVATE Vulkan::Vulkan mynydd ${HDF5_LIBRARIES} yaml-cpp)
 
     add_dependencies(${EXAMPLE}_example compile_${EXAMPLE}_shaders)
 
@@ -136,6 +137,7 @@ foreach(EXAMPLE ${EXAMPLE_DIRS})
             ${EXAMPLE_CPP_SRC_FILES} 
             ${EXAMPLE_SHADER_SPV_FILES}
         )
+        
         target_include_directories(${EXAMPLE}_${TEST_NAME} PRIVATE ${INCLUDE_DIR})
         target_link_libraries(${EXAMPLE}_${TEST_NAME} PRIVATE Catch2::Catch2WithMain Vulkan::Vulkan mynydd ${HDF5_LIBRARIES})
         add_dependencies(${EXAMPLE}_${TEST_NAME} compile_${EXAMPLE}_shaders)

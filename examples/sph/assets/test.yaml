@@ -1,0 +1,20 @@
+# Simulation parameters
+nParticles: 50000
+nBitsPerAxis: 4
+niterations: 10000
+dt: 0.003
+c2: 0.01
+mu: 0.001
+fgrav: -1.0
+
+# Bounding box
+x0: 0.1
+x1: 0.9
+y0: 0.1
+y1: 0.9
+z0: 0.1
+z1: 0.9
+
+# Mesh file path
+mesh_path: "../examples/sph/assets/bevelled_cube.obj"
+

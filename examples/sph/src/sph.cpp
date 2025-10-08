@@ -20,6 +20,45 @@
 #include "sph.hpp"
 #include <algorithm>
 
+
+template <typename T>
+RasterResult<T> computeGridMean(
+    const std::vector<dVec3Aln32>& pos,
+    const std::vector<T>& data,
+    double gridMin,
+    double gridMax,
+    std::size_t resolution
+) {
+    std::vector<T> grid(resolution * resolution * resolution, T(0));
+    std::vector<std::size_t> counts(resolution * resolution * resolution, 0);
+
+    const double range = gridMax - gridMin;
+    const double cellSize = range / static_cast<double>(resolution);
+
+    // ---- Compute sums and counts ----
+    for (std::size_t i = 0; i < pos.size(); ++i) {
+        const glm::dvec3& p = pos[i].data;
+
+        glm::ivec3 idx = glm::floor((p - glm::dvec3(gridMin)) / cellSize);
+        idx = glm::clamp(idx, glm::ivec3(0), glm::ivec3(resolution - 1));
+
+        std::size_t flatIdx =
+            static_cast<std::size_t>(idx.x + idx.y * resolution + idx.z * resolution * resolution);
+
+        grid[flatIdx] += data[i];
+        counts[flatIdx] += 1;
+    }
+
+    // ---- Compute mean ----
+    for (std::size_t i = 0; i < grid.size(); ++i) {
+        if (counts[i] > 0)
+            grid[i] /= static_cast<T>(counts[i]);
+    }
+
+    return { std::move(grid) };
+}
+
+
 SPHData simulate_inputs_uniform(uint32_t nParticles, double jitter) {
     std::vector<dVec3Aln32> inputPos(nParticles);
     std::vector<dVec3Aln32> inputVel(nParticles);
@@ -130,7 +169,7 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
         buf[i*3+0] = pos[i].data[0];
         buf[i*3+1] = pos[i].data[1];
         buf[i*3+2] = pos[i].data[2];
-    }
+    }   
 
     const hsize_t dims_keys[1] = { n };
 
@@ -149,13 +188,71 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
 
         
         file.flush(H5F_SCOPE_GLOBAL); // close/flush
-
-        
     }
 
     std::filesystem::rename(tmp, finalname); // atomic on same FS
 }
 
+template <typename T>
+void write_raster_to_hdf5(const std::vector<T>& raster,
+                          double gridMin,
+                          double gridMax,
+                          std::size_t resolution,
+                          const std::string& basepath,
+                          uint64_t iter)
+{
+    namespace fs = std::filesystem;
+
+    fs::path dir(basepath);
+    if (!fs::exists(dir)) {
+        fs::create_directories(dir);
+        std::cout << "Created directory: " << dir << "\n";
+    }
+
+    const hsize_t dims[1] = { raster.size() };
+
+    std::string tmp = basepath + "/" + basepath + ".tmp." + std::to_string(iter) + ".h5";
+    std::string finalname = basepath + "/" + basepath + "." + std::to_string(iter) + ".h5";
+
+    {
+        H5::H5File file(tmp, H5F_ACC_TRUNC);
+
+        // ---- Determine HDF5 datatype ----
+        const H5::PredType* dtype = nullptr;
+        if constexpr (std::is_same_v<T, double>)
+            dtype = &H5::PredType::NATIVE_DOUBLE;
+        else if constexpr (std::is_same_v<T, float>)
+            dtype = &H5::PredType::NATIVE_FLOAT;
+        else if constexpr (std::is_same_v<T, uint32_t>)
+            dtype = &H5::PredType::NATIVE_UINT32;
+        else if constexpr (std::is_same_v<T, int>)
+            dtype = &H5::PredType::NATIVE_INT;
+        else
+            static_assert(!sizeof(T*), "Unsupported type for HDF5 output");
+
+        // ---- Main dataset ----
+        H5::DataSpace space(1, dims);
+        H5::DataSet ds = file.createDataSet("raster", *dtype, space);
+        ds.write(raster.data(), *dtype);
+
+        // ---- Metadata attributes ----
+        {
+            H5::Attribute attrMin = ds.createAttribute("gridMin", H5::PredType::NATIVE_DOUBLE, H5::DataSpace());
+            attrMin.write(H5::PredType::NATIVE_DOUBLE, &gridMin);
+
+            H5::Attribute attrMax = ds.createAttribute("gridMax", H5::PredType::NATIVE_DOUBLE, H5::DataSpace());
+            attrMax.write(H5::PredType::NATIVE_DOUBLE, &gridMax);
+
+            uint64_t res64 = static_cast<uint64_t>(resolution);
+            H5::Attribute attrRes = ds.createAttribute("resolution", H5::PredType::NATIVE_UINT64, H5::DataSpace());
+            attrRes.write(H5::PredType::NATIVE_UINT64, &res64);
+        }
+
+        file.flush(H5F_SCOPE_GLOBAL);
+    }
+
+    fs::rename(tmp, finalname);
+}
 
 std::string _get_hd5_filename() {
     // Get current time as system_clock::time_point
@@ -257,8 +354,10 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
 
     auto nParticles = static_cast<uint32_t>(inputData.positions.size());
     std::cerr << "Testing particle index with " << nParticles << " particles" << std::endl;
+    std::string raster_fname = fname;
     if (fname == "") {
         fname = _get_hd5_filename();
+        raster_fname = fname;
     }
     auto inputPos = inputData.positions;
     auto inputVel = inputData.velocities;
@@ -444,11 +543,18 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
         }
 
         if (write_hdf5 && (it % hdf5_cadence == 0 || it == iterations - 1)) {
+            auto pos = mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles);
+            auto morton = mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles);
+            auto densities = mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles);
             write_dvec3_to_hdf5(
-                mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles), 
-                mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles),
+                pos, 
+                morton,
                 fname, it
             );
+
+            auto rasteres = 50;
+            auto result = computeGridMean(pos, densities, 0.0, 1.0, rasteres);
+            write_raster_to_hdf5(result.values, 0.0, 1.0, rasteres, raster_fname + "_density", it);
         }
 
         std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
