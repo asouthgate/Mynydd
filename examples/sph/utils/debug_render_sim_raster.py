@@ -46,10 +46,15 @@ volume = scene.visuals.Volume(
     raster_norm,
     parent=view.scene,
     threshold=0.05,      # adjust opacity cutoff
-    cmap='viridis'
+    cmap='viridis',
+    method='iso'  # 'mip' is default max intensity projection
 )
-volume.interpolation = 'nearest'
-
+volume.unfreeze()
+#opacity_map = np.clip(raster_norm * 2.0, 0, 1)  # scale to emphasize mid-densities
+volume.shade = True
+volume.threshold = 0.2  # only values above this are considered surfaces
+#volume._opacity = opacity_map
+volume.freeze()
 # Camera & axes
 view.camera = scene.cameras.TurntableCamera(fov=60, azimuth=45, elevation=30, distance=2.5 * resolution)
 axis = scene.visuals.XYZAxis(parent=view.scene)
