@@ -28,41 +28,49 @@ int main(int argc, char** argv) {
     double c2 = 0.01;
     double mu = 0.001;
     double fgrav = -1.0;
-    double propd2 = 0.2;
+
+    double x0 = 0.0;
+    double x1 = 1.0;
+    double y0 = 0.0;
+    double y1 = 1.0;
+    double z0 = 0.8;
+    double z1 = 1.0;
+
 
     if (argc > 2) {
         nParticles = static_cast<uint32_t>(std::atoi(argv[1]));
         nBitsPerAxis = static_cast<uint32_t>(std::atoi(argv[2]));
         niterations = static_cast<uint32_t>(std::atoi(argv[3]));
         dt = std::atof(argv[4]);
-        //rho0_mod = std::atof(argv[5]);
         c2 = std::atof(argv[5]);
         mu = std::atof(argv[6]);
         fgrav = std::atof(argv[7]);
-        propd2 = std::atof(argv[8]);
-    } else if (argc > 8) {
-        std::cerr << "Usage: nParticles nBits niterations dt c2 mu fgrav dim_prop_0" << std::endl;
-        return EXIT_FAILURE;
+        x0 = std::atof(argv[8]);
+        x1 = std::atof(argv[9]);
+        y0 = std::atof(argv[10]);
+        y1 = std::atof(argv[11]);
+        z0 = std::atof(argv[12]);
+        z1 = std::atof(argv[13]);
+
     }
 
-    double vol_prop = (propd2 * 2) * (propd2 * 2) * (propd2 * 2);
+    double vol_prop = (fabs(x1 - x0) * fabs(y1 - y0) * fabs(z1 - z0));
     double rho0_mod = 1.0 / vol_prop;
 
-    auto simulated = simulate_inputs(nParticles, 0.5 - propd2, 0.5 + propd2);
+    auto simulated = simulate_inputs_box(nParticles, x0, x1, y0, y1, z0, z1);
     double h = 1.0 / (1 << nBitsPerAxis);
 
-    // double nbr_vol_prop = (4.0 / 3.0) * M_PI * h * h * h;
-    // double rho0 = nParticles * nbr_vol_prop * rho0_mod;
-    
     double rho0 = nParticles * rho0_mod;
 
     std::cerr << "Running SPH with " << nParticles << " particles, " << nBitsPerAxis << " bits per axis, "
                 << niterations << " iterations, dt=" << dt << ", rho0=" << rho0 << ", c2=" << c2 << std::endl;
 
     std::cerr << "./sph_example " << nParticles << " " << nBitsPerAxis << " " << niterations << " "
-                << dt << " " << rho0_mod << " " << c2 << " " << mu << " " << fgrav 
-                << " " << propd2
-                << std::endl;
+                << dt << " " << c2 << " " << mu << " " << fgrav 
+                << " " << x0 << " " << x1
+                << " " << y0 << " " << y1
+                << " " << z0 << " " << z1
+                << "|" << std::endl;
 
     SPHParams params {
         nBitsPerAxis,
@@ -79,7 +87,7 @@ int main(int argc, char** argv) {
         mu
     };
 
-    auto mesh = loadObjAsTriangles("../examples/sph/assets/ico_sphere_2.obj");
+    auto mesh = loadObjAsTriangles("../examples/sph/assets/example_mesh.obj");
     normalizeToUnitCube(mesh);
     auto outputs = run_sph_example(simulated, params, mesh, niterations, "main_example_output");
 

@@ -75,6 +75,32 @@ SPHData simulate_inputs(uint32_t nParticles, double min, double max) {
     return {inputDensities, {}, {}, inputPos,  inputVel, {}};
 }
 
+
+SPHData simulate_inputs_box(uint32_t nParticles, double x0, double x1, double y0, double y1, double z0, double z1) {
+
+    std::cerr << "Simulating " << nParticles << " particles in box "
+              << "[" << x0 << "," << x1 << "] x "
+              << "[" << y0 << "," << y1 << "] x "
+              << "[" << z0 << "," << z1 << "]"
+              << std::endl;
+
+    // Generate some input data to start with
+    std::vector<dVec3Aln32> inputPos(nParticles);
+    std::vector<dVec3Aln32> inputVel(nParticles);
+    std::vector<double> inputDensities(nParticles);
+    std::mt19937 rng(12345);
+    std::uniform_real_distribution<double> xdist(x0, x1);
+    std::uniform_real_distribution<double> ydist(y0, y1);
+    std::uniform_real_distribution<double> zdist(z0, z1);
+
+    for (size_t ak = 0; ak < nParticles; ++ak) {
+        inputPos[ak].data = glm::dvec3(xdist(rng), ydist(rng), zdist(rng));
+        inputDensities[ak] = 1.0;
+        inputVel[ak].data = glm::dvec3(0.0, 0.0, 0.0);
+    }
+    return {inputDensities, {}, {}, inputPos,  inputVel, {}};
+}
+
 void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHParams& params) {
     for (const auto& p : posData) {
         if (p.data.x < params.domainMin.x || p.data.x > params.domainMax.x ||
