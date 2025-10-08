@@ -18,3 +18,4 @@ z1: 0.9
 # Mesh file path
 mesh_path: "../examples/sph/assets/bevelled_cube.obj"
 
+raster_resolution: 50

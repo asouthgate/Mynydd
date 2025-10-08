@@ -336,7 +336,7 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
 }
 
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector<glm::dvec3> boundary_vertices, uint iterations, std::string fname, bool debug_mode) {
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector<glm::dvec3> boundary_vertices, uint iterations, std::string fname, bool debug_mode, int rasterres) {
 
     std::cerr << "Beginning simulation with params " <<
         " nBits=" << params.nBits <<
@@ -552,9 +552,8 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
                 fname, it
             );
 
-            auto rasteres = 50;
-            auto result = computeGridMean(pos, densities, 0.0, 1.0, rasteres);
-            write_raster_to_hdf5(result.values, 0.0, 1.0, rasteres, raster_fname + "_density", it);
+            auto result = computeGridMean(pos, densities, 0.0, 1.0, rasterres);
+            write_raster_to_hdf5(result.values, 0.0, 1.0, rasterres, raster_fname + "_density", it);
         }
 
         std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;
