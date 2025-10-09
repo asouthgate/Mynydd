@@ -127,13 +127,15 @@ for t, grid in grids_by_type.items():
 # -----------------------------
 # VisPy setup
 # -----------------------------
-canvas = scene.SceneCanvas(keys='interactive', bgcolor='black', size=(1000, 800), show=True)
+# canvas = scene.SceneCanvas(keys='interactive', bgcolor='black', size=(1000, 800), show=True)
+canvas = scene.SceneCanvas(keys='interactive', bgcolor='#222222', size=(1000, 800), show=True)
+# view = canvas.central_widget.add_view()
 view = canvas.central_widget.add_view()
 
 # Choose colormaps by type
 type_colormaps = {
-    0: 'viridis',
-    1: 'magma',
+    0: 'magma_r',
+    1: 'PuBu',
 }
 
 # Create one Volume visual per type
@@ -157,7 +159,6 @@ for t, data in volumes.items():
 # Camera and axes
 view.camera = scene.cameras.TurntableCamera(fov=60, azimuth=45, elevation=30, distance=2.5 * resolution)
 axis = scene.visuals.XYZAxis(parent=view.scene)
-
 # -----------------------------
 # Animation loop
 # -----------------------------
