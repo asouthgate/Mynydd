@@ -29,7 +29,6 @@ int main(int argc, char** argv) {
     uint32_t nParticles = config["nParticles"].as<uint32_t>();
     uint32_t nBitsPerAxis = config["nBitsPerAxis"].as<uint32_t>();
     uint32_t niterations = config["niterations"].as<uint32_t>();
-    uint32_t rasterres = config["raster_resolution"].as<uint32_t>();
     double dt = config["dt"].as<double>();
     double c2 = config["c2"].as<double>();
     double mu = config["mu"].as<double>();
@@ -62,7 +61,6 @@ int main(int argc, char** argv) {
                 << " " << z0 << " " << z1
                 << "|" << std::endl;
 
-    std:: cerr << "Raster resolution is " << rasterres << std::endl;
 
     SPHParams params {
         nBitsPerAxis,
