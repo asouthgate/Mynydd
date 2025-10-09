@@ -152,9 +152,13 @@ void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHPar
 
 void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
                          const std::vector<uint32_t>& morton_keys,
-                          const std::string& basepath,
-                          uint64_t iter)
+                        const std::vector<double>& densities,
+                        const std::string& basepath,
+                        uint64_t iter)
 {
+    if (pos.size() != morton_keys.size() || pos.size() != densities.size()) {
+        throw std::runtime_error("All input vectors must have the same size");
+    }
 
     std::filesystem::path dir(basepath);
     if (!std::filesystem::exists(dir)) {
@@ -163,96 +167,44 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
     }
 
     const hsize_t n = pos.size();
-    const hsize_t dims[2] = { n, 3 };
-    std::vector<double> buf(n*3);
-    for (size_t i=0;i<n;++i){
-        buf[i*3+0] = pos[i].data[0];
-        buf[i*3+1] = pos[i].data[1];
-        buf[i*3+2] = pos[i].data[2];
-    }   
-
+    const hsize_t dims_pos[2] = { n, 3 };
     const hsize_t dims_keys[1] = { n };
+    const hsize_t dims_dens[1] = { n };
+
+    std::vector<double> pos_buf(n * 3);
+    for (size_t i = 0; i < n; ++i) {
+        pos_buf[i * 3 + 0] = pos[i].data[0];
+        pos_buf[i * 3 + 1] = pos[i].data[1];
+        pos_buf[i * 3 + 2] = pos[i].data[2];
+    }
 
     std::string tmp = basepath + "/" + basepath + ".tmp." + std::to_string(iter) + ".h5";
     std::string finalname = basepath + "/" + basepath + "." + std::to_string(iter) + ".h5";
 
     {
         H5::H5File file(tmp, H5F_ACC_TRUNC);
-        H5::DataSpace space(2, dims);
-        H5::DataSet ds = file.createDataSet("positions", H5::PredType::NATIVE_DOUBLE, space);
-        ds.write(buf.data(), H5::PredType::NATIVE_DOUBLE);
 
+        // positions
+        H5::DataSpace space_pos(2, dims_pos);
+        H5::DataSet ds_pos = file.createDataSet("positions", H5::PredType::NATIVE_DOUBLE, space_pos);
+        ds_pos.write(pos_buf.data(), H5::PredType::NATIVE_DOUBLE);
+
+        // morton_keys
         H5::DataSpace space_keys(1, dims_keys);
         H5::DataSet ds_keys = file.createDataSet("morton_keys", H5::PredType::NATIVE_UINT32, space_keys);
         ds_keys.write(morton_keys.data(), H5::PredType::NATIVE_UINT32);
 
-        
-        file.flush(H5F_SCOPE_GLOBAL); // close/flush
-    }
-
-    std::filesystem::rename(tmp, finalname); // atomic on same FS
-}
-
-template <typename T>
-void write_raster_to_hdf5(const std::vector<T>& raster,
-                          double gridMin,
-                          double gridMax,
-                          std::size_t resolution,
-                          const std::string& basepath,
-                          uint64_t iter)
-{
-    namespace fs = std::filesystem;
-
-    fs::path dir(basepath);
-    if (!fs::exists(dir)) {
-        fs::create_directories(dir);
-        std::cout << "Created directory: " << dir << "\n";
-    }
-
-    const hsize_t dims[1] = { raster.size() };
-
-    std::string tmp = basepath + "/" + basepath + ".tmp." + std::to_string(iter) + ".h5";
-    std::string finalname = basepath + "/" + basepath + "." + std::to_string(iter) + ".h5";
-
-    {
-        H5::H5File file(tmp, H5F_ACC_TRUNC);
-
-        // ---- Determine HDF5 datatype ----
-        const H5::PredType* dtype = nullptr;
-        if constexpr (std::is_same_v<T, double>)
-            dtype = &H5::PredType::NATIVE_DOUBLE;
-        else if constexpr (std::is_same_v<T, float>)
-            dtype = &H5::PredType::NATIVE_FLOAT;
-        else if constexpr (std::is_same_v<T, uint32_t>)
-            dtype = &H5::PredType::NATIVE_UINT32;
-        else if constexpr (std::is_same_v<T, int>)
-            dtype = &H5::PredType::NATIVE_INT;
-        else
-            static_assert(!sizeof(T*), "Unsupported type for HDF5 output");
-
-        // ---- Main dataset ----
-        H5::DataSpace space(1, dims);
-        H5::DataSet ds = file.createDataSet("raster", *dtype, space);
-        ds.write(raster.data(), *dtype);
-
-        // ---- Metadata attributes ----
-        {
-            H5::Attribute attrMin = ds.createAttribute("gridMin", H5::PredType::NATIVE_DOUBLE, H5::DataSpace());
-            attrMin.write(H5::PredType::NATIVE_DOUBLE, &gridMin);
-
-            H5::Attribute attrMax = ds.createAttribute("gridMax", H5::PredType::NATIVE_DOUBLE, H5::DataSpace());
-            attrMax.write(H5::PredType::NATIVE_DOUBLE, &gridMax);
-
-            uint64_t res64 = static_cast<uint64_t>(resolution);
-            H5::Attribute attrRes = ds.createAttribute("resolution", H5::PredType::NATIVE_UINT64, H5::DataSpace());
-            attrRes.write(H5::PredType::NATIVE_UINT64, &res64);
-        }
+        // densities
+        H5::DataSpace space_dens(1, dims_dens);
+        H5::DataSet ds_dens = file.createDataSet("densities", H5::PredType::NATIVE_DOUBLE, space_dens);
+        ds_dens.write(densities.data(), H5::PredType::NATIVE_DOUBLE);
 
         file.flush(H5F_SCOPE_GLOBAL);
     }
 
-    fs::rename(tmp, finalname);
+    std::filesystem::rename(tmp, finalname);
 }
+
 
 std::string _get_hd5_filename() {
     // Get current time as system_clock::time_point
@@ -336,7 +288,7 @@ void _validate_velocities_in_bounds(std::vector<dVec3Aln32> velData, const SPHPa
 }
 
 
-SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector<glm::dvec3> boundary_vertices, uint iterations, std::string fname, bool debug_mode, int rasterres) {
+SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector<glm::dvec3> boundary_vertices, uint iterations, std::string fname, bool debug_mode) {
 
     std::cerr << "Beginning simulation with params " <<
         " nBits=" << params.nBits <<
@@ -549,11 +501,12 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
             write_dvec3_to_hdf5(
                 pos, 
                 morton,
+                densities,
                 fname, it
             );
 
-            auto result = computeGridMean(pos, densities, 0.0, 1.0, rasterres);
-            write_raster_to_hdf5(result.values, 0.0, 1.0, rasterres, raster_fname + "_density", it);
+            // auto result = computeGridMean(pos, densities, 0.0, 1.0, rasterres);
+            // write_raster_to_hdf5(result.values, 0.0, 1.0, rasterres, raster_fname + "_density", it);
         }
 
         std::chrono::duration<double, std::milli> elapsed1 = t1 - t0;

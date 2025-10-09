@@ -82,9 +82,7 @@ int main(int argc, char** argv) {
     auto mesh = loadObjAsTriangles(mesh_path);
     normalizeToUnitCube(mesh);
     auto outputs = run_sph_example(
-        simulated, params, mesh, niterations, "main_example_output",
-        false,
-        rasterres
+        simulated, params, mesh, niterations, "main_example_output", false
     );
 
     // printSPHDataCSV(outputs);
