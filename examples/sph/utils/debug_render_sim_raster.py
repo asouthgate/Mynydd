@@ -134,8 +134,8 @@ view = canvas.central_widget.add_view()
 
 # Choose colormaps by type
 type_colormaps = {
-    0: 'magma_r',
-    1: 'PuBu',
+    0: 'nipy_spectral',
+    1: 'plasma_r',
 }
 
 # Create one Volume visual per type
