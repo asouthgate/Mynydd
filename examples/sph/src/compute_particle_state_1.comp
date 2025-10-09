@@ -34,11 +34,15 @@ layout(set = 0, binding = 4) readonly buffer Cells {
     CellInfo cells[];
 };
 
-layout(set = 0, binding = 5) buffer Densities {
+layout(set = 0, binding = 5) readonly buffer InputTypes {
+    uint input_types[];
+};
+
+layout(set = 0, binding = 6) buffer Densities {
     double densities[];
 };
 
-layout(set = 0, binding = 6) buffer Pressures {
+layout(set = 0, binding = 7) buffer Pressures {
     double pressures[];
 };
 
@@ -93,5 +97,6 @@ void main() {
     }
 
     densities[idx] = densitySum;
-    pressures[idx] = cal_pressure_wcsph(densitySum, pc.rho0, pc.c2, 5);
+    double rho0eff = pc.rho0 / (1.0 + double(input_types[idx]) / 4.0);
+    pressures[idx] = cal_pressure_wcsph(densitySum, rho0eff, pc.c2, 5);
 }

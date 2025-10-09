@@ -7,30 +7,26 @@
 #include <sstream>
 #include "mesh.hpp"
 
-
 void normalizeToUnitCube(std::vector<glm::dvec3>& vertices) {
     if (vertices.empty()) return;
 
     glm::dvec3 minV = vertices[0];
     glm::dvec3 maxV = vertices[0];
-
-    // Find bounding box
-    for (const auto& v : vertices) {
+    for (auto& v : vertices) {
         minV = glm::min(minV, v);
         maxV = glm::max(maxV, v);
     }
 
     glm::dvec3 size = maxV - minV;
-    double maxExtent = std::max({size.x, size.y, size.z});
+    double maxExtent = std::max({ size.x, size.y, size.z });
+    if (maxExtent <= 0.0) return;
 
-    if (maxExtent <= 0.0) return; // Degenerate mesh
+    glm::dvec3 center = (maxV + minV) * 0.5;
 
-    // Normalize: shift to origin, scale to fit [0,1]
     for (auto& v : vertices) {
-        v = (v - minV) / maxExtent;
+        v = (v - center) / maxExtent + glm::dvec3(0.5);
     }
 }
-
 
 std::vector<glm::dvec3> loadObjAsTriangles(const std::string& filename) {
     std::ifstream in(filename);

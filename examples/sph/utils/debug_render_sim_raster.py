@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-vis_rasterize_from_particles.py
+vis_rasterize_from_particles_types.py
 
 Usage:
-    python vis_rasterize_from_particles.py <baseprefix> <dt> [resolution]
+    python vis_rasterize_from_particles_types.py <baseprefix> <dt> [resolution]
 
 - baseprefix: e.g. "output/particles/particles" — files named like:
-    baseprefix.<iter>.h5  (must contain datasets "positions" (N,3), "morton_keys", "densities")
+    baseprefix.<iter>.h5  (must contain datasets "positions", "morton_keys", "densities", "particle_type")
 - dt: seconds per frame (float)
 - resolution: optional integer grid resolution (default 64)
 """
@@ -23,7 +23,7 @@ from scipy.ndimage import gaussian_filter
 # Parse args
 # -----------------------------
 if len(sys.argv) < 3:
-    print("Usage: python vis_rasterize_from_particles.py <baseprefix> <dt> [resolution]")
+    print("Usage: python vis_rasterize_from_particles_types.py <baseprefix> <dt> [resolution]")
     sys.exit(1)
 
 prefix = sys.argv[1]
@@ -55,12 +55,11 @@ for fname in files:
         mins = np.minimum(mins, pos.min(axis=0))
         maxs = np.maximum(maxs, pos.max(axis=0))
 
-# If degenerate range occurs, set a small padding
+# Avoid degenerate range
 eps = 1e-9
 ranges = maxs - mins
 zero_mask = ranges <= eps
 if np.any(zero_mask):
-    # pad tiny ranges to avoid division by zero
     ranges[zero_mask] = 1.0
 
 print("Global bounds:")
@@ -70,55 +69,60 @@ print("  max:", maxs)
 # -----------------------------
 # Rasterization helper
 # -----------------------------
-def rasterize_positions(positions, densities, res, xmin, xmax):
+def rasterize_positions(positions, densities, types, res, xmin, xmax):
     """
-    Rasterize weighted particles into a 3D grid.
-    - positions: (N,3) array, columns = x,y,z (Z is third column and considered 'down')
-    - densities: (N,) weights
-    - res: int or (nx,ny,nz)
-    Returns array shaped (nx, ny, nz) in coordinate order (x, y, z).
+    Rasterize weighted particles into a 3D grid per type.
+    Returns dict of type_id -> (nx, ny, nz) array.
     """
     if positions.size == 0:
-        return np.zeros((res, res, res), dtype=float)
+        return {}
 
-    # Normalize positions into [0,1] using global bounding box
     pos_norm = (positions - xmin) / (xmax - xmin)
     pos_norm = np.clip(pos_norm, 0.0, 1.0)
 
     bins = [res, res, res]
     ranges = [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]]
 
-    # Weighted sum per voxel (by density)
-    weighted_hist, edges = np.histogramdd(pos_norm, bins=bins, range=ranges, weights=densities)
-    counts, _ = np.histogramdd(pos_norm, bins=bins, range=ranges)
+    unique_types = np.unique(types)
+    type_grids = {}
 
-    with np.errstate(divide="ignore", invalid="ignore"):
-        avg_density = np.where(counts > 0, weighted_hist / counts, 0.0)
+    for t in unique_types:
+        mask = types == t
+        if not np.any(mask):
+            continue
 
-    # Smooth a bit for nicer visuals
-    avg_density = gaussian_filter(avg_density, sigma=0.7)
+        weighted_hist, _ = np.histogramdd(pos_norm[mask], bins=bins, range=ranges, weights=densities[mask])
+        counts, _ = np.histogramdd(pos_norm[mask], bins=bins, range=ranges)
 
-    # avg_density has shape (nx, ny, nz) — axes correspond to x,y,z (axis 2 is z as you requested)
-    return avg_density
+        with np.errstate(divide="ignore", invalid="ignore"):
+            avg_density = np.where(counts > 0, weighted_hist / counts, 0.0)
 
+        avg_density = gaussian_filter(avg_density, sigma=0.7)
+        type_grids[int(t)] = avg_density
+
+    return type_grids
 
 # -----------------------------
-# Read first file to build initial raster + vispy setup
+# Helper to map from (x,y,z) -> (z,y,x)
+# -----------------------------
+def to_vispy_array(arr_xyz):
+    return np.transpose(arr_xyz, (2, 1, 0))
+
+# -----------------------------
+# Initialize from first frame
 # -----------------------------
 with h5py.File(files[0], "r") as f:
     positions = np.array(f["positions"])
     densities = np.array(f["densities"])
-    raster_xyz = rasterize_positions(positions, densities, resolution, mins, maxs)  # (x,y,z)
-    # normalize raster for display
-    raster_norm = (raster_xyz - raster_xyz.min()) / (raster_xyz.max() - raster_xyz.min() + 1e-12)
+    types = np.array(f["particle_type"], dtype=np.uint32)
 
-# VisPy expects Volume data in shape (depth=z, height=y, width=x) -> (z, y, x)
-def to_vispy_array(arr_xyz):
-    # input arr_xyz shape (x, y, z)
-    # return arr_vispy shape (z, y, x)
-    return np.transpose(arr_xyz, (2, 1, 0))
+    grids_by_type = rasterize_positions(positions, densities, types, resolution, mins, maxs)
 
-raster_vispy = to_vispy_array(raster_norm)
+# Normalize and prepare VisPy volumes per type
+volumes = {}
+for t, grid in grids_by_type.items():
+    grid_norm = (grid - grid.min()) / (grid.max() - grid.min() + 1e-12)
+    volumes[t] = to_vispy_array(grid_norm)
 
 # -----------------------------
 # VisPy setup
@@ -126,21 +130,31 @@ raster_vispy = to_vispy_array(raster_norm)
 canvas = scene.SceneCanvas(keys='interactive', bgcolor='black', size=(1000, 800), show=True)
 view = canvas.central_widget.add_view()
 
-# Interior (unshaded, semi-transparent)
-interior = scene.visuals.Volume(
-    raster_vispy,
-    parent=view.scene,
-    threshold=0.05,
-    cmap='viridis',
-    method='iso',
-)
-interior.unfreeze()
-interior.shade = True
-interior.opacity = 1.0
-interior.interpolation = 'nearest'
-interior.freeze()
+# Choose colormaps by type
+type_colormaps = {
+    0: 'viridis',
+    1: 'magma',
+}
 
-# Camera & axis
+# Create one Volume visual per type
+interiors = {}
+for t, data in volumes.items():
+    cmap = type_colormaps.get(t, 'gray')
+    vis = scene.visuals.Volume(
+        data,
+        parent=view.scene,
+        threshold=0.05,
+        cmap=cmap,
+        method='iso',
+    )
+    vis.unfreeze()
+    vis.shade = True
+    vis.opacity = 1.0
+    vis.interpolation = 'linear'
+    vis.freeze()
+    interiors[t] = vis
+
+# Camera and axes
 view.camera = scene.cameras.TurntableCamera(fov=60, azimuth=45, elevation=30, distance=2.5 * resolution)
 axis = scene.visuals.XYZAxis(parent=view.scene)
 
@@ -150,20 +164,25 @@ axis = scene.visuals.XYZAxis(parent=view.scene)
 iteration_idx = 0
 
 def update(event):
-    global iteration_idx, interior, top_vispy
+    global iteration_idx, interiors
 
     fname = files[iteration_idx]
     with h5py.File(fname, "r") as f:
         positions = np.array(f["positions"])
         densities = np.array(f["densities"])
-        raster_xyz = rasterize_positions(positions, densities, resolution, mins, maxs)
-        raster_norm = (raster_xyz - raster_xyz.min()) / (raster_xyz.max() - raster_xyz.min() + 1e-12)
+        types = np.array(f["particle_type"], dtype=np.uint32)
+        grids_by_type = rasterize_positions(positions, densities, types, resolution, mins, maxs)
 
-    interior.set_data(to_vispy_array(raster_norm))
+    for t, vis in interiors.items():
+        if t in grids_by_type:
+            grid = grids_by_type[t]
+            grid_norm = (grid - grid.min()) / (grid.max() - grid.min() + 1e-12)
+            vis.set_data(to_vispy_array(grid_norm))
+        else:
+            # No particles of this type -> blank volume
+            vis.set_data(np.zeros_like(list(interiors.values())[0].get_data()))
 
     canvas.update()
-
-    # advance
     iteration_idx = (iteration_idx + 1) % len(files)
 
 # Timer

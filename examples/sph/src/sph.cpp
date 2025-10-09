@@ -62,6 +62,7 @@ RasterResult<T> computeGridMean(
 SPHData simulate_inputs_uniform(uint32_t nParticles, double jitter) {
     std::vector<dVec3Aln32> inputPos(nParticles);
     std::vector<dVec3Aln32> inputVel(nParticles);
+    std::vector<uint32_t> types(nParticles);
     std::vector<double> inputDensities(nParticles, 1.0);
 
     std::mt19937 rng(12345);
@@ -93,9 +94,10 @@ SPHData simulate_inputs_uniform(uint32_t nParticles, double jitter) {
 
         inputPos[idx].data = glm::dvec3(x, y, z);
         inputVel[idx].data = glm::dvec3(0.0);
+        types[idx] = idx > nParticles * 0.5 ? 1 : 0; // half type 0, half type 1
     }
 
-    return {inputDensities, {}, {}, inputPos, inputVel, {}};
+    return {types, inputDensities, {}, {}, inputPos, inputVel, {}, types};
 }
 
 
@@ -103,6 +105,7 @@ SPHData simulate_inputs(uint32_t nParticles, double min, double max) {
     // Generate some input data to start with
     std::vector<dVec3Aln32> inputPos(nParticles);
     std::vector<dVec3Aln32> inputVel(nParticles);
+    std::vector<uint32_t> types(nParticles);
     std::vector<double> inputDensities(nParticles);
     std::mt19937 rng(12345);
     std::uniform_real_distribution<double> dist(min, max);
@@ -110,8 +113,9 @@ SPHData simulate_inputs(uint32_t nParticles, double min, double max) {
         inputPos[ak].data = glm::dvec3(dist(rng), dist(rng), dist(rng));
         inputDensities[ak] = 1.0;
         inputVel[ak].data = glm::dvec3(0.0, 0.0, 0.0);
+        types[ak] = ak > nParticles * 0.5 ? 1 : 0; // half type 0, half type 1
     }
-    return {inputDensities, {}, {}, inputPos,  inputVel, {}};
+    return {types, inputDensities, {}, {}, inputPos,  inputVel, {}};
 }
 
 
@@ -127,17 +131,24 @@ SPHData simulate_inputs_box(uint32_t nParticles, double x0, double x1, double y0
     std::vector<dVec3Aln32> inputPos(nParticles);
     std::vector<dVec3Aln32> inputVel(nParticles);
     std::vector<double> inputDensities(nParticles);
+    std::vector<uint32_t> types(nParticles);
     std::mt19937 rng(12345);
     std::uniform_real_distribution<double> xdist(x0, x1);
     std::uniform_real_distribution<double> ydist(y0, y1);
     std::uniform_real_distribution<double> zdist(z0, z1);
 
+
+    double medianz = 0.5 * (z0 + z1);
+
     for (size_t ak = 0; ak < nParticles; ++ak) {
         inputPos[ak].data = glm::dvec3(xdist(rng), ydist(rng), zdist(rng));
         inputDensities[ak] = 1.0;
         inputVel[ak].data = glm::dvec3(0.0, 0.0, 0.0);
+        types[ak] = inputPos[ak].data.z > 0.5 ? 1 : 0; // half type 0, half type 1
     }
-    return {inputDensities, {}, {}, inputPos,  inputVel, {}};
+
+
+    return {types, inputDensities, {}, {}, inputPos,  inputVel, {}};
 }
 
 void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHParams& params) {
@@ -152,11 +163,14 @@ void _validate_positions_in_bounds(std::vector<dVec3Aln32> posData, const SPHPar
 
 void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
                          const std::vector<uint32_t>& morton_keys,
-                        const std::vector<double>& densities,
-                        const std::string& basepath,
-                        uint64_t iter)
+                         const std::vector<double>& densities,
+                         const std::vector<uint32_t>& particle_types,
+                         const std::string& basepath,
+                         uint64_t iter)
 {
-    if (pos.size() != morton_keys.size() || pos.size() != densities.size()) {
+    if (pos.size() != morton_keys.size() ||
+        pos.size() != densities.size() ||
+        pos.size() != particle_types.size()) {
         throw std::runtime_error("All input vectors must have the same size");
     }
 
@@ -167,9 +181,10 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
     }
 
     const hsize_t n = pos.size();
-    const hsize_t dims_pos[2] = { n, 3 };
+    const hsize_t dims_pos[2]  = { n, 3 };
     const hsize_t dims_keys[1] = { n };
     const hsize_t dims_dens[1] = { n };
+    const hsize_t dims_type[1] = { n };
 
     std::vector<double> pos_buf(n * 3);
     for (size_t i = 0; i < n; ++i) {
@@ -198,6 +213,11 @@ void write_dvec3_to_hdf5(const std::vector<dVec3Aln32>& pos,
         H5::DataSpace space_dens(1, dims_dens);
         H5::DataSet ds_dens = file.createDataSet("densities", H5::PredType::NATIVE_DOUBLE, space_dens);
         ds_dens.write(densities.data(), H5::PredType::NATIVE_DOUBLE);
+
+        // particle_types
+        H5::DataSpace space_type(1, dims_type);
+        H5::DataSet ds_type = file.createDataSet("particle_type", H5::PredType::NATIVE_UINT32, space_type);
+        ds_type.write(particle_types.data(), H5::PredType::NATIVE_UINT32);
 
         file.flush(H5F_SCOPE_GLOBAL);
     }
@@ -314,8 +334,15 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
     auto inputPos = inputData.positions;
     auto inputVel = inputData.velocities;
     auto inputDensities = inputData.densities;
+    auto inputTypes = inputData.types;
 
     auto contextPtr = std::make_shared<mynydd::VulkanContext>();
+
+    // TODO: uint32_t is unnecessarily big, choose a small type
+    auto pingTypeBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(uint32_t), false);
+    auto pongTypeBuffer = 
+        std::make_shared<mynydd::Buffer>(contextPtr, nParticles * sizeof(uint32_t), false);
 
     // 2 Buffers are required: x_n and x_n+1
     // TODO: figure out whether vec3 or dvec3 for positions
@@ -376,22 +403,41 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
 
     uint32_t groupCount = (nParticles + 256 - 1) / 256;
     
-    auto scatterParticleData = std::make_shared<mynydd::PipelineStep>(
+    auto scatterParticleDataPing = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
         "examples/sph/scatter_particle_data.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
             pingDensityBuffer,
             pingPosBuffer,
             pingVelocityBuffer,
+            pingTypeBuffer,
             particleIndexPipeline.getSortedIndicesBuffer(),
             pongDensityBuffer,
             pongPosBuffer,
-            pongVelocityBuffer
+            pongVelocityBuffer,
+            pongTypeBuffer
         },
         groupCount
     );
 
-    auto computeDensities = std::make_shared<mynydd::PipelineStep>(
+    auto scatterParticleDataPong = std::make_shared<mynydd::PipelineStep>(
+        contextPtr,
+        "examples/sph/scatter_particle_data.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
+            pingDensityBuffer,
+            pingPosBuffer,
+            pingVelocityBuffer,
+            pongTypeBuffer,
+            particleIndexPipeline.getSortedIndicesBuffer(),
+            pongDensityBuffer,
+            pongPosBuffer,
+            pongVelocityBuffer,
+            pingTypeBuffer
+        },
+        groupCount
+    );
+
+    auto computeDensitiesPing = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
         "examples/sph/compute_particle_state_1.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
@@ -400,6 +446,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
             particleIndexPipeline.getSortedMortonKeysBuffer(), // TODO: dont need anymore
             particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
             particleIndexPipeline.getOutputIndexCellRangeBuffer(), // DONT NEED ANYMORE
+            pingTypeBuffer,
             pingDensityBuffer,
             pressureBuffer
         },
@@ -409,7 +456,26 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
         std::vector<uint32_t>{sizeof(SPHParams)}
     );
 
-    auto leapFrogStep = std::make_shared<mynydd::PipelineStep>(
+    auto computeDensitiesPong = std::make_shared<mynydd::PipelineStep>(
+        contextPtr,
+        "examples/sph/compute_particle_state_1.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
+            pongDensityBuffer,
+            pongPosBuffer,
+            particleIndexPipeline.getSortedMortonKeysBuffer(), // TODO: dont need anymore
+            particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
+            particleIndexPipeline.getOutputIndexCellRangeBuffer(), // DONT NEED ANYMORE
+            pongTypeBuffer,
+            pingDensityBuffer,
+            pressureBuffer
+        },
+        groupCount,
+        1,
+        1,
+        std::vector<uint32_t>{sizeof(SPHParams)}
+    );
+
+    auto leapFrogStepPing = std::make_shared<mynydd::PipelineStep>(
         contextPtr,
         "examples/sph/compute_particle_state_2.comp.spv", 
         std::vector<std::shared_ptr<mynydd::Buffer>>{
@@ -423,7 +489,8 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
             pingVelocityBuffer,
             meshVerticesBuffer,
             meshTriIndicesBuffer,
-            meshCellMetaBuffer
+            meshCellMetaBuffer,
+            pingTypeBuffer
         },
         groupCount,
         1,
@@ -431,12 +498,37 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
         std::vector<uint32_t>{sizeof(SPHParams)}
     );
 
+    auto leapFrogStepPong = std::make_shared<mynydd::PipelineStep>(
+        contextPtr,
+        "examples/sph/compute_particle_state_2.comp.spv", 
+        std::vector<std::shared_ptr<mynydd::Buffer>>{
+            pingDensityBuffer,
+            pongPosBuffer,
+            pongVelocityBuffer,
+            pressureBuffer,
+            particleIndexPipeline.getFlatOutputIndexCellRangeBuffer(),
+            pressureForceBuffer,
+            pingPosBuffer,
+            pingVelocityBuffer,
+            meshVerticesBuffer,
+            meshTriIndicesBuffer,
+            meshCellMetaBuffer,
+            pongTypeBuffer
+        },
+        groupCount,
+        1,
+        1,
+        std::vector<uint32_t>{sizeof(SPHParams)}
+    );
+
+
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputPos, pingPosBuffer);
     mynydd::uploadData<dVec3Aln32>(contextPtr, inputVel, pingVelocityBuffer);
     mynydd::uploadData<double>(contextPtr, inputDensities, pingDensityBuffer);
     mynydd::uploadData<dVec3Aln32>(contextPtr, packed_vertices, meshVerticesBuffer);
     mynydd::uploadData<uint32_t>(contextPtr, flatTriIndices, meshTriIndicesBuffer);
     mynydd::uploadData<CellTriangles>(contextPtr, cellMeta, meshCellMetaBuffer);
+    mynydd::uploadData<uint32_t>(contextPtr, inputTypes, pingTypeBuffer);
 
     double h;
     if (params.dist == 0) {
@@ -450,8 +542,10 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
         throw std::runtime_error("Only index_search_dist of 0 or 1 supported");
     }
 
-    computeDensities->setPushConstantsData(params, 0);
-    leapFrogStep->setPushConstantsData(params, 0);
+    computeDensitiesPing->setPushConstantsData(params, 0);
+    computeDensitiesPong->setPushConstantsData(params, 0);
+    leapFrogStepPing->setPushConstantsData(params, 0);
+    leapFrogStepPong->setPushConstantsData(params, 0);
 
     std::vector<double> index_step_times;
     std::vector<double> density_times;
@@ -464,7 +558,10 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
         auto t0 = std::chrono::high_resolution_clock::now();
         particleIndexPipeline.execute();
         auto t1 = std::chrono::high_resolution_clock::now();
-        mynydd::executeBatch(contextPtr, {scatterParticleData, computeDensities});
+        mynydd::executeBatch(contextPtr, {
+            it % 2 == 0 ? scatterParticleDataPing : scatterParticleDataPong, 
+            it % 2 == 0 ? computeDensitiesPing : computeDensitiesPong
+        });
         auto t2 = std::chrono::high_resolution_clock::now();
 
         if (debug_mode) {
@@ -475,8 +572,11 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
         }
 
         auto t3 = std::chrono::high_resolution_clock::now();
-        mynydd::executeBatch(contextPtr, {leapFrogStep});
+        mynydd::executeBatch(contextPtr, {it % 2 == 0 ? leapFrogStepPing : leapFrogStepPong});
         auto t4 = std::chrono::high_resolution_clock::now();
+
+        // now swap types since it doesnt get written to
+        std::swap(pingTypeBuffer, pongTypeBuffer);
 
         // Check that no positions are outside of the domain
         if (debug_mode) {
@@ -498,11 +598,14 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
             auto pos = mynydd::fetchData<dVec3Aln32>(contextPtr, pingPosBuffer, nParticles);
             auto morton = mynydd::fetchData<uint32_t>(contextPtr, particleIndexPipeline.getSortedMortonKeysBuffer(), nParticles);
             auto densities = mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles);
+            auto types = mynydd::fetchData<uint32_t>(contextPtr, pingTypeBuffer, nParticles); 
             write_dvec3_to_hdf5(
                 pos, 
                 morton,
                 densities,
-                fname, it
+                types,
+                fname,
+                it
             );
 
             // auto result = computeGridMean(pos, densities, 0.0, 1.0, rasterres);
@@ -528,6 +631,7 @@ SPHData run_sph_example(const SPHData& inputData, SPHParams& params, std::vector
     std:: cerr << "Average leapfrog time over " << iterations << " iterations: " << leapfrog_time_avg << " ms" << std::endl;
 
     return {
+        mynydd::fetchData<uint32_t>(contextPtr, pingTypeBuffer, nParticles),
         mynydd::fetchData<double>(contextPtr, pingDensityBuffer, nParticles),
         mynydd::fetchData<double>(contextPtr, pressureBuffer, nParticles),
         mynydd::fetchData<dVec3Aln32>(contextPtr, pressureForceBuffer, nParticles),

@@ -17,20 +17,28 @@ layout(set = 0, binding = 2) readonly buffer InputVelocities {
     dVec3Wrapper inputVelocities[];
 };
 
-layout(set = 0, binding = 3) readonly buffer PermutedInds {
+layout(set = 0, binding = 3) readonly buffer InputTypes {
+    uint inputTypes[];
+};
+
+layout(set = 0, binding = 4) readonly buffer PermutedInds {
     uint inds[];
 };
 
-layout(set = 0, binding = 4) buffer OutputDensities {
+layout(set = 0, binding = 5) buffer OutputDensities {
     double outputDensities[];
 };
 
-layout(set = 0, binding = 5) buffer OutputPositions {
+layout(set = 0, binding = 6) buffer OutputPositions {
     dVec3Wrapper outputPositions[];
 };
 
-layout(set = 0, binding = 6) buffer OutputVelocities {
+layout(set = 0, binding = 7) buffer OutputVelocities {
     dVec3Wrapper outputVelocities[];
+};
+
+layout(set = 0, binding = 8) buffer OutputTypes {
+    uint outputTypes[];
 };
 
 void main() {
@@ -39,4 +47,5 @@ void main() {
     outputDensities[idx] = inputDensities[srcIdx];
     outputPositions[idx] = inputPositions[srcIdx];
     outputVelocities[idx] = inputVelocities[srcIdx];
+    outputTypes[idx] = inputTypes[srcIdx];
 }

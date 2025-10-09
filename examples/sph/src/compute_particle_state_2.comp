@@ -59,6 +59,11 @@ layout(set = 0, binding = 10) buffer BoundaryMeshCellInfo {
     CellInfo mesh_cellinfos[]; // for each cell, contains left, right range in mesh_indices, which in turn points into mesh_vertices
 };
 
+layout(set = 0, binding = 11) readonly buffer InputTypes {
+    uint input_types[];
+};
+
+
 
 layout(push_constant) uniform Params {
     uint nBits;
@@ -106,6 +111,8 @@ void main() {
             dvec3 dv = pos - input_positions[i].data;
             double dist = length(dv);
             dvec3 gradw = wendland_kernel_grad(dv, pc.h);
+            double sametype = input_types[idx] == input_types[i] ? 1.0 : 0.0;
+            double mueff = pc.mu / (1.0 + sametype);
             dvec3 contrib = cal_pressure_force_ij(
                 gradw,
                 input_pressures[idx],
@@ -118,7 +125,7 @@ void main() {
             dvec3 viscous_contrib = viscosityForce(
                 pos, input_positions[i].data,
                 input_velocities[idx].data, input_velocities[i].data,
-                pc.mu, pc.mass,
+                mueff, pc.mass,
                 input_densities[idx], input_densities[i],
                 pc.h
             );

@@ -46,6 +46,7 @@ struct SPHParams {
 };
 
 struct SPHData {
+    std::vector<uint32_t> types;
     std::vector<double> densities;
     std::vector<double> pressures;
     std::vector<dVec3Aln32> pressureForces;
