@@ -157,7 +157,7 @@ for t, data in volumes.items():
     interiors[t] = vis
 
 # Camera and axes
-view.camera = scene.cameras.TurntableCamera(fov=60, azimuth=45, elevation=30, distance=2.5 * resolution)
+view.camera = scene.cameras.TurntableCamera(fov=60, azimuth=65, elevation=2, distance=1.65 * resolution)
 axis = scene.visuals.XYZAxis(parent=view.scene)
 # -----------------------------
 # Animation loop
