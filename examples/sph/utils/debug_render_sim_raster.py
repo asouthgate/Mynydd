@@ -17,6 +17,7 @@ import sys
 import h5py
 import numpy as np
 import pickle
+import imageio.v2 as imageio
 from vispy import app, scene
 from scipy.ndimage import gaussian_filter
 
@@ -86,13 +87,20 @@ for t, data in volumes.items():
 # Camera and axes
 view.camera = scene.cameras.TurntableCamera(fov=60, azimuth=65, elevation=2, distance=1.65 * resolution)
 axis = scene.visuals.XYZAxis(parent=view.scene)
+
+# for GIF
+frames = []
+record_gif = True        # Set to False to disable recording
+max_frames = 120         # Limit (otherwise infinite)
+gif_filename = "vis_rasterized.gif"
+
 # -----------------------------
 # Animation loop
 # -----------------------------
 iteration_idx = 0
 
 def update(event):
-    global iteration_idx, interiors
+    global iteration_idx, interiors, frames
 
     fname = raster_files[iteration_idx]
     with open(fname, "rb") as f:
@@ -107,11 +115,26 @@ def update(event):
             # No particles of this type -> blank volume
             vis.set_data(np.zeros_like(list(interiors.values())[0].get_data()))
 
+    # --- Capture frame for GIF ---
+    if record_gif and len(frames) < max_frames:
+        img = np.asarray(canvas.render())
+        frames.append(img)
+
+        # Optional: print progress
+        print(f"Captured frame {len(frames)} / {max_frames}")
+
+        if len(frames) == max_frames:
+            print(f"Saving GIF ({len(frames)} frames) → {gif_filename}")
+            imageio.mimsave(gif_filename, frames, fps=int(1 / dt), loop=0)
+            print("✅ GIF saved.")
+
     canvas.update()
     iteration_idx = (iteration_idx + 1) % len(raster_files)
 
 # Timer
 timer = app.Timer(interval=dt, connect=update, start=True)
+
+
 
 if __name__ == "__main__":
     app.run()
